@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods(cors.allowedMethods().toArray(String[]::new))
                 .allowedHeaders(cors.allowedHeaders().toArray(String[]::new))
                 .exposedHeaders(cors.exposedHeaders().toArray(String[]::new))
-                .allowCredentials(false)
+                .allowCredentials(true)
                 .maxAge(cors.maxAge().toSeconds());
     }
 }

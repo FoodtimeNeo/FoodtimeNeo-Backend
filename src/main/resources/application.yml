@@ -8,6 +8,12 @@ spring:
     import: optional:file:./.env[.properties]
   lifecycle:
     timeout-per-shutdown-phase: 30s
+  session:
+    timeout: 15m
+    redis:
+      namespace: ${SESSION_REDIS_NAMESPACE:foodtime:session}
+      repository-type: default
+      flush-mode: immediate
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -122,6 +128,13 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  auth:
+    session-ttl: ${AUTH_SESSION_TTL:P7D}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    login-window: ${AUTH_LOGIN_WINDOW:PT15M}
+    login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
+    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
+    redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
   rating-summary:
     refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
     refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
@@ -129,7 +142,7 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: Content-Type,Authorization,X-Request-Id
+    allowed-headers: Content-Type,Authorization,X-Request-Id,X-CSRF-TOKEN
     exposed-headers: X-Request-Id
     max-age: 3600s
 

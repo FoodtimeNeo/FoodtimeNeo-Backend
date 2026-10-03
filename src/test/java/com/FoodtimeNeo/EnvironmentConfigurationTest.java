@@ -63,6 +63,18 @@ class EnvironmentConfigurationTest {
                 });
     }
 
+    @Test
+    void productionRejectsInsecureSessionCookies() {
+        runner.withPropertyValues("SPRING_PROFILES_ACTIVE=prod",
+                        "DB_URL=jdbc:postgresql://localhost/foodtime_test?currentSchema=foodtime",
+                        "DB_USERNAME=test_user", "DB_PASSWORD=test_password", "REDIS_HOST=localhost",
+                        "REDIS_PASSWORD=test_redis_password", "AUTH_COOKIE_SECURE=false")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasRootCauseMessage("Production authentication requires Secure cookies");
+                });
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties(CorsProperties.class)
     @Import(ProductionConfigurationValidator.class)

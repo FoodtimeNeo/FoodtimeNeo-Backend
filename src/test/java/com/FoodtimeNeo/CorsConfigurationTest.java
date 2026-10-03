@@ -35,7 +35,7 @@ class CorsConfigurationTest {
                             .header("Access-Control-Request-Method", "GET"))
                     .andExpect(status().isOk())
                     .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
-                    .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
             mvc.perform(options("/api/v1/system/ping")
                             .header("Origin", "https://untrusted.example")
                             .header("Access-Control-Request-Method", "GET"))

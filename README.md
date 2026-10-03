@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表和邮箱注册接口，登录与食堂、档口、菜品、评价等业务接口在后续迭代实现。
+校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表、邮箱注册、登录与会话管理，食堂、档口、菜品、评价等业务接口在后续迭代实现。
 
 ## 技术栈
 
@@ -8,6 +8,8 @@
 | --- | --- |
 | Java | 21 LTS；编译目标固定为 21 |
 | Spring Boot | 4.1.1，Spring MVC |
+| Spring Security | 由Spring Boot管理；CSRF、安全过滤链、密码验证和会话身份 |
+| Spring Session Redis | 由Spring Boot管理；Redis服务端会话、HttpOnly Cookie |
 | Maven | Wrapper 固定为 3.9.16 |
 | MyBatis-Plus | 3.5.17，使用 Boot 4 starter；PostgreSQL 分页，上限 100 条 |
 | PostgreSQL | Compose 使用 17-alpine；JDBC 驱动由 Spring Boot 管理 |
@@ -67,6 +69,8 @@ java -jar target/foodtime-neo-backend.jar
 
 `RegistrationIT` 通过真实 HTTP 请求检查注册、哈希存储、默认角色与昵称、重复邮箱和并发请求，并检查 OpenAPI 文档。它只创建随机数字邮箱的测试账号，测试结束后删除这些账号。
 
+`LoginIT` 使用真实HTTP和独立Redis命名空间验证登录、Cookie/CSRF、会话替换与注销、到期、账号禁用、密码变更、权限更新和原子限流。结束时只删除本轮测试账号及命名空间内的Redis键。
+
 ## 配置约定
 
 `application.yml` 保存共享配置；`application-dev.yml` 保存本地默认值；`application-prod.yml` 要求显式提供连接信息并关闭 API 文档。默认启用 `dev`；可通过环境变量 `SPRING_PROFILES_ACTIVE=prod` 或启动参数切换。系统环境变量可覆盖 `.env` 值。
@@ -94,11 +98,13 @@ java -jar target/foodtime-neo-backend.jar
 | `FORWARD_HEADERS_STRATEGY` | `none` | 受信任反向代理统一设置转发头时可改为 `framework` |
 | `POSTGRES_DB` / `POSTGRES_PORT` | `foodtime_neo` / `5432` | 仅供 Compose 初始化与本机端口映射 |
 
-其他共享设置：优雅停机等待 30 秒，SQL 超时 10 秒，日志按 10MB 滚动、保留 14 天、总量上限 200MB；业务时间使用 `Instant`，数据库连接使用 UTC；API 使用 ISO 8601 时间。跨域配置仅应用于 `/api/**`，不启用 Cookie 凭据。
+其他共享设置：优雅停机等待 30 秒，SQL 超时 10 秒，日志按 10MB 滚动、保留 14 天、总量上限 200MB；业务时间使用 `Instant`，数据库连接使用 UTC；API 使用 ISO 8601 时间。跨域配置仅应用于 `/api/**`，仅对明确配置的受信任来源允许Cookie凭据。
 
 ## API 约定
 
 接口文档统一维护在 [api/README.md](api/README.md)。注册接口为 `POST /api/v1/auth/register`，具体请求规则、响应和失败码见 [api/auth/register.md](api/auth/register.md)。
+
+登录接口为 `POST /api/v1/auth/login`，配套 `/csrf`、`/me`、`/logout`，详见 [api/auth/login.md](api/auth/login.md)。先获取CSRF令牌，再提交邮箱账号与密码；登录成功后使用Redis会话和HttpOnly Cookie保留状态，默认固定7天到期。登录后重新获取CSRF令牌；前端请求设置 `credentials: 'include'`。生产必须使用HTTPS，其他业务接口默认需要登录。
 
 邮箱必须为数字前缀加 `@bjtu.edu.cn`；密码为8至128位，至少包含数字和英文字母；密码通过 Argon2id 随机加盐哈希保存。注册成功默认昵称为 `干饭人` 加6位随机数字，角色固定为 `user`。邮箱重复返回409；参数错误返回400；数据库故障返回503。注册不签发登录凭据。
 
@@ -128,7 +134,7 @@ src/main/java/com/FoodtimeNeo/
   common/web/           请求 ID 过滤器
   common/mybatis/       PostgreSQL UUID 类型映射
   config/               CORS、MyBatis-Plus、OpenAPI、生产配置检查
-  auth/                 注册 Controller、DTO、Service
+  auth/                 注册与登录 Controller、DTO、Service，会话与安全过滤器
   user/                 用户写入与默认昵称生成
   system/               基础检查接口
 src/main/resources/

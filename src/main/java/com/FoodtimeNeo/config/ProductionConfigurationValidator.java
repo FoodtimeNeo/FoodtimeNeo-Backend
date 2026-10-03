@@ -18,5 +18,8 @@ public class ProductionConfigurationValidator {
                 throw new IllegalStateException("Missing required production configuration: " + property);
             }
         }
+        if (!environment.getRequiredProperty("app.auth.cookie-secure", Boolean.class)) {
+            throw new IllegalStateException("Production authentication requires Secure cookies");
+        }
     }
 }
