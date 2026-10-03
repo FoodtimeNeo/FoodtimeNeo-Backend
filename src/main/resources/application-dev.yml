@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime}
+    username: ${DB_USERNAME:foodtime}
+    password: ${DB_PASSWORD:foodtime_local_only}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:redis_local_only}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

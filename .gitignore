@@ -1,0 +1,55 @@
+# Maven / Java build output
+target/
+*.class
+*.war
+*.ear
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE / editor local state
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Environment variables and local overrides (keep examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+application-local.*
+application-*-local.*
+application-secrets.*
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Runtime data / generated files
+logs/
+*.log
+uploads/
+data/
+.docker/
+.m2/
+tmp/
+temp/
+coverage/
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# Operating systems / temporary editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

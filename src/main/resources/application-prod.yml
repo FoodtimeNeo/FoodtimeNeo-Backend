@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    # URL must include currentSchema=foodtime; configure TLS for remote databases.
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
