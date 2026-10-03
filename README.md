@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-校园食堂菜品展示与点评平台的后端基础项目。当前交付项目骨架、基础接口与基础设施配置，业务登录与用户、食堂、档口、菜品、评价等功能在后续迭代实现。
+校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表和邮箱注册接口，登录与食堂、档口、菜品、评价等业务接口在后续迭代实现。
 
 ## 技术栈
 
@@ -65,6 +65,8 @@ java -jar target/foodtime-neo-backend.jar
 
 `InfrastructureIT` 使用当前配置指向的服务，执行 schema 迁移并读写带随机后缀、30 秒 TTL 的 Redis 测试键，结束后删除该键。数据库约束测试在事务中写入随机 ID 的样本并回滚；物化视图测试使用事务内刷新并回滚。请使用开发或专用测试数据库。普通 `verify` 不执行这组测试；显式开启 integration 时，连接失败会导致构建失败，不静默跳过。
 
+`RegistrationIT` 通过真实 HTTP 请求检查注册、哈希存储、默认角色与昵称、重复邮箱和并发请求，并检查 OpenAPI 文档。它只创建随机数字邮箱的测试账号，测试结束后删除这些账号。
+
 ## 配置约定
 
 `application.yml` 保存共享配置；`application-dev.yml` 保存本地默认值；`application-prod.yml` 要求显式提供连接信息并关闭 API 文档。默认启用 `dev`；可通过环境变量 `SPRING_PROFILES_ACTIVE=prod` 或启动参数切换。系统环境变量可覆盖 `.env` 值。
@@ -96,6 +98,10 @@ java -jar target/foodtime-neo-backend.jar
 
 ## API 约定
 
+接口文档统一维护在 [api/README.md](api/README.md)。注册接口为 `POST /api/v1/auth/register`，具体请求规则、响应和失败码见 [api/auth/register.md](api/auth/register.md)。
+
+邮箱必须为数字前缀加 `@bjtu.edu.cn`；密码为8至128位，至少包含数字和英文字母；密码通过 Argon2id 随机加盐哈希保存。注册成功默认昵称为 `干饭人` 加6位随机数字，角色固定为 `user`。邮箱重复返回409；参数错误返回400；数据库故障返回503。注册不签发登录凭据。
+
 业务接口统一放在 `/api/v1/**` 下。成功响应示例：
 
 ```json
@@ -120,7 +126,10 @@ src/main/java/com/FoodtimeNeo/
   common/api/           统一响应
   common/exception/     业务异常与全局异常处理
   common/web/           请求 ID 过滤器
+  common/mybatis/       PostgreSQL UUID 类型映射
   config/               CORS、MyBatis-Plus、OpenAPI、生产配置检查
+  auth/                 注册 Controller、DTO、Service
+  user/                 用户写入与默认昵称生成
   system/               基础检查接口
 src/main/resources/
   application*.yml      环境与基础设施配置
@@ -155,7 +164,7 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY foodtime.dish_rating_summary;
 
 后续 SQL 从 `V3__描述.sql` 起递增命名。已经执行的迁移文件不得修改，以新版本迁移演进数据库；校验默认开启，禁止 clean，禁止自动 baseline。不要将业务建表脚本放到 Compose 的初始化目录，以免与 Flyway 双重管理。
 
-业务代码按领域建立 `user`、`dining`、`dish`、`review` 等包，在各领域内放置 controller、service、mapper、entity、DTO。Mapper 使用 `@Mapper`，XML 放在 `src/main/resources/mapper/`。PostgreSQL `UUID` 字段使用 `java.util.UUID` 并由服务层生成，避免使用 MyBatis-Plus 的字符串 ID 生成器。Redis 优先使用 `StringRedisTemplate`；业务缓存的键名、TTL 和 JSON 类型应在对应业务实现时明确。
+业务代码按领域建立 `auth`、`user`、`dining`、`dish`、`review` 等包，在各领域内放置 controller、service、mapper、entity、DTO。注册的 Controller / DTO / Service 位于 `auth`，用户写入与默认昵称位于 `user`，密码策略位于 `config/PasswordConfig`。Mapper 使用 `@Mapper`，复杂XML放在 `src/main/resources/mapper/`。PostgreSQL `UUID` 字段使用 `java.util.UUID` 并由服务层生成，避免使用 MyBatis-Plus 的字符串 ID 生成器。Redis 优先使用 `StringRedisTemplate`；业务缓存的键名、TTL 和 JSON 类型应在对应业务实现时明确。
 
 ## 生产与容器
 

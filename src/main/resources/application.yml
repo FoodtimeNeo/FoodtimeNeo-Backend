@@ -79,6 +79,7 @@ server:
       min-spare: 10
 
 mybatis-plus:
+  type-handlers-package: com.FoodtimeNeo.common.mybatis
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
