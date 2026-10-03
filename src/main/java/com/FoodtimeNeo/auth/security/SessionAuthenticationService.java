@@ -1,7 +1,7 @@
 package com.FoodtimeNeo.auth.security;
 
 import com.FoodtimeNeo.auth.service.LoginService;
-import com.FoodtimeNeo.config.AuthProperties;
+import com.FoodtimeNeo.config.properties.AuthProperties;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import com.FoodtimeNeo.user.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;

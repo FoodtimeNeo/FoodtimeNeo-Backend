@@ -10,6 +10,8 @@ uploads
 data
 .env
 .env.*
+config/mail.yml
+config/mail.yaml
 *.log
 *.pem
 *.key

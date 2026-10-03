@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.config;
 
+import com.FoodtimeNeo.config.properties.AuthProperties;
 import com.FoodtimeNeo.auth.security.SecurityErrorWriter;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.security.SessionValidationFilter;
@@ -76,7 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/system/ping",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
+                                "/api/v1/auth/register/email-code").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new SessionValidationFilter(sessions, errors), CsrfFilter.class);
         return http.build();

@@ -5,7 +5,24 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   # Also works for java -jar; an absent .env is allowed.
   config:
-    import: optional:file:./.env[.properties]
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:./config/mail.yml
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:true}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS_ENABLED:true}
+      "[mail.smtp.starttls.required]": ${MAIL_STARTTLS_REQUIRED:true}
+      "[mail.smtp.ssl.enable]": ${MAIL_SSL_ENABLED:false}
+      "[mail.smtp.ssl.checkserveridentity]": true
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
   lifecycle:
     timeout-per-shutdown-phase: 30s
   session:
@@ -128,6 +145,15 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  email-verification:
+    enabled: ${EMAIL_VERIFICATION_ENABLED:false}
+    from: ${MAIL_FROM:}
+    secret: ${EMAIL_VERIFICATION_SECRET:}
+    redis-namespace: ${EMAIL_VERIFICATION_NAMESPACE:foodtime:auth:email}
+    resend-interval: ${EMAIL_RESEND_INTERVAL:PT60S}
+    send-window: ${EMAIL_SEND_WINDOW:PT15M}
+    send-account-limit: ${EMAIL_SEND_ACCOUNT_LIMIT:5}
+    send-ip-limit: ${EMAIL_SEND_IP_LIMIT:20}
   auth:
     session-ttl: ${AUTH_SESSION_TTL:P7D}
     cookie-secure: ${AUTH_COOKIE_SECURE:true}

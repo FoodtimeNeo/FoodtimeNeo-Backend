@@ -1,0 +1,60 @@
+# Execute requests individually, in order, using an HTTP client with a Cookie jar.
+# Use a dedicated test account. Do not commit real credentials or tokens here.
+@baseUrl = http://localhost:8080/api/v1/auth
+@email = 20260001@bjtu.edu.cn
+@password = Foodtime2026!
+@verificationCode = replace_with_6_digits_from_email
+@csrfToken = replace_with_data_token_from_csrf_response
+
+### 1. Get an anonymous CSRF token. Preserve the Set-Cookie response.
+GET {{baseUrl}}/csrf
+Accept: application/json
+
+### 2. Set csrfToken above to response data.token, then send the email code.
+POST {{baseUrl}}/register/email-code
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "email": "{{email}}"
+}
+
+### 3. Set verificationCode above to the emailed six-digit string (15-minute expiry).
+POST {{baseUrl}}/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "verificationCode": "{{verificationCode}}"
+}
+
+### 4. Get the current CSRF token before login; keep the same Cookie jar.
+GET {{baseUrl}}/csrf
+Accept: application/json
+
+### 5. Update csrfToken from step 4. Login replaces the anonymous session Cookie.
+POST {{baseUrl}}/login
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "account": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 6. Get a NEW CSRF token after login; the previous token is invalidated.
+GET {{baseUrl}}/csrf
+Accept: application/json
+
+### 7. Verify the current user using the login session Cookie.
+GET {{baseUrl}}/me
+Accept: application/json
+
+### 8. Update csrfToken from step 6. Logout deletes the current session.
+POST {{baseUrl}}/logout
+X-CSRF-TOKEN: {{csrfToken}}
+
+### 9. The previous login session must no longer authenticate: expect 401.
+GET {{baseUrl}}/me
+Accept: application/json

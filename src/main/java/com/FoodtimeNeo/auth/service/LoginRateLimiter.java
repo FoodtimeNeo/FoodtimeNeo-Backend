@@ -1,6 +1,6 @@
 package com.FoodtimeNeo.auth.service;
 
-import com.FoodtimeNeo.config.AuthProperties;
+import com.FoodtimeNeo.config.properties.AuthProperties;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
