@@ -11,10 +11,11 @@ FoodtimeNeo-Backend/
 │   ├── FoodTimeNeoApplication.java
 │   ├── api/
 │   │   ├── auth/                认证Controller与认证HTTP异常处理
+│   │   ├── user/                当前用户密码管理Controller
 │   │   └── system/              HTTP运行检查Controller
 │   ├── auth/
 │   │   ├── dto/                 认证请求、响应类型
-│   │   ├── service/             登录、注册编排及登录限流
+│   │   ├── service/             登录、注册、修改密码及对应限流
 │   │   ├── security/            会话、身份校验与安全过滤器
 │   │   └── verification/        邮箱验证码发送、Redis校验与占用
 │   ├── user/
@@ -37,6 +38,7 @@ FoodtimeNeo-Backend/
 │   └── redis/email/             验证码原子操作Lua脚本
 ├── src/test/java/com/FoodtimeNeo/
 │   ├── api/auth/                认证HTTP协议与参数校验测试
+│   ├── api/user/                用户密码管理协议测试
 │   ├── auth/service/            登录与注册业务测试
 │   ├── auth/security/           会话和基础设施故障测试
 │   ├── auth/verification/       邮件验证码业务测试

@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.UUID;
+import java.time.Instant;
 
 @Mapper
 public interface UserMapper {
@@ -29,6 +30,22 @@ public interface UserMapper {
             FROM foodtime.users WHERE lower(btrim(email)) = #{account}
             """)
     LoginAccount findLoginAccount(String account);
+
+    @Select("""
+            SELECT id, email, password_hash, display_name, role, status, password_changed_at
+            FROM foodtime.users WHERE id = #{id,jdbcType=OTHER}
+            """)
+    LoginAccount findLoginAccountById(UUID id);
+
+    @Update("""
+            UPDATE foodtime.users
+            SET password_hash = #{newHash},
+                password_changed_at = GREATEST(clock_timestamp(), password_changed_at + interval '1 microsecond')
+            WHERE id = #{id,jdbcType=OTHER} AND status = 'active'
+              AND password_hash = #{oldHash} AND password_changed_at = #{oldChangedAt}
+            """)
+    int changePassword(@Param("id") UUID id, @Param("oldHash") String oldHash,
+                       @Param("oldChangedAt") Instant oldChangedAt, @Param("newHash") String newHash);
 
     @Select("""
             SELECT id, email, display_name, role, status, password_changed_at

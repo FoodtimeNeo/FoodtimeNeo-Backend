@@ -19,6 +19,8 @@
     <mybatis-plus.version>3.5.17</mybatis-plus.version>
     <springdoc.version>3.1.1</springdoc.version>
     <bouncycastle.version>1.86</bouncycastle.version>
+    <!-- Preload Mockito instead of attaching at runtime (JDK 21 / restricted Windows environments). -->
+    <test.jvm.args>-javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar" -Djava.io.tmpdir="${project.build.directory}"</test.jvm.args>
   </properties>
   <dependencies>
     <dependency>
@@ -108,7 +110,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <argLine>-Djava.io.tmpdir="${project.build.directory}"</argLine>
+          <argLine>${test.jvm.args}</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -153,6 +155,9 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <argLine>${test.jvm.args}</argLine>
+            </configuration>
             <executions>
               <execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution>
             </executions>
