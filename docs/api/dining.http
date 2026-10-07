@@ -4,6 +4,7 @@
 @email = 20260001@bjtu.edu.cn
 @password = Hall12345!
 @csrfToken = replace_with_csrf_data_token
+@diningHallId = replace_with_id_from_dining_halls_response
 
 ### 1. Get anonymous CSRF token; preserve the response Cookie.
 GET {{baseUrl}}/auth/csrf
@@ -17,4 +18,8 @@ X-CSRF-TOKEN: {{csrfToken}}
 
 ### 3. List active dining halls using the login Cookie. GET needs no CSRF header.
 GET {{baseUrl}}/dining-halls
+Accept: application/json
+
+### 4. Set diningHallId above to an active hall ID from step 3, then list its active stalls.
+GET {{baseUrl}}/dining-halls/{{diningHallId}}/stalls
 Accept: application/json
