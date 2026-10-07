@@ -1,0 +1,20 @@
+# Execute individually with an HTTP client that preserves cookies.
+# Use an existing test account; do not commit real credentials or tokens.
+@baseUrl = http://localhost:8080/api/v1
+@email = 20260001@bjtu.edu.cn
+@password = Hall12345!
+@csrfToken = replace_with_csrf_data_token
+
+### 1. Get anonymous CSRF token; preserve the response Cookie.
+GET {{baseUrl}}/auth/csrf
+
+### 2. Update csrfToken from step 1, then login.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{ "account": "{{email}}", "password": "{{password}}" }
+
+### 3. List active dining halls using the login Cookie. GET needs no CSRF header.
+GET {{baseUrl}}/dining-halls
+Accept: application/json
