@@ -1,6 +1,8 @@
 package com.FoodtimeNeo.api.auth;
 
 import com.FoodtimeNeo.auth.service.LoginRateLimitException;
+import com.FoodtimeNeo.auth.service.PasswordChangeRateLimitException;
+import com.FoodtimeNeo.api.user.PasswordChangeController;
 import com.FoodtimeNeo.auth.verification.EmailRateLimitException;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import org.slf4j.Logger;
@@ -15,10 +17,17 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Keep authentication-specific error codes out of the shared exception layer. */
-@RestControllerAdvice(assignableTypes = {LoginController.class, EmailVerificationController.class})
+@RestControllerAdvice(assignableTypes = {LoginController.class, EmailVerificationController.class, PasswordChangeController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthExceptionHandler {
     private static final Logger LOG = LoggerFactory.getLogger(AuthExceptionHandler.class);
+
+    @ExceptionHandler(PasswordChangeRateLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePasswordChangeRateLimit(PasswordChangeRateLimitException exception) {
+        return ResponseEntity.status(exception.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.getRetryAfter()))
+                .body(ApiResponse.error(exception.getCode(), exception.getMessage(), null));
+    }
 
     @ExceptionHandler(EmailRateLimitException.class)
     public ResponseEntity<ApiResponse<Void>> handleEmailRateLimit(EmailRateLimitException exception) {

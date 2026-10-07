@@ -161,6 +161,11 @@ app:
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
     login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
     redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
+    password-change:
+      window: ${PASSWORD_CHANGE_WINDOW:PT15M}
+      user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
+      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:50}
+      redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
   rating-summary:
     refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
     refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
