@@ -13,6 +13,7 @@
 | 修改当前用户密码 | `PUT /api/v1/users/me/password` | [修改密码](user/password.md) |
 | 获取食堂列表 | `GET /api/v1/dining-halls` | [食堂列表](dining/list.md) |
 | 获取食堂下档口列表 | `GET /api/v1/dining-halls/{diningHallId}/stalls` | [档口列表](dining/stalls.md) |
+| 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
 统一响应字段：`code`（业务码）、`message`（提示）、`data`（业务数据）、`timestamp`（ISO 8601 UTC 时间）、`requestId`（请求 ID）。响应头也包含 `X-Request-Id`。
