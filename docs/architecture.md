@@ -13,6 +13,7 @@ FoodtimeNeo-Backend/
 │   │   ├── auth/                认证Controller与认证HTTP异常处理
 │   │   ├── user/                当前用户密码管理Controller
 │   │   ├── dining/              食堂与档口展示Controller
+│   │   ├── dish/                档口下菜品展示Controller
 │   │   └── system/              HTTP运行检查Controller
 │   ├── auth/
 │   │   ├── dto/                 认证请求、响应类型
@@ -23,7 +24,7 @@ FoodtimeNeo-Backend/
 │   │   ├── entity/              用户持久化输入及查询结果
 │   │   ├── mapper/              参数化数据库访问
 │   │   └── service/             用户默认昵称生成
-│   ├── dish/service/            菜品评分汇总刷新
+│   ├── dish/                    菜品查询DTO、实体、Mapper与Service及评分汇总刷新
 │   ├── dining/                  食堂与档口查询DTO、实体、Mapper与Service
 │   ├── common/
 │   │   ├── api/                 统一响应类型
@@ -42,7 +43,9 @@ FoodtimeNeo-Backend/
 │   ├── api/auth/                认证HTTP协议与参数校验测试
 │   ├── api/user/                用户密码管理协议测试
 │   ├── api/dining/              食堂与档口展示协议测试
+│   ├── api/dish/                菜品展示协议测试
 │   ├── dining/service/          食堂与档口查询业务测试
+│   ├── dish/service/            菜品查询业务测试
 │   ├── auth/service/            登录与注册业务测试
 │   ├── auth/security/           会话和基础设施故障测试
 │   ├── auth/verification/       邮件验证码业务测试

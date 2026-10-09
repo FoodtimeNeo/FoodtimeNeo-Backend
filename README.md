@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表、邮箱注册、登录与会话管理、修改密码、食堂列表及食堂下档口列表；菜品、评价等业务接口在后续迭代实现。
+校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表、邮箱注册、登录与会话管理、修改密码、食堂列表、食堂下档口列表及档口下菜品列表；菜品详情、评价等业务接口在后续迭代实现。
 
 ## 技术栈
 
@@ -80,6 +80,8 @@ java -jar target/foodtime-neo-backend.jar
 
 `StallListIT` 验证档口所属食堂、父食堂和档口状态过滤、404与空数组区别、排序、可空字段及OpenAPI契约；清理时先删除本轮档口，再删除本轮食堂和账号，保留已有业务数据。
 
+`StallDishListIT` 验证菜品所属档口、食堂/档口/菜品三级状态过滤、404与空数组区别、稳定排序、价格精度、数据变更及OpenAPI契约；清理时依次删除本轮菜品、档口、食堂和账号及独立Redis命名空间，保留已有业务数据。
+
 ## 项目文档
 
 | 内容 | 文档 |
@@ -93,5 +95,6 @@ java -jar target/foodtime-neo-backend.jar
 | 修改密码与重新登录 | [修改密码接口](docs/api/user/password.md) |
 | 食堂列表与展示规则 | [食堂列表接口](docs/api/dining/list.md) |
 | 食堂下档口与父级状态规则 | [档口列表接口](docs/api/dining/stalls.md) |
+| 档口下菜品、价格与父级状态规则 | [菜品列表接口](docs/api/dish/list.md) |
 
 HTTP入口统一位于 `src/main/java/com/FoodtimeNeo/api`，业务逻辑按 `auth`、`user`、`dish` 领域组织。注册需邮箱验证码，登录使用Redis会话和HttpOnly Cookie，默认7天到期。邮件配置模板为 [config/mail.example.yml](config/mail.example.yml)，正式配置填写与启用方式见 [邮箱验证码](docs/api/auth/email-verification.md#邮箱配置)。
