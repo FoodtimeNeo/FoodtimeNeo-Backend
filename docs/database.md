@@ -1,6 +1,6 @@
 # 数据库与迁移
 
-V1 初始化 `foodtime` schema；V2 依据 [数据库设计源文档](../../docs/database-design.md) 建立全部 10 张业务表和 `dish_rating_summary` 物化视图，采用邮箱账号模型：
+V1 初始化 `foodtime` schema；V2 依据 [数据库设计源文档](database-design.md) 建立全部 10 张业务表和 `dish_rating_summary` 物化视图，采用邮箱账号模型：
 
 | 表 | 用途 |
 | --- | --- |
@@ -26,5 +26,7 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY foodtime.dish_rating_summary;
 并发刷新需要物化视图已初始化且有覆盖所有行的唯一索引，V2 已满足这两个条件，参见 [PostgreSQL 文档](https://www.postgresql.org/docs/17/sql-refreshmaterializedview.html)。
 
 后续 SQL 从 `V3__描述.sql` 起递增命名。已经执行的迁移文件不得修改，以新版本迁移演进数据库；校验默认开启，禁止 clean，禁止自动 baseline。不要将业务建表脚本放到 Compose 的初始化目录，以免与 Flyway 双重管理。
+
+设计源文档保存在本仓库 `docs/database-design.md`；现有接口的设计符合性、尚未实现的业务及验证结果见 [数据库设计核查报告](database-design-audit.md)。
 
 业务分层及源码目录见 [项目目录与职责](architecture.md)。
