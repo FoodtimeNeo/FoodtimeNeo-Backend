@@ -15,8 +15,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,14 +32,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Auth", description = "账号与登录会话")
 public class LoginController {
+    private static final Logger LOG = LoggerFactory.getLogger(LoginController.class);
     private final LoginService logins;
     private final LoginRateLimiter limiter;
     private final SessionAuthenticationService sessions;
+    private final TransactionTemplate transactions;
 
-    public LoginController(LoginService logins, LoginRateLimiter limiter, SessionAuthenticationService sessions) {
+    public LoginController(LoginService logins, LoginRateLimiter limiter, SessionAuthenticationService sessions,
+                           TransactionTemplate transactions) {
         this.logins = logins;
         this.limiter = limiter;
         this.sessions = sessions;
+        this.transactions = transactions;
     }
 
     @GetMapping("/csrf")
@@ -48,8 +57,28 @@ public class LoginController {
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest login,
                                             HttpServletRequest request, HttpServletResponse response) {
         limiter.check(login.account(), request.getRemoteAddr());
-        UserProfile user = logins.authenticate(login);
-        return ApiResponse.success(new LoginResponse(UserResponse.from(user), sessions.establish(user, request, response)));
+        boolean[] creatingSession = {false};
+        try {
+            return transactions.execute(status -> {
+                UserProfile user = logins.authenticate(login);
+                creatingSession[0] = true;
+                // A failed session must roll back last_login_at, which records successful logins only.
+                return ApiResponse.success(new LoginResponse(UserResponse.from(user),
+                        sessions.establish(user, request, response)));
+            });
+        } catch (RuntimeException exception) {
+            if (creatingSession[0]) {
+                try {
+                    // Redis is outside the database transaction; discard any partially created session.
+                    sessions.clear(request);
+                } catch (DataAccessException cleanupFailure) {
+                    LOG.error("Failed login session cleanup failed: {}", cleanupFailure.getClass().getSimpleName());
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            }
+            throw exception;
+        }
     }
 
     @GetMapping("/me")

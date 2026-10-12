@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 import java.util.Map;
 import static org.mockito.Mockito.*;
@@ -24,12 +25,13 @@ class LoginControllerTest {
     private final LoginService logins = mock(LoginService.class);
     private final LoginRateLimiter limiter = mock(LoginRateLimiter.class);
     private final SessionAuthenticationService sessions = mock(SessionAuthenticationService.class);
+    private final TransactionTemplate transactions = mock(TransactionTemplate.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new LoginController(logins, limiter, sessions))
+        mvc = MockMvcBuilders.standaloneSetup(new LoginController(logins, limiter, sessions, transactions))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler())
                 .addFilters(new RequestIdFilter()).build();
     }
