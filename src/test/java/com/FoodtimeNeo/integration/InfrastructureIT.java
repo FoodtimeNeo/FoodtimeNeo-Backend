@@ -28,6 +28,9 @@ class InfrastructureIT {
         assertThat(jdbc.queryForObject(
                 "select count(*) from foodtime.flyway_schema_history where version = '2' and success", Integer.class))
                 .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from foodtime.flyway_schema_history where version = '3' and success", Integer.class))
+                .isEqualTo(1);
     }
 
     @Test

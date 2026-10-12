@@ -1,6 +1,6 @@
 # 数据库设计与接口核查
 
-核查日期：2026-10-13。依据用户提供的 `database-design(1).md`，原文保存为 [database-design.md](database-design.md)。核查代码基线为远端 `dev` 的 `f06a09d`；本次已执行 `git fetch origin --prune`，本地 `dev` 与远端一致，开始核查时工作区干净。
+核查日期：2026-10-13。依据用户提供的 `database-design(1).md`，设计保存为 [database-design.md](database-design.md)，并按后续要求删除档口楼层字段。首次核查代码基线为远端 `dev` 的 `f06a09d`；首次核查已执行 `git fetch origin --prune`，本地 `dev` 与远端一致，开始核查时工作区干净。
 
 ## 分支状态
 
@@ -17,7 +17,7 @@
 
 本聊天产生的历史从 `f06a09d` 重新整理，保留该提交及之前的全部历史。公共设计文档使用 `feature/databaseDesign`，其余修改分别使用六个对应功能分支。
 
-每一轮执行 `dev → feature → dev`：先将该 feature 的分支指针设为当时最新的 dev，切换到 feature 后提交本功能的修改，再切回 dev 合并。同步仅移动分支指针，不创建“将 dev 合并到旧 feature”的提交。每轮只有一个功能修改提交和一个合回 dev 的合并提交，共七轮。整理前的完整历史及登录修复均已保存为本地 Git bundle，远端同步使用预期旧提交校验，避免覆盖期间新增的提交。
+每一轮执行 `dev → feature → dev`：先将该 feature 的分支指针设为当时最新的 dev，切换到 feature 后提交本功能的修改，再切回 dev 合并。同步仅移动分支指针，不创建“将 dev 合并到旧 feature”的提交。首次核查整理阶段每轮只有一个功能修改提交和一个合回 dev 的合并提交，共七轮；后续修改继续遵循相同流程。整理前的完整历史及登录修复均已保存为本地 Git bundle，远端同步使用预期旧提交校验，避免覆盖期间新增的提交。
 
 ## 已有接口
 
@@ -35,7 +35,7 @@
 | `POST /auth/logout` | 删除当前Redis会话，不修改用户角色、账号状态或密码；没有凭空增加退出时间字段 | [登录](api/auth/login.md)；`LoginController`、`SessionAuthenticationService`；`LoginIT` |
 | `PUT /users/me/password` | 验证当前用户旧密码，条件更新哈希和 `password_changed_at`，防止并发覆盖；触发器维护 `updated_at`；不允许请求指定其他账号或修改权限 | [改密](api/user/password.md)；`PasswordChangeService`、`UserMapper`；`PasswordChangeIT` |
 | `GET /dining-halls` | 仅查询启用食堂，按已有 `sort_order` 和ID排序；图片、简介、经纬度可空；经纬度成对约束由数据库保证；不捏造距离/评分/数量 | [食堂列表](api/dining/list.md)；`DiningHallMapper`；`DiningHallListIT`、`DatabaseSchemaIT` |
-| `GET /dining-halls/{diningHallId}/stalls` | 查询该食堂的启用档口并检查父级状态；使用已有排序值、可空封面/简介/楼层；不存在或隐藏父级返回404，空档口返回数组 | [档口列表](api/dining/stalls.md)；`StallMapper`、`StallService`；`StallListIT` |
+| `GET /dining-halls/{diningHallId}/stalls` | 查询该食堂的启用档口并检查父级状态；使用已有排序值、可空封面/简介；按后续要求移除楼层字段；不存在或隐藏父级返回404，空档口返回数组 | [档口列表](api/dining/stalls.md)；`StallMapper`、`StallService`；`StallListIT` |
 | `GET /stalls/{stallId}/dishes` | 检查食堂、档口、菜品三级状态；只返回所属档口的菜品；非负两位小数价格使用 `BigDecimal`；未从菜品表读取不存在的封面或评分列 | [菜品列表](api/dish/list.md)；`DishMapper`、`DishService`；`StallDishListIT` |
 | `GET /system/ping` | 仅返回HTTP服务名与运行状态，不访问业务表；`UP` 是运行检查状态，不能与用户或内容状态混同；依赖健康由Actuator提供 | [接口目录](api/README.md)、README；`SystemController`、`WebInfrastructureTest` |
 
@@ -45,7 +45,7 @@
 
 ## 数据库与评分汇总
 
-`V2__create_domain_tables.sql` 与设计中的 10 张业务表及 `dish_rating_summary` 物化视图一致，包括字段类型、可空性、默认值、唯一索引、状态取值、价格与评分检查、经纬度成对约束，以及 `ON DELETE RESTRICT` 外键。
+V2 建立初始设计中的 10 张业务表及 `dish_rating_summary` 物化视图；V3 按后续要求删除 `stalls.floor`，迁移后的结构与当前设计一致，包括字段类型、可空性、默认值、唯一索引、状态取值、价格与评分检查、经纬度成对约束，以及 `ON DELETE RESTRICT` 外键。
 
 审核相关约束已建立：同一用户对同一菜品最多一条待审核评论；正式评论按菜品和用户唯一；非待审核提交必须记录审核人和审核时间；档口、菜品审核状态与正式记录关联一致，菜品通过前价格不得为空；每条审核日志只能关联一种提交，动作仅允许 `approve` 或 `reject`。含 `updated_at` 的 8 张表由触发器维护更新时间。
 
@@ -72,6 +72,15 @@
 - 修复登录会话创建失败仍写入 `last_login_at` 的问题，增加事务回滚及失败会话清理，新增 `LoginRollbackIT` 验证首次登录和已有成功登录时间两种情况；对应接口文档同步说明。
 - 保留已执行的 Flyway V1、V2，不修改迁移历史或新增设计之外的业务字段。
 
+## 后续修订：删除档口楼层
+
+2026-10-13 按用户要求，以最新 dev `fbbc560` 为起点，将 `feature/stallList` 指针同步到 dev 后开发，再合并回 dev。
+
+- 新增 `V3__remove_stall_floor.sql` 删除 `foodtime.stalls.floor`，原 V1、V2 不变。
+- 移除档口实体、查询投影、API响应和OpenAPI中的楼层字段；档口列表仅返回 `id`、`diningHallId`、`name`、`coverImageUrl`、`description`。
+- 更新当前数据库设计与档口接口文档，移除旧字段说明和响应示例。
+- 在原先已应用 V2 的专用 PostgreSQL 17 数据库上成功升级至 V3；测试确认档口列集合符合新设计，实际JSON和OpenAPI均无 `floor`，其余展示和状态规则继续通过验证。
+
 ## 验证
 
 使用本机 JDK 21.0.9、离线 Maven 3.9.8 和项目 `.m2` 依赖缓存验证。数据库测试使用本次新初始化、仅监听 `127.0.0.1` 的 PostgreSQL 17.6 与 Redis 5.0.14.1，测试结束后停止两个实例；未连接已有业务数据库。Compose 指定的 Redis 7.4 容器环境本次未运行。
@@ -81,8 +90,8 @@
 | 验证范围 | 最终结果 |
 | --- | --- |
 | 单元与接口测试、完整打包 | 143 项通过，0 失败，构建成功 |
-| 数据库约束、评分汇总、基础设施、登录、登录失败回滚、修改密码及三类列表的集成测试 | 67 项通过，0 失败 |
+| 数据库约束、评分汇总、基础设施、登录、登录失败回滚、修改密码及三类列表的集成测试 | 68 项通过，0 失败 |
 | `RegistrationIT` 的 16 项邮箱/注册集成测试 | 按用户要求排除，尚未验证通过；不计入通过数量 |
-| 设计文件内容一致性、仓库内文档链接、Git差异格式 | 检查通过 |
+| 当前设计与迁移一致性、仓库内文档链接、Git差异格式 | 检查通过 |
 
-初始完整集成测试曾运行81项，其中5项本地 SMTP 注册邮件测试超时失败；用户随后说明邮箱尚未正式接通并要求先跳过，因此未继续修复或将这些失败标记为通过。重新核查新增的2项登录回滚测试在修复前均复现时间被错误更新，在修复后通过；最终执行排除 `RegistrationIT` 的67项集成测试。真实邮件投递以及本地 SMTP 超时原因均未验证解决。单元测试中的模拟邮箱逻辑检查仍保留，其通过不代表真实邮箱已接通。
+初始完整集成测试曾运行81项，其中5项本地 SMTP 注册邮件测试超时失败；用户随后说明邮箱尚未正式接通并要求先跳过，因此未继续修复或将这些失败标记为通过。重新核查新增的2项登录回滚测试在修复前均复现时间被错误更新，在修复后通过；删除楼层字段又新增1项数据库设计验证，最终执行排除 `RegistrationIT` 的68项集成测试。真实邮件投递以及本地 SMTP 超时原因均未验证解决。单元测试中的模拟邮箱逻辑检查仍保留，其通过不代表真实邮箱已接通。

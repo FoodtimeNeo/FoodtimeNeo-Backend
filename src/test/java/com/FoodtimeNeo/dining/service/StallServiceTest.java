@@ -16,18 +16,18 @@ class StallServiceTest {
     private final UUID hall = UUID.randomUUID();
     @Test
     void preservesOrderingAndProjectsOnlyDisplayFields() {
-        var one = new Stall(hall, UUID.randomUUID(), "第一档口", "简介", "https://example.test/stall.jpg", "一层", "active", 1);
-        var two = new Stall(hall, UUID.randomUUID(), "第二档口", null, null, null, "active", 2);
+        var one = new Stall(hall, UUID.randomUUID(), "第一档口", "简介", "https://example.test/stall.jpg", "active", 1);
+        var two = new Stall(hall, UUID.randomUUID(), "第二档口", null, null, "active", 2);
         when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(one, two));
         var result = service.listByDiningHall(hall);
         assertThat(result).extracting(row -> row.id()).containsExactly(one.id(), two.id());
         assertThat(result.get(0).diningHallId()).isEqualTo(hall);
-        assertThat(result.get(0).floor()).isEqualTo("一层");
+        assertThat(result.get(0).coverImageUrl()).isEqualTo("https://example.test/stall.jpg");
         assertThat(result.get(1).description()).isNull();
     }
     @Test
     void activeHallWithoutActiveStallsReturnsEmptyArray() {
-        when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(new Stall(hall, null, null, null, null, null, null, null)));
+        when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(new Stall(hall, null, null, null, null, null, null)));
         assertThat(service.listByDiningHall(hall)).isEmpty();
     }
     @Test
