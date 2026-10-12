@@ -43,6 +43,15 @@ class DatabaseSchemaIT {
     }
 
     @Test
+    void stallsMatchTheRevisedDesignWithoutFloor() {
+        assertThat(jdbc.queryForList("""
+                select column_name from information_schema.columns
+                where table_schema = 'foodtime' and table_name = 'stalls'
+                """, String.class)).containsExactlyInAnyOrder("id", "dining_hall_id", "name", "description",
+                "cover_image_url", "status", "sort_order", "created_at", "updated_at");
+    }
+
+    @Test
     void emailMustBeNormalizedAndUnique() {
         rollback(status -> {
             Fixture fixture = seed();

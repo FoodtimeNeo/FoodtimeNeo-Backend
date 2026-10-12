@@ -1,3 +1,5 @@
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`，由 V3 迁移执行。
+
 # users（用户表）
 
 | 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
@@ -40,7 +42,6 @@
 | `name` | `VARCHAR(100)` | `NOT NULL`；`UNIQUE (dining_hall_id, name)` | 档口名称。 |
 | `description` | `TEXT` | 可空 | 档口简介。 |
 | `cover_image_url` | `TEXT` | 可空 | 封面图片地址或存储引用。 |
-| `floor` | `VARCHAR(50)` | 可空 | 所在楼层或区域。 |
 | `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'active'`；`active` / `inactive` | 展示状态；`inactive` 时不向学生展示。 |
 | `sort_order` | `INTEGER` | `NOT NULL DEFAULT 0` | 所属食堂内的排序值。 |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录创建时间。 |

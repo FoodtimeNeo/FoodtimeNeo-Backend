@@ -89,7 +89,7 @@ java -jar target/foodtime-neo-backend.jar
 | 目录、分层职责与测试组织 | [项目目录与职责](docs/architecture.md) |
 | 环境、连接、CORS与运行配置 | [配置说明](docs/configuration.md) |
 | 数据库表、迁移与评分汇总 | [数据库说明](docs/database.md) |
-| 数据库字段、约束与业务规则原文 | [数据库设计](docs/database-design.md) |
+| 当前数据库字段、约束与业务规则 | [数据库设计](docs/database-design.md) |
 | 现有接口与数据库设计的核查结果 | [数据库设计核查](docs/database-design-audit.md) |
 | 生产环境与容器运行 | [部署说明](docs/deployment.md) |
 | 登录、注册与邮箱验证码 | [接口文档](docs/api/README.md) |

@@ -77,16 +77,16 @@ class StallListIT {
             UUID id = UUID.fromString(item.path("id").asString());
             ids.add(id);
             assertThat(item.path("diningHallId").asString()).isEqualTo(parent.toString());
-            assertThat(item.size()).isEqualTo(6);
+            assertThat(item.size()).isEqualTo(5);
+            assertThat(item.has("floor")).isFalse();
             assertThat(item.has("status")).isFalse();
             assertThat(item.has("sortOrder")).isFalse();
             if (id.equals(one)) {
-                assertThat(item.path("floor").asString()).isEqualTo("一层");
                 assertThat(item.path("description").asString()).isEqualTo("测试档口简介");
                 assertThat(item.path("coverImageUrl").asString()).isEqualTo("https://example.test/stall.jpg");
             }
             if (id.equals(later)) {
-                for (String field : List.of("floor", "description", "coverImageUrl")) {
+                for (String field : List.of("description", "coverImageUrl")) {
                     assertThat(item.has(field)).isTrue();
                     assertThat(item.path(field).isNull()).isTrue();
                 }
@@ -178,9 +178,10 @@ class StallListIT {
         assertThat(get.path("parameters").get(0).path("schema").path("format").asString()).isEqualTo("uuid");
         var properties = document.path("components").path("schemas").path("StallResponse").path("properties");
         assertThat(properties.has("diningHallId")).isTrue();
+        assertThat(properties.has("floor")).isFalse();
         assertThat(properties.has("status")).isFalse();
         assertThat(properties.has("sortOrder")).isFalse();
-        for (String field : List.of("coverImageUrl", "description", "floor")) {
+        for (String field : List.of("coverImageUrl", "description")) {
             var property = properties.path(field);
             assertThat(property.path("nullable").asBoolean() || property.path("type").toString().contains("\"null\""))
                     .as("OpenAPI allows null for %s", field).isTrue();
@@ -197,10 +198,10 @@ class StallListIT {
         UUID id = UUID.randomUUID();
         stallIds.add(id);
         jdbc.update("""
-                insert into foodtime.stalls(id,dining_hall_id,name,status,sort_order,description,cover_image_url,floor)
-                values (?, ?, ?, ?, ?, ?, ?, ?)
+                insert into foodtime.stalls(id,dining_hall_id,name,status,sort_order,description,cover_image_url)
+                values (?, ?, ?, ?, ?, ?, ?)
                 """, id, hall, "档口测试-" + id, status, sort, metadata ? "测试档口简介" : null,
-                metadata ? "https://example.test/stall.jpg" : null, metadata ? "一层" : null);
+                metadata ? "https://example.test/stall.jpg" : null);
         return id;
     }
     private Browser login(String role) throws Exception {

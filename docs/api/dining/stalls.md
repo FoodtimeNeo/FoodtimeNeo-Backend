@@ -6,9 +6,9 @@
 
 ## 设计依据与额外约定
 
-[数据库设计](../../database-design.md#stalls档口表) 定义所属食堂、名称、简介、封面、楼层/区域和排序值，规定 `inactive` 档口不向学生展示；所属食堂通过 `dining_hall_id` 关联，不另存食堂名称或其他冗余业务字段。实现同时检查父食堂展示状态，避免绕过食堂停用规则。
+[数据库设计](../../database-design.md#stalls档口表) 定义所属食堂、名称、简介、封面和排序值，规定 `inactive` 档口不向学生展示；所属食堂通过 `dining_hall_id` 关联，不另存食堂名称或其他冗余业务字段。实现同时检查父食堂展示状态，避免绕过食堂停用规则。
 
-必须登录、所有角色统一过滤、不分页、固定升序与ID排序、父食堂不可见返回404而空列表返回200，以及不返回内部状态和时间字段，是当前接口的额外协议约定。本次按用户选择保留；访问范围、分页和公开字段范围列为待确认事项。响应中的 `floor` 对应数据库已有字段，不是额外推测的档口属性。
+必须登录、所有角色统一过滤、不分页、固定升序与ID排序、父食堂不可见返回404而空列表返回200，以及不返回内部状态和时间字段，是当前接口的额外协议约定。本次按用户选择保留；访问范围、分页和公开字段范围列为待确认事项。2026-10-13 按用户要求删除楼层字段；数据库通过 V3 移除 `stalls.floor`，API响应及OpenAPI均不再包含 `floor`。
 
 ## 请求与展示规则
 
@@ -33,8 +33,7 @@
       "diningHallId": "3e96f06d-9f88-4b24-a9f5-0830359b629b",
       "name": "面食档口",
       "coverImageUrl": null,
-      "description": "提供面食",
-      "floor": "一层"
+      "description": "提供面食"
     }
   ],
   "timestamp": "2026-10-07T15:00:00Z",
@@ -49,7 +48,6 @@
 | `name` | 字符串 | 档口名称 |
 | `coverImageUrl` | 字符串或null | 封面图片地址或存储引用 |
 | `description` | 字符串或null | 档口简介 |
-| `floor` | 字符串或null | 楼层或区域 |
 
 未设置的可空字段返回null；不公开内部状态、排序值和数据库创建/更新时间。响应包含 `X-Request-Id`，不加载菜品列表或统计菜品数量。
 
@@ -64,4 +62,4 @@
 | 503 | `AUTH_UNAVAILABLE` | 查询前，数据库或Redis无法完成身份/会话验证 |
 | 500 | `INTERNAL_ERROR` | 未预期服务端错误，不返回内部详情 |
 
-实现位于 `api/dining/DiningHallStallController`、`dining/service/StallService`、`dining/mapper/StallMapper`；公开响应为 `dining/dto/StallResponse`。使用现有食堂和档口表，无新增依赖或数据库迁移。联调顺序见 [dining.http](../dining.http)。
+实现位于 `api/dining/DiningHallStallController`、`dining/service/StallService`、`dining/mapper/StallMapper`；公开响应为 `dining/dto/StallResponse`。使用现有食堂和档口表；V3 迁移删除楼层字段，无新增依赖。联调顺序见 [dining.http](../dining.http)。

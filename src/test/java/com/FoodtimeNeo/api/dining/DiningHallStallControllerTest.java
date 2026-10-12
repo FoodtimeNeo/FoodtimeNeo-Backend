@@ -30,11 +30,12 @@ class DiningHallStallControllerTest {
     @Test
     void usesPathHallAndReturnsPublicFieldsWithRequestId() throws Exception {
         UUID stall = UUID.randomUUID();
-        when(service.listByDiningHall(hall)).thenReturn(List.of(new StallResponse(stall, hall, "第一档口", null, null, null)));
+        when(service.listByDiningHall(hall)).thenReturn(List.of(new StallResponse(stall, hall, "第一档口", null, null)));
         mvc.perform(get("/api/v1/dining-halls/{id}/stalls", hall).header("X-Request-Id", "stall-list-test"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data[0].id").value(stall.toString()))
                 .andExpect(jsonPath("$.data[0].diningHallId").value(hall.toString()))
+                .andExpect(jsonPath("$.data[0].floor").doesNotExist())
                 .andExpect(jsonPath("$.data[0].status").doesNotExist())
                 .andExpect(jsonPath("$.data[0].sortOrder").doesNotExist())
                 .andExpect(header().string("X-Request-Id", "stall-list-test"));
