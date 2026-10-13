@@ -6,6 +6,7 @@
 @csrfToken = replace_with_csrf_data_token
 @diningHallId = replace_with_id_from_dining_halls_response
 @stallId = replace_with_id_from_stalls_response
+@dishId = replace_with_id_from_dishes_response
 
 ### 1. Get anonymous CSRF token; preserve the response Cookie.
 GET {{baseUrl}}/auth/csrf
@@ -27,4 +28,8 @@ Accept: application/json
 
 ### 5. Set stallId above to an active stall ID from step 4, then list its active dishes.
 GET {{baseUrl}}/stalls/{{stallId}}/dishes
+Accept: application/json
+
+### 6. Set dishId above to a dish ID from step 5, then read its basic details.
+GET {{baseUrl}}/dishes/{{dishId}}
 Accept: application/json
