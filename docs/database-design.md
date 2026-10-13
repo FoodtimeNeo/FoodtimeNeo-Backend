@@ -1,4 +1,4 @@
-本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`，由 V3 迁移执行。
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）。
 
 # users（用户表）
 
@@ -70,6 +70,9 @@
 | `image_url` | `TEXT` | `NOT NULL` | 图片地址或存储引用。 |
 | `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'pending'`；`pending` / `approved` / `rejected` | 图片审核状态。 |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 图片记录创建时间。 |
+| `reviewed_by_user_id` | `UUID` | 可空；`REFERENCES users(id) ON DELETE RESTRICT` | 图片审核人；2026-10-14 经项目负责人确认由 V4 新增。 |
+| `reviewed_at` | `TIMESTAMPTZ` | 可空 | 图片审核时间；旧记录不补造历史数据。 |
+| `review_reason` | `TEXT` | 可空 | 图片审核说明或驳回原因。 |
 
 # dish_review_submissions（菜品评论审核表）
 
@@ -156,8 +159,11 @@
 | `review_submission_id` | `UUID` | 可空；`REFERENCES dish_review_submissions(id) ON DELETE RESTRICT` | 评论审核提交 ID；评论审核日志使用。 |
 | `dish_submission_id` | `UUID` | 可空；`REFERENCES dish_submissions(id) ON DELETE RESTRICT` | 菜品审核提交 ID；菜品审核日志使用。 |
 | `stall_submission_id` | `UUID` | 可空；`REFERENCES stall_submissions(id) ON DELETE RESTRICT` | 档口审核提交 ID；档口审核日志使用。 |
+| `dish_image_id` | `UUID` | 可空；`REFERENCES dish_images(id) ON DELETE RESTRICT` | 独立图片审核目标；经项目负责人确认由 V4 新增。 |
 | `moderator_user_id` | `UUID` | `NOT NULL REFERENCES users(id) ON DELETE RESTRICT` | 执行审核的用户 ID；权限由服务端校验。 |
 | `action` | `VARCHAR(20)` | `NOT NULL CHECK (action IN ('approve', 'reject'))` | 审核动作；每次操作新增一条记录。 |
 | `reason` | `TEXT` | 可空 | 审核说明或拒绝原因。 |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 审核操作时间。 |
-| 组合约束 | — | `CHECK (num_nonnulls(review_submission_id, dish_submission_id, stall_submission_id) = 1)` | 每条日志必须且只能关联一种审核提交记录。 |
+| 组合约束 | — | `CHECK (num_nonnulls(review_submission_id, dish_submission_id, stall_submission_id, dish_image_id) = 1)` | V4 扩展为四类，每条日志必须且只能关联一个目标。 |
+
+图片审核扩展保留 V1–V3 历史迁移，仅通过 V4 增量修改。新审核通过或驳回操作同时写入审核人、时间、原因及对应日志；旧图片审核信息允许为空，不虚构历史审核。菜品投稿审核时附带图片在同一事务通过，沿用该菜品投稿日志，不重复伪造独立图片审核事件。

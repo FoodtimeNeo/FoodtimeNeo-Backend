@@ -19,7 +19,7 @@ public class ModerationController {
     private final ModerationService moderation;
     public ModerationController(ModerationService moderation) { this.moderation = moderation; }
     @GetMapping
-    @Operation(summary = "管理员审核队列", description = "评论、菜品及档口提交，按状态分页；type为表来源的协议标识")
+    @Operation(summary = "管理员审核队列", description = "评论、菜品、档口及图片提交，按状态分页；type为表来源的协议标识")
     public ApiResponse<PageResponse<ModerationItem>> queue(HttpServletRequest request,
             @RequestParam(defaultValue = "pending") String status, @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
