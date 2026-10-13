@@ -15,6 +15,7 @@
 | 邮箱密码登录 | `POST /api/v1/auth/login` | [登录与会话](auth/login.md) |
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |
 | 当前登录用户 | `GET /api/v1/auth/me` | [登录与会话](auth/login.md) |
+| 当前用户个人资料与头像 | `GET /api/v1/users/me/profile` | [个人资料](user/profile.md) |
 | 退出登录 | `POST /api/v1/auth/logout` | [登录与会话](auth/login.md) |
 | 修改当前用户密码 | `PUT /api/v1/users/me/password` | [修改密码](user/password.md) |
 | 获取我的评论审核记录 | `GET /api/v1/users/me/review-submissions` | [我的评论审核记录](user/review-submissions.md) |
