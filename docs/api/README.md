@@ -24,6 +24,7 @@
 | 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
 | 获取菜品基础详情 | `GET /api/v1/dishes/{dishId}` | [菜品基础详情](dish/detail.md) |
 | 获取菜品图册 | `GET /api/v1/dishes/{dishId}/images` | [菜品图册](dish/images.md) |
+| 已审核评论、评论提交、我的评论及评分快照 | 多个GET/POST/DELETE接口 | [评论与评分](dish/reviews.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
 统一响应字段：`code`（业务码）、`message`（提示）、`data`（业务数据）、`timestamp`（ISO 8601 UTC 时间）、`requestId`（请求 ID）。响应头也包含 `X-Request-Id`。
