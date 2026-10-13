@@ -92,6 +92,7 @@ java -jar target/foodtime-neo-backend.jar
 | 当前数据库字段、约束与业务规则 | [数据库设计](docs/database-design.md) |
 | 现有接口与数据库设计的核查结果 | [数据库设计核查](docs/database-design-audit.md) |
 | 生产环境与容器运行 | [部署说明](docs/deployment.md) |
+| GitHub Actions 检查与发布范围 | [CI/CD](docs/ci-cd.md) |
 | 登录、注册与邮箱验证码 | [接口文档](docs/api/README.md) |
 | 认证完整调用顺序 | [HTTP联调请求](docs/api/auth.http) |
 | 修改密码与重新登录 | [修改密码接口](docs/api/user/password.md) |
