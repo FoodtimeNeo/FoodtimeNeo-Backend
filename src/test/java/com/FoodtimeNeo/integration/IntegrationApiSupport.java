@@ -95,6 +95,22 @@ abstract class IntegrationApiSupport {
             request.method(method, data == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(json.writeValueAsString(data)));
             return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
         }
+
+        HttpResponse<String> upload(byte[] image) throws Exception {
+            String boundary = "foodtime" + UUID.randomUUID();
+            var payload = new java.io.ByteArrayOutputStream();
+            payload.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"image.png\"\r\nContent-Type: image/png\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            payload.write(image);
+            payload.write(("\r\n--" + boundary + "--\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/uploads/images"))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary);
+            if (token != null) request.header("X-CSRF-TOKEN", token);
+            return client.send(request.POST(HttpRequest.BodyPublishers.ofByteArray(payload.toByteArray())).build(), HttpResponse.BodyHandlers.ofString());
+        }
+
+        HttpResponse<byte[]> image(String path) throws Exception {
+            return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+        }
     }
 
     protected JsonNode body(HttpResponse<String> response) { return json.readTree(response.body()); }
