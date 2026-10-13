@@ -6,7 +6,7 @@
 
 [数据库设计](../database-design.md) 是持久化字段、关系、约束和明确业务规则的依据；[核查报告](../database-design-audit.md) 记录与现有接口的对应关系及实现缺口。接口的URL、HTTP状态码、统一响应、Cookie、CSRF、限流和公开字段选择来自现有实现，不能当作数据库设计中已经规定的内容。`requestId`、响应 `timestamp`、验证码和会话到期时间属于协议或认证过程的数据，不是新增业务表字段。
 
-本次用户选择保留现有额外规则；各功能文档分别标注数据库设计之外的约定及待确认事项。保留规则不表示它们已获得数据库设计的依据。邮箱尚未正式接通，本次暂不验证邮箱投递与注册邮件集成流程；图片、评论及提交审核目前只有表结构，尚无业务接口，不应在联调中假定这些功能已实现。
+本次用户选择保留现有额外规则；各功能文档分别标注数据库设计之外的约定及待确认事项。保留规则不表示它们已获得数据库设计的依据。邮箱尚未正式接通，暂不验证邮箱投递与注册邮件集成流程；菜品图片已提供公开图册查询，图片上传、评论发布及提交审核尚未实现，不应在联调中假定这些写入流程已实现。
 
 | 功能 | 方法与路径 | 接口文档 |
 | --- | --- | --- |
@@ -21,6 +21,7 @@
 | 获取食堂下档口列表 | `GET /api/v1/dining-halls/{diningHallId}/stalls` | [档口列表](dining/stalls.md) |
 | 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
 | 获取菜品基础详情 | `GET /api/v1/dishes/{dishId}` | [菜品基础详情](dish/detail.md) |
+| 获取菜品图册 | `GET /api/v1/dishes/{dishId}/images` | [菜品图册](dish/images.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
 统一响应字段：`code`（业务码）、`message`（提示）、`data`（业务数据）、`timestamp`（ISO 8601 UTC 时间）、`requestId`（请求 ID）。响应头也包含 `X-Request-Id`。
