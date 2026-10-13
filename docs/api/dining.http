@@ -33,3 +33,7 @@ Accept: application/json
 ### 6. Set dishId above to a dish ID from step 5, then read its basic details.
 GET {{baseUrl}}/dishes/{{dishId}}
 Accept: application/json
+
+### 7. Read approved images from the same visible dish, with pagination.
+GET {{baseUrl}}/dishes/{{dishId}}/images?page=1&size=20
+Accept: application/json
