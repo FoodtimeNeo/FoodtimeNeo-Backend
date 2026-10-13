@@ -1,3 +1,4 @@
+# Reserved template only; files outside .github/workflows are not executed by GitHub Actions.
 name: Backend CD
 
 on:
