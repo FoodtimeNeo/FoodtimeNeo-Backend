@@ -16,9 +16,13 @@ bash ./mvnw -B -ntp -Pintegration '-Dit.test=*IT,!RegistrationIT' verify
 
 ## CD
 
-CD 只允许在 main 合并后执行，dev 和面向分支的 PR 检查不执行发布或部署。具体发布目标、部署方式及所需凭据待确认后配置；CI 的 JAR 上传仅作为构建产物，不表示已部署。
+未指定服务器时，CD 采用镜像持续交付：`.github/workflows/cd.yml` 在 `Backend CI` 完成后接收事件，只有本仓库 main 的 push、CI成功且存在合并依据时才发布。支持现有本地 `git merge --no-ff` 后推送 main 的流程，也支持 GitHub PR 的 squash/rebase 合并；没有合并依据的直接提交不发布。旧提交已被新的 main 头替代时跳过。
 
-工作流落入 dev 后即可运行 CI；main 的代码与工作流仍需按项目发布流程合并，不能为了验证 CD 自动将 dev 合并到 main。
+发布构建检出的精确SHA与通过CI的提交一致，使用已有Dockerfile及非root Java 21运行镜像，发布到 `ghcr.io/foodtimeneo/foodtimeneo-backend:sha-<完整提交SHA>`。只发布对应提交标签，不覆盖浮动latest标签。发布任务使用内置 `GITHUB_TOKEN` 的 `packages: write`，无需在仓库保存生产凭据；组织需要允许GitHub Actions写入Packages。
+
+dev 与 PR 检查不会发布镜像。该配置提供可部署镜像，不自动更新未指定的服务器。运行容器仍需按 [部署说明](deployment.md) 配置数据库、Redis和生产环境变量。CI上传JAR与CD发布镜像都不代表服务器已经部署。
+
+工作流落入 dev 后即可运行 CI；`workflow_run` 要求工作流位于默认分支，因此 main 的代码与两个工作流仍需按项目发布流程合并后才会启用CD。不能为了验证CD自动将dev合并到main。本次在dev校验CD语法及发布条件，不声称已经执行镜像推送或服务器部署。
 
 ## 参考
 

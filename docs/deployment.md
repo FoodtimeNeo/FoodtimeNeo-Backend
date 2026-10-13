@@ -2,6 +2,8 @@
 
 本地 Compose 提供 PostgreSQL 和 Redis，端口仅绑定本机；生产部署需配置自己的数据库、Redis 与网络访问规则。登录使用Redis服务端会话和HttpOnly Cookie；新增业务接口默认需要登录，管理员接口还须实现对应的服务端角色权限校验。
 
+GitHub Actions 在面向main/dev的PR和push时执行CI；main合并提交通过CI后，CD向GHCR发布对应SHA的可部署镜像。触发条件、权限及未指定服务器时的交付边界见 [CI/CD](ci-cd.md)。
+
 生产环境必填：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`REDIS_HOST`、`REDIS_PASSWORD`。例如在部署平台设置 `SPRING_PROFILES_ACTIVE=prod` 并注入这些变量；远程 PostgreSQL 的 JDBC URL 可配置 `sslmode=verify-full`，Redis TLS 使用 `REDIS_SSL_ENABLED=true`。生产默认仅暴露健康端点，健康详情隐藏，API 文档关闭。
 
 Dockerfile 使用 Java 21 多阶段构建，以非 root 用户运行，容器默认启用 `prod`：
