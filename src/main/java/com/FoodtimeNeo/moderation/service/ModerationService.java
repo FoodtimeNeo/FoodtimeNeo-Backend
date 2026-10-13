@@ -37,7 +37,7 @@ public class ModerationService {
     @Transactional
     public ModerationResult moderate(UserProfile actor, String type, UUID id, @Valid ModerationRequest request) {
         guard(actor);
-        if (!Set.of("review","dish","stall").contains(type)) throw bad("审核类型不合法");
+        if (!Set.of("review","dish","stall","photo").contains(type)) throw bad("审核类型不合法");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
@@ -47,7 +47,7 @@ public class ModerationService {
         BigDecimal price = item.price();
         if (request.action().equals("approve")) {
             boolean visible = switch (type) {
-                case "review" -> reviews.lockVisibleDish(item.targetId()) != null;
+                case "review", "photo" -> reviews.lockVisibleDish(item.targetId()) != null;
                 case "dish" -> catalog.lockStall(item.targetId()) != null;
                 default -> catalog.lockHall(item.targetId()) != null;
             };
@@ -57,8 +57,9 @@ public class ModerationService {
                 else if (type.equals("dish")) {
                     price = request.price() == null ? item.price() : request.price();
                     if (price == null) throw bad("审核通过前请补齐菜品价格");
-                    approved = store.publishDish(item,price);
-                } else approved = store.publishStall(item);
+                    approved = store.publishDish(item,price,actor.id(),reason);
+                } else if(type.equals("stall")) approved = store.publishStall(item);
+                else approved = item.id();
             } catch (DuplicateKeyException conflict) {
                 throw new BusinessException("CATALOG_CONFLICT", "同一食堂已有同名档口", HttpStatus.CONFLICT);
             }
