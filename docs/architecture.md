@@ -14,6 +14,10 @@ FoodtimeNeo-Backend/
 │   │   ├── user/                当前用户密码及本人审核提交查询Controller
 │   │   ├── dining/              食堂与档口展示Controller
 │   │   ├── dish/                菜品列表、详情与图册Controller
+│   │   ├── review/              评论提交、正式评论与评分快照Controller
+│   │   ├── media/               文件及图片投稿Controller
+│   │   ├── submission/          菜品/档口投稿Controller
+│   │   ├── admin/               审核、目录、评论与用户管理Controller
 │   │   └── system/              HTTP运行检查Controller
 │   ├── auth/
 │   │   ├── dto/                 认证请求、响应类型
@@ -25,7 +29,12 @@ FoodtimeNeo-Backend/
 │   │   ├── mapper/              参数化数据库访问
 │   │   └── service/             用户默认昵称生成
 │   ├── dish/                    菜品查询DTO、实体、Mapper与Service及评分汇总刷新
-│   ├── review/                  本人评论审核提交查询DTO、投影、Mapper与Service
+│   ├── review/                  评论提交、查询、删除及评分快照
+│   ├── media/                   私有文件存储、授权读取及图片投稿
+│   ├── submission/              菜品和档口待审核投稿
+│   ├── moderation/              审核队列、发布事务与审核日志
+│   ├── admin/                   目录管理、违规评论删除与用户角色/状态管理
+│   ├── development/             仅显式本地联调配置启用的样例
 │   ├── dining/                  食堂与档口查询DTO、实体、Mapper与Service
 │   ├── common/
 │   │   ├── api/                 统一响应类型
@@ -63,12 +72,14 @@ FoodtimeNeo-Backend/
 
 - `api` 处理URL、HTTP状态、参数校验与响应；业务编排调用领域Service。
 - `auth`、`user`、`dish` 按业务领域维护功能。DTO定义明确的输入输出，敏感持久化类型与公开响应分开，避免返回密码哈希或把客户端角色写入数据库。
-- Mapper负责数据库读写；验证码Store负责Redis操作。服务层负责密码验证、验证码生命周期和业务失败信息。
+- Mapper/Store负责参数化数据库读写；验证码Store负责Redis操作。服务层维护权限、状态转换和事务；Controller只处理协议、调用服务以及事务成功后的操作日志。
 - `config` 配置运行时组件；`properties` 绑定配置值，`validation` 检查跨配置项约束。二者由启动类所在根包扫描。
 - `common` 仅放跨领域共享内容；新增功能优先归属业务领域，避免堆入通用工具类。
 - 新增HTTP入口放在 `api/<领域>`，测试目录对应被测包；需外部依赖的测试使用 `*IT` 命名，集中放在 `integration`。
 
 新增领域时按实际代码建立目录。已有迁移文件不因目录整理而修改；数据库演进规则见 [数据库说明](database.md)。接口文档维护在 [docs/api](api/README.md)。
+
+审核对提交行加锁，检查pending及父级状态，正式数据、审核状态与approve/reject日志在同一事务提交。用户角色/状态更新锁定操作者和目标并重查权限；每次会话请求重读数据库角色、状态及密码版本。没有新增运营员归属、分类或通用内容表。文件元数据只承担存储协议职责，业务引用和审核信息仍由已有表及经确认的V4字段维护。
 
 ## 本地文件与版本控制
 
