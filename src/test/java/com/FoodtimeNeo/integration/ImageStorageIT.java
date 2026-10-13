@@ -56,6 +56,13 @@ class ImageStorageIT extends IntegrationApiSupport {
         assertThat(login(owner).upload("not an image".getBytes(java.nio.charset.StandardCharsets.UTF_8)).statusCode()).isEqualTo(400);
     }
 
+    @Test
+    void truncatedPngIsAClientErrorRatherThanAStorageOutage() throws Exception {
+        var response=login(owner).upload(java.util.Arrays.copyOf(png(),16));
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(body(response).path("code").asString()).isEqualTo("IMAGE_INVALID");
+    }
+
     private byte[] png() throws Exception {
         var out = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(20, 10, BufferedImage.TYPE_INT_RGB), "png", out);

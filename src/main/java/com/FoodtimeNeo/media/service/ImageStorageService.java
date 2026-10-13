@@ -45,6 +45,8 @@ public class ImageStorageService {
                     if (width < 1 || height < 1 || (long) width * height > 20_000_000) throw bad("图片尺寸过大");
                     if (reader.read(0) == null) throw bad("图片无法读取");
                     contentType = format.equals("png") ? "image/png" : "image/jpeg";
+                } catch (IOException invalidImage) {
+                    throw bad("图片无法读取，请选择完整的JPEG或PNG图片");
                 } finally { reader.dispose(); }
             }
             Files.createDirectories(directory);
