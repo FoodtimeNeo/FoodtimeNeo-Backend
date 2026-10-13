@@ -29,6 +29,7 @@
 | 上传及读取图片文件 | `POST /api/v1/uploads/images`、`GET /api/v1/media/{id}` | [图片文件](dish/uploads.md) |
 | 已审核评论、评论提交、我的评论及评分快照 | 多个GET/POST/DELETE接口 | [评论与评分](dish/reviews.md) |
 | 管理审核队列、操作和日志 | GET/POST管理接口 | [管理审核](user/moderation.md) |
+| 管理基础数据与违规评论 | GET/POST/PUT/DELETE接口 | [数据管理](user/catalog-admin.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
 统一响应字段：`code`（业务码）、`message`（提示）、`data`（业务数据）、`timestamp`（ISO 8601 UTC 时间）、`requestId`（请求 ID）。响应头也包含 `X-Request-Id`。
