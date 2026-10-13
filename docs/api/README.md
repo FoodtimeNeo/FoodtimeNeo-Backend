@@ -18,6 +18,7 @@
 | 退出登录 | `POST /api/v1/auth/logout` | [登录与会话](auth/login.md) |
 | 修改当前用户密码 | `PUT /api/v1/users/me/password` | [修改密码](user/password.md) |
 | 获取我的评论审核记录 | `GET /api/v1/users/me/review-submissions` | [我的评论审核记录](user/review-submissions.md) |
+| 获取我的菜品提交 | `GET /api/v1/users/me/dish-submissions` | [我的菜品提交](user/dish-submissions.md) |
 | 获取食堂列表 | `GET /api/v1/dining-halls` | [食堂列表](dining/list.md) |
 | 获取食堂下档口列表 | `GET /api/v1/dining-halls/{diningHallId}/stalls` | [档口列表](dining/stalls.md) |
 | 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
