@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表、邮箱注册、登录与会话管理、修改密码、食堂列表、食堂下档口列表、档口下菜品列表、菜品基础详情、图册及我的评论审核记录；评论发布和审核等写入接口在后续迭代实现。
+校园食堂菜品展示与点评平台的后端项目。当前实现项目骨架、基础设施、数据库表、邮箱注册、登录与会话管理、修改密码、食堂列表、食堂下档口列表、档口下菜品列表、菜品基础详情、图册、我的评论审核记录及我的菜品提交；评论发布和审核等写入接口在后续迭代实现。
 
 ## 技术栈
 
@@ -99,5 +99,10 @@ java -jar target/foodtime-neo-backend.jar
 | 食堂列表与展示规则 | [食堂列表接口](docs/api/dining/list.md) |
 | 食堂下档口与父级状态规则 | [档口列表接口](docs/api/dining/stalls.md) |
 | 档口下菜品、价格与父级状态规则 | [菜品列表接口](docs/api/dish/list.md) |
+| 菜品基础信息与所属关系 | [菜品基础详情](docs/api/dish/detail.md) |
+| 已审核图片及分页 | [菜品图册](docs/api/dish/images.md) |
+| 当前用户的评论审核历史 | [我的评论审核记录](docs/api/user/review-submissions.md) |
+| 当前用户的菜品提交内容与状态 | [我的菜品提交](docs/api/user/dish-submissions.md) |
+| 个人记录联调请求 | [提交记录联调](docs/api/submissions.http) |
 
 HTTP入口统一位于 `src/main/java/com/FoodtimeNeo/api`，业务逻辑按 `auth`、`user`、`dish` 领域组织。注册需邮箱验证码，登录使用Redis会话和HttpOnly Cookie，默认7天到期。邮件配置模板为 [config/mail.example.yml](config/mail.example.yml)，正式配置填写与启用方式见 [邮箱验证码](docs/api/auth/email-verification.md#邮箱配置)。

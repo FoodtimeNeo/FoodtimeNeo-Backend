@@ -11,9 +11,9 @@ FoodtimeNeo-Backend/
 │   ├── FoodTimeNeoApplication.java
 │   ├── api/
 │   │   ├── auth/                认证Controller与认证HTTP异常处理
-│   │   ├── user/                当前用户密码管理Controller
+│   │   ├── user/                当前用户密码及本人审核提交查询Controller
 │   │   ├── dining/              食堂与档口展示Controller
-│   │   ├── dish/                档口下菜品展示Controller
+│   │   ├── dish/                菜品列表、详情与图册Controller
 │   │   └── system/              HTTP运行检查Controller
 │   ├── auth/
 │   │   ├── dto/                 认证请求、响应类型
@@ -25,6 +25,7 @@ FoodtimeNeo-Backend/
 │   │   ├── mapper/              参数化数据库访问
 │   │   └── service/             用户默认昵称生成
 │   ├── dish/                    菜品查询DTO、实体、Mapper与Service及评分汇总刷新
+│   ├── review/                  本人评论审核提交查询DTO、投影、Mapper与Service
 │   ├── dining/                  食堂与档口查询DTO、实体、Mapper与Service
 │   ├── common/
 │   │   ├── api/                 统一响应类型

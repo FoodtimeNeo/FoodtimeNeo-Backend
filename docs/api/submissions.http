@@ -4,3 +4,7 @@
 ### My review moderation history. Owner comes from the session, not a userId parameter.
 GET {{baseUrl}}/users/me/review-submissions?page=1&size=20
 Accept: application/json
+
+### My submitted dishes. Nullable prices and inactive ancestor history are preserved.
+GET {{baseUrl}}/users/me/dish-submissions?page=1&size=20
+Accept: application/json
