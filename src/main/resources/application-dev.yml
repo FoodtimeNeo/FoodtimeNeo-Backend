@@ -11,6 +11,9 @@ spring:
       password: ${REDIS_PASSWORD:redis_local_only}
 
 app:
+  test-verification:
+    # Test only: accept 000000 without sending email. Disable to test real verification.
+    enabled: ${TEST_VERIFICATION_ENABLED:true}
   auth:
     cookie-secure: ${AUTH_COOKIE_SECURE:false}
   cors:

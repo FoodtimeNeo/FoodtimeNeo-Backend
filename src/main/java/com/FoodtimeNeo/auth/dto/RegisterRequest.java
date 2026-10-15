@@ -30,7 +30,7 @@ public record RegisterRequest(
         @NotBlank(message = "邮箱验证码不能为空")
         @Pattern(regexp = "\\A[0-9]{6}\\z", message = "邮箱验证码须为6位数字")
         @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-        @Schema(description = "邮箱收到的6位数字验证码，15分钟内有效",
+        @Schema(description = "邮箱收到的6位数字验证码，15分钟内有效；开发环境默认支持测试码000000，仅用于测试",
                 accessMode = Schema.AccessMode.WRITE_ONLY, minLength = 6, maxLength = 6, example = "012345")
         String verificationCode) {
 
