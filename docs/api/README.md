@@ -51,7 +51,8 @@
 3. 携带Cookie和CSRF令牌提交邮箱账号与密码登录。
 4. 登录会替换旧会话；重新获取CSRF令牌，再查询当前用户或退出登录。
 
+**仅用于测试**：默认开发环境可跳过发送邮件，在注册时填写 `verificationCode: "000000"`，然后继续正常登录步骤。生产禁用；开关、行为与覆盖范围见[测试验证码说明](../testing-verification.md)。
+
 从Backend目录启动服务，开发环境文档地址为 `http://localhost:8080/swagger-ui.html`，OpenAPI地址为 `http://localhost:8080/v3/api-docs`。生产环境默认关闭实时文档；文件接口文档仍保留在本目录。
 
-Java认证HTTP入口位于 `src/main/java/com/FoodtimeNeo/api/auth`；本目录维护接口文档与联调请求。发送邮件前须按 [邮箱验证码配置说明](auth/email-verification.md#邮箱配置) 填写正式SMTP配置并启用。未配置邮件时发送验证码返回503；缺少验证码的注册请求返回400，提交验证码后验证服务未启用返回503。登录和注册依赖可用的PostgreSQL与Redis。
-
+Java认证HTTP入口位于 `src/main/java/com/FoodtimeNeo/api/auth`；本目录维护接口文档与联调请求。发送邮件前须按 [邮箱验证码配置说明](auth/email-verification.md#邮箱配置) 填写正式SMTP配置并启用。未配置邮件时发送验证码返回503；缺少验证码的注册请求返回400，普通验证码在验证服务未启用时返回503，启用的 `000000` 测试通道可直接注册。应用的账号、登录和会话功能依赖可用的PostgreSQL与Redis。

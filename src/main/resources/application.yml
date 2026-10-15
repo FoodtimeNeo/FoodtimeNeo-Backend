@@ -145,6 +145,8 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  test-verification:
+    enabled: ${TEST_VERIFICATION_ENABLED:false}
   email-verification:
     enabled: ${EMAIL_VERIFICATION_ENABLED:false}
     from: ${MAIL_FROM:}

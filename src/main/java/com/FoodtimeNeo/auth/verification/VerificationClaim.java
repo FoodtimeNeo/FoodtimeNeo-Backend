@@ -1,7 +1,9 @@
 package com.FoodtimeNeo.auth.verification;
 
-/** Private lease used to coordinate Redis validation and the atomic PostgreSQL insert. */
-public record VerificationClaim(String email, String token) {
+/** Real Redis verification lease, or an explicit test verification without a lease. */
+public record VerificationClaim(String email, String token, boolean testVerification) {
+    public VerificationClaim(String email, String token) { this(email, token, false); }
+
     @Override
     public String toString() { return "VerificationClaim[<redacted>]"; }
 }

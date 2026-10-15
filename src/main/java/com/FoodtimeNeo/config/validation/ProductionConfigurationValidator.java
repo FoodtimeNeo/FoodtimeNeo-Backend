@@ -21,5 +21,8 @@ public class ProductionConfigurationValidator {
         if (!environment.getRequiredProperty("app.auth.cookie-secure", Boolean.class)) {
             throw new IllegalStateException("Production authentication requires Secure cookies");
         }
+        if (environment.getProperty("app.test-verification.enabled", Boolean.class, false)) {
+            throw new IllegalStateException("Production must disable test verification");
+        }
     }
 }
