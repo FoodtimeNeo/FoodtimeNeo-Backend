@@ -21,7 +21,10 @@
 | `REDIS_CONNECT_TIMEOUT` / `REDIS_TIMEOUT` | `3s` / `3s` | Redis 建连 / 命令超时 |
 | `REDIS_POOL_MAX_ACTIVE` | `8` | Redis 连接池最大连接数 |
 | `CORS_ALLOWED_ORIGINS` | localhost:5173、localhost:3000 的 HTTP origin | 逗号分隔的完整 origin；生产默认为空；禁止通配符和带路径的 URL |
-| `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | 单文件 / 整个请求上传大小限制；上传业务尚未实现 |
+| `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
+| `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
+| `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
+| `SESSION_REDIS_NAMESPACE` | `foodtime:session` | 会话Redis命名空间；专用联调环境应与其他环境隔离 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |
@@ -29,3 +32,9 @@
 | `POSTGRES_DB` / `POSTGRES_PORT` | `foodtime_neo` / `5432` | 仅供 Compose 初始化与本机端口映射 |
 
 其他共享设置：优雅停机等待 30 秒，SQL 超时 10 秒，日志按 10MB 滚动、保留 14 天、总量上限 200MB；业务时间使用 `Instant`，数据库连接使用 UTC；API 使用 ISO 8601 时间。跨域配置仅应用于 `/api/**`，仅对明确配置的受信任来源允许Cookie凭据。
+
+## 文件存储
+
+`ImageStorageService` 读取 `app.storage.directory`，默认是进程工作目录下的 `uploads`。可通过启动参数 `--app.storage.directory=/var/lib/foodtime/uploads` 指定持久化目录；需保证运行账号可读写。调大multipart配置不会取消存储服务的10MiB和2000万像素业务限制。
+
+数据库迁移不会创建图片字节。V5菜单图片、V6食堂封面及 `.properties` 元数据的铺放方式见 [种子数据与图片部署](seed-data.md)。容器挂载见 [部署说明](deployment.md)。
