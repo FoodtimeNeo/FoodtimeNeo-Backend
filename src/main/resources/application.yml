@@ -5,9 +5,32 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   # Also works for java -jar; an absent .env is allowed.
   config:
-    import: optional:file:./.env[.properties]
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:./config/mail.yml
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:true}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS_ENABLED:true}
+      "[mail.smtp.starttls.required]": ${MAIL_STARTTLS_REQUIRED:true}
+      "[mail.smtp.ssl.enable]": ${MAIL_SSL_ENABLED:false}
+      "[mail.smtp.ssl.checkserveridentity]": true
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
   lifecycle:
     timeout-per-shutdown-phase: 30s
+  session:
+    timeout: 15m
+    redis:
+      namespace: ${SESSION_REDIS_NAMESPACE:foodtime:session}
+      repository-type: default
+      flush-mode: immediate
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -79,6 +102,7 @@ server:
       min-spare: 10
 
 mybatis-plus:
+  type-handlers-package: com.FoodtimeNeo.common.mybatis
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
@@ -121,6 +145,29 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  test-verification:
+    enabled: ${TEST_VERIFICATION_ENABLED:false}
+  email-verification:
+    enabled: ${EMAIL_VERIFICATION_ENABLED:false}
+    from: ${MAIL_FROM:}
+    secret: ${EMAIL_VERIFICATION_SECRET:}
+    redis-namespace: ${EMAIL_VERIFICATION_NAMESPACE:foodtime:auth:email}
+    resend-interval: ${EMAIL_RESEND_INTERVAL:PT60S}
+    send-window: ${EMAIL_SEND_WINDOW:PT15M}
+    send-account-limit: ${EMAIL_SEND_ACCOUNT_LIMIT:5}
+    send-ip-limit: ${EMAIL_SEND_IP_LIMIT:20}
+  auth:
+    session-ttl: ${AUTH_SESSION_TTL:P7D}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    login-window: ${AUTH_LOGIN_WINDOW:PT15M}
+    login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
+    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
+    redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
+    password-change:
+      window: ${PASSWORD_CHANGE_WINDOW:PT15M}
+      user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
+      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:50}
+      redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
   rating-summary:
     refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
     refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
@@ -128,7 +175,7 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: Content-Type,Authorization,X-Request-Id
+    allowed-headers: Content-Type,Authorization,X-Request-Id,X-CSRF-TOKEN
     exposed-headers: X-Request-Id
     max-age: 3600s
 

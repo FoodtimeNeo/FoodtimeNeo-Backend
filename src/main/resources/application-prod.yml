@@ -11,6 +11,11 @@ spring:
       username: ${REDIS_USERNAME:}
       password: ${REDIS_PASSWORD}
 
+app:
+  test-verification:
+    # ProductionConfigurationValidator rejects an explicit true value.
+    enabled: ${TEST_VERIFICATION_ENABLED:false}
+
 springdoc:
   api-docs:
     enabled: false

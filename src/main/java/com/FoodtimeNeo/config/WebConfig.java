@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.config;
 
+import com.FoodtimeNeo.config.properties.CorsProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -19,7 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods(cors.allowedMethods().toArray(String[]::new))
                 .allowedHeaders(cors.allowedHeaders().toArray(String[]::new))
                 .exposedHeaders(cors.exposedHeaders().toArray(String[]::new))
-                .allowCredentials(false)
+                .allowCredentials(true)
                 .maxAge(cors.maxAge().toSeconds());
     }
 }

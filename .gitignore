@@ -25,6 +25,9 @@ bin/
 application-local.*
 application-*-local.*
 application-secrets.*
+# SMTP credentials and verification secret; keep config/mail.example.yml tracked.
+/config/mail.yml
+/config/mail.yaml
 *.jks
 *.keystore
 *.p12

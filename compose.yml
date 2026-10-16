@@ -32,6 +32,8 @@ services:
         umask 077
         escaped=$$(printf '%s' "$$REDIS_PASSWORD" | sed 's/\\/\\\\/g; s/"/\\"/g')
         printf 'appendonly yes\nrequirepass "%s"\n' "$$escaped" > /tmp/redis.conf
+        chown redis:redis /tmp/redis.conf
+        chmod 600 /tmp/redis.conf
         exec /usr/local/bin/docker-entrypoint.sh redis-server /tmp/redis.conf
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"

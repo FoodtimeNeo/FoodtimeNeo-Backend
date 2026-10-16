@@ -18,8 +18,32 @@
     <java.version>21</java.version>
     <mybatis-plus.version>3.5.17</mybatis-plus.version>
     <springdoc.version>3.1.1</springdoc.version>
+    <bouncycastle.version>1.86</bouncycastle.version>
+    <!-- Preload Mockito instead of attaching at runtime (JDK 21 / restricted Windows environments). -->
+    <test.jvm.args>-javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar" -Djava.io.tmpdir="${project.build.directory}"</test.jvm.args>
   </properties>
   <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-session-data-redis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-crypto</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -86,7 +110,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <argLine>-Djava.io.tmpdir="${project.build.directory}"</argLine>
+          <argLine>${test.jvm.args}</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -131,6 +155,9 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <argLine>${test.jvm.args}</argLine>
+            </configuration>
             <executions>
               <execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution>
             </executions>

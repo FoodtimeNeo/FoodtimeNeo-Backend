@@ -1,0 +1,115 @@
+# Reserved template only; files outside .github/workflows are not executed by GitHub Actions.
+name: Backend CD
+
+on:
+  workflow_run:
+    workflows: [Backend CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-cd-main
+  cancel-in-progress: false
+
+jobs:
+  merge-gate:
+    name: Confirm successful main merge
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      publish: ${{ steps.merge.outputs.publish }}
+    steps:
+      - name: Check main head and merge evidence
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          API_URL: ${{ github.api_url }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[a-f0-9]{40}$ ]]
+          api() {
+            curl --fail --silent --show-error --retry 3 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL/repos/$REPOSITORY/$1"
+          }
+          current=$(api git/ref/heads/main | jq -r '.object.sha')
+          if [[ "$current" != "$SHA" ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Skip a superseded main commit."
+            exit 0
+          fi
+          parents=$(api "commits/$SHA" | jq '.parents | length')
+          if (( parents >= 2 )); then
+            # Supports the repository's local git merge --no-ff + push process.
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          merged=$(api "commits/$SHA/pulls?per_page=100" | jq \
+            --arg sha "$SHA" --arg repo "$REPOSITORY" \
+            '[.[] | select(.merged_at != null and .base.ref == "main" and
+              .base.repo.full_name == $repo and .merge_commit_sha == $sha)] | length')
+          if (( merged > 0 )); then
+            # Also supports squash/rebase merges performed through a GitHub PR.
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Skip a direct main commit without merge evidence."
+          fi
+
+  publish:
+    name: Publish main image to GHCR
+    needs: merge-gate
+    if: needs.merge-gate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the exact commit that passed CI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Set image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish the verified commit
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.name }}:sha-${{ github.event.workflow_run.head_sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+          cache-from: type=gha,scope=backend-main
+          cache-to: type=gha,mode=max,scope=backend-main
