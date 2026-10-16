@@ -11,6 +11,25 @@ import static org.assertj.core.api.Assertions.assertThat;
         properties = "app.rating-summary.refresh-enabled=false")
 class CatalogAdminIT extends IntegrationApiSupport {
     @Test
+    void filtersPublishedReviewsByUserIdEmailAndNicknameWithMatchingCounts() throws Exception {
+        UUID first = formal(owner,3), second = formal(other,5);
+        jdbc.update("UPDATE foodtime.users SET display_name = ? WHERE id = ?", "author-" + owner.id(),owner.id());
+        Browser admin = login(account("admin"));
+        for (String query : java.util.List.of(owner.id().toString().toUpperCase(),owner.email().toUpperCase(),"author-" + owner.id())) {
+            var response = admin.call("GET","/api/v1/admin/reviews?q=" + query + "&size=1",null);
+            assertThat(response.statusCode()).isEqualTo(200);
+            var data = body(response).path("data");
+            assertThat(data.path("total").asLong()).isEqualTo(1);
+            assertThat(data.path("items").size()).isEqualTo(1);
+            assertThat(data.path("items").get(0).path("id").asString()).isEqualTo(first.toString());
+            assertThat(response.body()).doesNotContain(second.toString(),"password_hash");
+        }
+        assertThat(body(admin.call("GET","/api/v1/admin/reviews?q=no-match-" + UUID.randomUUID(),null)).path("data").path("total").asLong()).isZero();
+        assertThat(admin.call("GET","/api/v1/admin/reviews?q=" + "x".repeat(255),null).statusCode()).isEqualTo(400);
+        assertThat(login(owner).call("GET","/api/v1/admin/reviews?q=" + other.id(),null).statusCode()).isEqualTo(403);
+    }
+
+    @Test
     void ordinaryUsersCannotReadOrModifyAdminCatalog() throws Exception {
         Browser student = login(owner);
         assertThat(student.call("GET","/api/v1/admin/catalog/dining-halls",null).statusCode()).isEqualTo(403);

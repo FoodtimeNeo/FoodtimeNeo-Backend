@@ -47,7 +47,12 @@ public class CatalogAdminService {
         return existing(type,id,false);
     }
     @Transactional(isolation = Isolation.REPEATABLE_READ,readOnly = true)
-    public PageResponse<PublishedReviewResponse> reviews(UserProfile actor,PageRequest page) { guard(actor); return PageResponse.of(catalog.reviews(page.size(),page.offset()),catalog.reviewCount(),page); }
+    public PageResponse<PublishedReviewResponse> reviews(UserProfile actor,String query,PageRequest page) {
+        guard(actor);
+        String q = query == null ? "" : query.strip();
+        if (q.length() > 254) throw bad("搜索内容不能超过254字");
+        return PageResponse.of(catalog.reviews(q,page.size(),page.offset()),catalog.reviewCount(q),page);
+    }
     @Transactional
     public void removeReview(UserProfile actor,UUID id) {
         guard(actor); if (catalog.removeReview(id) == 0) throw new BusinessException("REVIEW_NOT_FOUND","评论不存在",HttpStatus.NOT_FOUND);
