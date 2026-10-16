@@ -13,9 +13,13 @@ Dockerfile 使用 Java 21 多阶段构建，以非 root 用户运行，容器默
 ```powershell
 docker build -t foodtime-neo-backend:local .
 # 创建仅供容器使用、指向可从容器访问的数据库 / Redis 的环境文件
-docker run --rm --env-file .env.container -p 8080:8080 foodtime-neo-backend:local
+.\scripts\place-seed-images.ps1
+$uploadsPath = (Resolve-Path -LiteralPath .\uploads).Path
+docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath,target=/app/uploads" -p 8080:8080 foodtime-neo-backend:local
 ```
 
 容器中的 `localhost` 指向容器本身，因此 `.env.container` 中必须填写实际可达的服务地址，并使用 `SPRING_PROFILES_ACTIVE=prod`。若连接开发机服务，可根据 Docker Desktop 配置使用 `host.docker.internal`。
+
+上述PowerShell命令从Backend根目录执行；Linux或远程部署需将准备好的图片和元数据放到宿主机持久化目录，再挂载到 `/app/uploads`。非root的 `foodtime` 用户必须能读写该目录。Dockerfile只复制应用JAR，不复制 `seed-images/`；V5/V6数据库迁移成功并不代表图片已经可读。详见 [种子数据与图片部署](seed-data.md)。生产Web应由HTTPS入口同时转发页面与 `/api/v1`，并保留媒体请求；本地Vite代理不承担生产部署。
 
 `.gitignore` 已覆盖 Maven 构建目录、IDE 状态、本地环境配置、日志、运行数据和私钥；保留 `.env.example`、Maven Wrapper 与版本化数据库迁移。`.dockerignore` 将本地凭据、Git 与构建缓存排除在镜像构建上下文之外。

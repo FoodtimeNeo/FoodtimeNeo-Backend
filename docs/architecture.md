@@ -7,6 +7,8 @@ FoodtimeNeo-Backend/
 ├── config/                      外部邮件配置模板及被Git忽略的正式配置
 ├── docs/                        架构、配置、数据库与部署说明
 │   └── api/                     接口说明与HTTP联调请求
+├── seed-images/                 V5菜单图片与V6食堂封面源文件
+├── scripts/                     将种子图片及元数据铺入uploads的脚本
 ├── src/main/java/com/FoodtimeNeo/
 │   ├── FoodTimeNeoApplication.java
 │   ├── api/
