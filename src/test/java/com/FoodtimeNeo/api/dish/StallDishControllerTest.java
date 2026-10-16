@@ -33,7 +33,7 @@ class StallDishControllerTest {
     @Test
     void usesPathStallAndReturnsNumericPriceAndOnlyListFields() throws Exception {
         UUID dish = UUID.randomUUID();
-        when(service.listByStall(stall)).thenReturn(List.of(new DishListItemResponse(dish, stall, "红烧肉", new BigDecimal("12.30"))));
+        when(service.listByStall(stall)).thenReturn(List.of(new DishListItemResponse(dish, stall, "红烧肉", new BigDecimal("12.30"), null, 0)));
         mvc.perform(get("/api/v1/stalls/{id}/dishes", stall).header("X-Request-Id", "dish-list-test"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data[0].id").value(dish.toString()))

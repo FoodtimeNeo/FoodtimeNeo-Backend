@@ -82,11 +82,16 @@ class PublishedReviewIT extends IntegrationApiSupport {
         var empty = body(browser.call("GET", dishPath("/rating"), null)).path("data");
         assertThat(empty.path("averageScore").isNull()).isTrue();
         assertThat(empty.path("reviewCount").asLong()).isZero();
+        var menuBefore = body(browser.call("GET", "/api/v1/stalls/" + stall + "/dishes", null)).path("data").get(0);
+        assertThat(menuBefore.path("averageScore").isNull()).isTrue();
         formal(owner, 3);
         jdbc.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY foodtime.dish_rating_summary");
         formal(other, 5);
         var snapshot = body(browser.call("GET", dishPath("/rating"), null)).path("data");
         assertThat(snapshot.path("averageScore").asDouble()).isEqualTo(3.0);
         assertThat(snapshot.path("reviewCount").asLong()).isEqualTo(1);
+        var menu = body(browser.call("GET", "/api/v1/stalls/" + stall + "/dishes", null)).path("data").get(0);
+        assertThat(menu.path("averageScore").asDouble()).isEqualTo(3.0);
+        assertThat(menu.path("reviewCount").asLong()).isEqualTo(1);
     }
 }

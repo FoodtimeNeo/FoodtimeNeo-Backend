@@ -18,19 +18,23 @@ class DishServiceTest {
 
     @Test
     void preservesOrderAndExactPricesIncludingZeroAndDatabaseMaximum() {
-        var one = new Dish(stall, UUID.randomUUID(), "免费汤", new BigDecimal("0.00"));
-        var two = new Dish(stall, UUID.randomUUID(), "测试菜品", new BigDecimal("99999999.99"));
+        var one = new Dish(stall, UUID.randomUUID(), "免费汤", new BigDecimal("0.00"), null, 0);
+        var two = new Dish(stall, UUID.randomUUID(), "测试菜品", new BigDecimal("99999999.99"), new BigDecimal("4.50"), 2);
         when(mapper.findActiveByStall(stall)).thenReturn(List.of(one, two));
         var result = service.listByStall(stall);
         assertThat(result).extracting(row -> row.id()).containsExactly(one.id(), two.id());
         assertThat(result.get(0).stallId()).isEqualTo(stall);
         assertThat(result.get(0).price()).isEqualTo(new BigDecimal("0.00"));
         assertThat(result.get(1).price()).isEqualTo(new BigDecimal("99999999.99"));
+        assertThat(result.get(0).averageScore()).isNull();
+        assertThat(result.get(0).reviewCount()).isZero();
+        assertThat(result.get(1).averageScore()).isEqualByComparingTo("4.50");
+        assertThat(result.get(1).reviewCount()).isEqualTo(2);
     }
 
     @Test
     void visibleStallWithoutActiveDishesReturnsEmptyArray() {
-        when(mapper.findActiveByStall(stall)).thenReturn(List.of(new Dish(stall, null, null, null)));
+        when(mapper.findActiveByStall(stall)).thenReturn(List.of(new Dish(stall, null, null, null, null, 0)));
         assertThat(service.listByStall(stall)).isEmpty();
     }
 

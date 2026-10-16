@@ -11,10 +11,11 @@ import java.util.UUID;
 public interface DishMapper {
     /** Read both ancestor visibility and dish data from the same database snapshot. */
     @Select("""
-            SELECT s.id AS stall_id, d.id, d.name, d.price
+            SELECT s.id AS stall_id, d.id, d.name, d.price, r.average_score, COALESCE(r.review_count, 0) AS review_count
             FROM foodtime.stalls s
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
             LEFT JOIN foodtime.dishes d ON d.stall_id = s.id AND d.status = 'active'
+            LEFT JOIN foodtime.dish_rating_summary r ON r.dish_id = d.id
             WHERE s.id = #{stallId,jdbcType=OTHER} AND s.status = 'active'
             ORDER BY d.created_at ASC, d.id ASC
             """)
