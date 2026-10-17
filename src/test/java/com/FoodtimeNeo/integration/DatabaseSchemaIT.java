@@ -35,7 +35,7 @@ class DatabaseSchemaIT {
                 where table_schema = 'foodtime' and table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
-                "dish_submissions", "content_moderation_logs");
+                "dish_submissions", "content_moderation_logs", "invitation_codes");
         assertThat(jdbc.queryForObject("""
                 select ispopulated from pg_matviews
                 where schemaname = 'foodtime' and matviewname = 'dish_rating_summary'
@@ -216,7 +216,26 @@ class DatabaseSchemaIT {
                     select count(*) from pg_trigger t
                     join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
                     where n.nspname = 'foodtime' and not t.tgisinternal
-                    """, Integer.class)).isEqualTo(8);
+                    """, Integer.class)).isEqualTo(9);
+        });
+    }
+
+    @Test
+    void invitationCodeHashesAreUniqueAndBounded() {
+        rollback(status -> {
+            UUID code = UUID.randomUUID();
+            jdbc.update("insert into foodtime.invitation_codes (id, code_hash) values (?, 'hash')", code);
+            rejected(status, "23505", () -> jdbc.update(
+                    "insert into foodtime.invitation_codes (id, code_hash) values (?, 'hash')", UUID.randomUUID()));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set status = 'deleted' where id = ?", code));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set max_uses = 0 where id = ?", code));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set used_count = -1 where id = ?", code));
+            rejected(status, "23503", () -> jdbc.update(
+                    "update foodtime.users set invited_by_code_id = ? where id = ?",
+                    UUID.randomUUID(), seed().user()));
         });
     }
 

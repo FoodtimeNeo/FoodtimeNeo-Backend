@@ -3,6 +3,7 @@ package com.FoodtimeNeo.auth.service;
 import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.auth.dto.RegisterResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.invitation.service.InvitationService;
 import com.FoodtimeNeo.user.entity.NewUser;
 import com.FoodtimeNeo.user.mapper.UserMapper;
 import com.FoodtimeNeo.user.service.DefaultDisplayNameGenerator;
@@ -16,6 +17,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.UUID;
@@ -29,17 +31,20 @@ public class RegistrationService {
     private final PasswordEncoder passwords;
     private final DefaultDisplayNameGenerator names;
     private final EmailVerificationService verification;
+    private final InvitationService invitations;
     private final Clock clock;
 
     public RegistrationService(UserMapper users, PasswordEncoder passwords, DefaultDisplayNameGenerator names,
-                               EmailVerificationService verification, Clock clock) {
+                               EmailVerificationService verification, InvitationService invitations, Clock clock) {
         this.users = users;
         this.passwords = passwords;
         this.names = names;
         this.verification = verification;
+        this.invitations = invitations;
         this.clock = clock;
     }
 
+    @Transactional
     public RegisterResponse register(@NotNull @Valid RegisterRequest request) {
         try {
             if (users.existsByEmail(request.email())) {
@@ -56,8 +61,12 @@ public class RegistrationService {
             }
             boolean registered = false;
             try {
+                UUID invitationCodeId = null;
+                if (request.invitationCode() != null) {
+                    invitationCodeId = invitations.consume(request.invitationCode());
+                }
                 NewUser user = new NewUser(UUID.randomUUID(), request.email(),
-                        passwords.encode(request.password()), names.generate(), clock.instant());
+                        passwords.encode(request.password()), names.generate(), clock.instant(), invitationCodeId);
                 // PostgreSQL remains the final authority for uniqueness, including concurrent claims.
                 if (users.insertRegisteredUser(user) == 0) { throw duplicateEmail(); }
                 registered = true;

@@ -1,4 +1,4 @@
-本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）。
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）。
 
 # users（用户表）
 
@@ -17,6 +17,7 @@
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录最后更新时间。 |
 | `display_name` | `VARCHAR(50)` | `NOT NULL` | 用户昵称；未设置时由系统生成。 |
 | `avatar_url` | `TEXT` | 可空 | 用户头像地址或存储引用。 |
+| `invited_by_code_id` | `UUID` | 可空，`REFERENCES invitation_codes(id) ON DELETE RESTRICT` | 注册时使用的邀请码，仅记录归因关系。 |
 
 # dining_halls（食堂表）
 
@@ -167,3 +168,20 @@
 | 组合约束 | — | `CHECK (num_nonnulls(review_submission_id, dish_submission_id, stall_submission_id, dish_image_id) = 1)` | V4 扩展为四类，每条日志必须且只能关联一个目标。 |
 
 图片审核扩展保留 V1–V3 历史迁移，仅通过 V4 增量修改。新审核通过或驳回操作同时写入审核人、时间、原因及对应日志；旧图片审核信息允许为空，不虚构历史审核。菜品投稿审核时附带图片在同一事务通过，沿用该菜品投稿日志，不重复伪造独立图片审核事件。
+
+# invitation_codes（邀请码表）
+
+| 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
+| --- | --- | --- | --- |
+| `id` | `UUID` | `PRIMARY KEY` | 邀请码唯一标识，由后端生成。 |
+| `code_hash` | `TEXT` | `NOT NULL UNIQUE` | 邀请码的HMAC-SHA256摘要，不存明文。 |
+| `label` | `VARCHAR(100)` | 可空 | 管理备注，如发放对象或用途。 |
+| `max_uses` | `INTEGER` | 可空，`CHECK (max_uses IS NULL OR max_uses >= 1)` | 可复用次数上限，空表示不限次数。 |
+| `used_count` | `INTEGER` | `NOT NULL DEFAULT 0 CHECK (used_count >= 0)` | 已使用次数。 |
+| `expires_at` | `TIMESTAMPTZ` | 可空 | 到期时间，空表示长期有效。 |
+| `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled'))` | 邀请码状态。 |
+| `created_by_user_id` | `UUID` | 可空，`REFERENCES users(id) ON DELETE SET NULL` | 发放人，仅平台超级管理员可发放。 |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录创建时间。 |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录最后更新时间，由触发器维护。 |
+
+注册可选填写邀请码，仅记录归因关系，不填不影响注册；发放、次数、有效期均为接口约定，数据库设计不规定必填性。V7 新增，已有迁移不变。
