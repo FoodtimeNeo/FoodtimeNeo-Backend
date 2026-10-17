@@ -12,23 +12,26 @@ import java.util.UUID;
 @Repository
 public class ModerationStore {
     private static final String ITEMS = """
-            SELECT r.id,'review' AS type,r.dish_id AS target_id,r.user_id,d.name,r.content,
+            SELECT r.id,'review' AS type,r.dish_id AS target_id,r.user_id,u.display_name AS user_display_name,
+                   d.name,r.content,
                    NULL::numeric AS price,NULL::text AS image_url,r.rating::integer AS rating,
                    r.status,r.review_reason AS reason,r.submitted_at AS created_at
             FROM foodtime.dish_review_submissions r JOIN foodtime.dishes d ON d.id = r.dish_id
+            JOIN foodtime.users u ON u.id = r.user_id
             UNION ALL
-            SELECT id,'dish',stall_id,submitted_by_user_id,name,description,price,image_url,NULL::integer,status,review_reason,created_at
-            FROM foodtime.dish_submissions
+            SELECT s.id,'dish',s.stall_id,s.submitted_by_user_id,u.display_name,s.name,s.description,s.price,s.image_url,NULL::integer,s.status,s.review_reason,s.created_at
+            FROM foodtime.dish_submissions s JOIN foodtime.users u ON u.id = s.submitted_by_user_id
             UNION ALL
-            SELECT id,'stall',dining_hall_id,submitted_by_user_id,name,description,NULL::numeric,cover_image_url,NULL::integer,status,review_reason,created_at
-            FROM foodtime.stall_submissions
+            SELECT s.id,'stall',s.dining_hall_id,s.submitted_by_user_id,u.display_name,s.name,s.description,NULL::numeric,s.cover_image_url,NULL::integer,s.status,s.review_reason,s.created_at
+            FROM foodtime.stall_submissions s JOIN foodtime.users u ON u.id = s.submitted_by_user_id
             UNION ALL
-            SELECT i.id,'photo',i.dish_id,i.uploaded_by_user_id,d.name,NULL::text,NULL::numeric,i.image_url,NULL::integer,i.status,i.review_reason,i.created_at
+            SELECT i.id,'photo',i.dish_id,i.uploaded_by_user_id,u.display_name,d.name,NULL::text,NULL::numeric,i.image_url,NULL::integer,i.status,i.review_reason,i.created_at
             FROM foodtime.dish_images i JOIN foodtime.dishes d ON d.id=i.dish_id
+            JOIN foodtime.users u ON u.id = i.uploaded_by_user_id
             """;
     private static final RowMapper<ModerationItem> ROW = (r, n) -> new ModerationItem(
             r.getObject("id", UUID.class),r.getString("type"),r.getObject("target_id",UUID.class),
-            r.getObject("user_id",UUID.class),r.getString("name"),r.getString("content"),r.getBigDecimal("price"),
+            r.getObject("user_id",UUID.class),r.getString("user_display_name"),r.getString("name"),r.getString("content"),r.getBigDecimal("price"),
             r.getString("image_url"),r.getObject("rating",Integer.class),r.getString("status"),
             r.getString("reason"),r.getTimestamp("created_at").toInstant());
     private final JdbcTemplate jdbc;

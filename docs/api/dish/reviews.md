@@ -10,7 +10,7 @@
 | `GET /api/v1/users/me/reviews?page=1&size=20` | 本人正式评论，包含菜品/档口/食堂的关联ID与名称；停用内容的历史保留 |
 | `DELETE /api/v1/users/me/reviews/{reviewId}` | 删除自己的正式评论，200、data为null；他人或不存在的记录返回404 |
 
-评论项返回 `id/dishId/userId/rating/content/createdAt/updatedAt/dishName/stallId/stallName/diningHallId/diningHallName`；不返回头像或密码。按 `created_at DESC,id ASC` 稳定排序。分页1起，size范围1到100，越界页为空但保留总数。
+评论项返回 `id/dishId/userId/userDisplayName/rating/content/createdAt/updatedAt/dishName/stallId/stallName/diningHallId/diningHallName`；`userDisplayName` 为作者当前昵称，展示时请用昵称而非用户ID。不返回头像或密码。按 `created_at DESC,id ASC` 稳定排序。分页1起，size范围1到100，越界页为空但保留总数。
 
 写入仅使用 `dish_review_submissions`，默认pending，审核通过后才进入 `dish_reviews`。同一用户/菜品最多一条pending，由数据库部分唯一索引裁决并发冲突，重复返回409 `REVIEW_PENDING`。评分范围和唯一正式评论规则来自数据库设计，正文必须非空是评论接口约定；没有增设数据库字段。隐藏或不存在菜品返回404；已发布评论删除不删除审核历史，也不立即刷新评分。
 
