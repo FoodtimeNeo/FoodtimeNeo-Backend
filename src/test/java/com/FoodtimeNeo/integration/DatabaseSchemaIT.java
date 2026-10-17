@@ -35,7 +35,7 @@ class DatabaseSchemaIT {
                 where table_schema = 'foodtime' and table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
-                "dish_submissions", "content_moderation_logs", "invitation_codes");
+                "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results");
         assertThat(jdbc.queryForObject("""
                 select ispopulated from pg_matviews
                 where schemaname = 'foodtime' and matviewname = 'dish_rating_summary'
@@ -246,6 +246,30 @@ class DatabaseSchemaIT {
                 """, String.class)).contains("ix_stalls_hall_id", "ix_dish_reviews_dish_id",
                 "ix_dish_images_image_url", "ix_stalls_cover_image_url",
                 "ix_dining_halls_cover_image_url", "ix_users_avatar_url");
+    }
+
+    @Test
+    void aiVerdictsAreSinglePerSubmissionAndBounded() {
+        rollback(status -> {
+            Fixture fixture = seed();
+            UUID review = reviewSubmission(fixture);
+            jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'HIGH', 0.95, 'test-model')
+                    """, UUID.randomUUID(), review);
+            rejected(status, "23505", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'LOW', 0.1, 'test-model')
+                    """, UUID.randomUUID(), review));
+            rejected(status, "23514", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'CRITICAL', 0.5, 'test-model')
+                    """, UUID.randomUUID(), UUID.randomUUID()));
+            rejected(status, "23514", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'photo', ?, 'LOW', 1.5, 'test-model')
+                    """, UUID.randomUUID(), UUID.randomUUID()));
+        });
     }
 
     @Test

@@ -112,6 +112,15 @@ public class ImageStorageService {
 
     private String reference(UUID id) { return "/api/v1/media/" + id; }
 
+    public record StagedFile(byte[] bytes, String contentType) { }
+
+    /** Server-side access for moderation pipelines; never exposed without an authorization check. */
+    public StagedFile stagedThumbnail(UUID id) throws IOException {
+        Properties metadata = metadata(id);
+        Path thumb = thumbnailPath(id, metadata.getProperty("contentType"));
+        return new StagedFile(Files.readAllBytes(thumb), metadata.getProperty("contentType"));
+    }
+
     /**
      * Returns the cached thumbnail, generating a max-480px same-format copy on first use.
      * Originals are never modified; concurrent first requests may generate twice with identical bytes.

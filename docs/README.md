@@ -15,10 +15,11 @@
 | 开发环境注册测试码 | [测试验证码](testing-verification.md) |
 | 生产容器、持久化与反向代理边界 | [部署](deployment.md) |
 | 指标采集、慢请求与磁盘盯防 | [监控](monitoring.md) |
+| AI预检分诊（只诊断、不自动审核） | [AI预检](ai-moderation.md) |
 | GitHub 检查和预留发布模板 | [CI/CD](ci-cd.md) |
 | 隔离环境历史验证 | [验收记录](verification.md) |
 | Android 专用本地环境 | [Android 本地联调](android-local-integration.md) |
 
 接口以 Controller、DTO、Service 和数据库迁移为核对来源；配置以 `application*.yml`、配置类、Compose 和 Dockerfile 为核对来源。数据库保存了图片引用不代表运行环境已经放置图片字节；CI通过不代表正式邮件或线上部署已验收。
 
-本轮文档基线为 `main` 的 `f3c8638`（包含 V6 食堂封面迁移）；先将 `dev` 快进到该基线，再在文档功能分支维护。已有迁移保持不变，后续迁移从 V9 递增。
+本轮文档基线为 `main` 的 `f3c8638`（包含 V6 食堂封面迁移）；先将 `dev` 快进到该基线，再在文档功能分支维护。已有迁移保持不变，后续迁移从 V10 递增。
