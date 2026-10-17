@@ -12,6 +12,9 @@
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `200` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `100` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |
 | `STORAGE_CLEANUP_ENABLED` / `STORAGE_CLEANUP_INTERVAL` / `STORAGE_CLEANUP_MAX_AGE` | `true` / `PT24H` / `P7D` | 孤儿暂存图片清理开关、周期与保留时长；保留时长为0至90天的整秒 |
+| `MONITORING_SCRAPE_IP` | `127.0.0.1` | Prometheus抓取允许的来源IP或CIDR；留空拒绝一切抓取。详见[监控](monitoring.md) |
+| `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |
+| `STORAGE_DISK_WARN_BYTES` | `1073741824` | 暂存目录字节数告警线，超限记warn |
 | `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime` | JDBC URL；生产必须显式提供，保留 `currentSchema=foodtime` |
 | `DB_USERNAME` / `DB_PASSWORD` | `.env.example` 中的本地账号 | 生产必填，不允许为空 |

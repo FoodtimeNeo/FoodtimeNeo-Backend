@@ -45,9 +45,31 @@ public class StagedImageCleanup {
             for (String id : stale) {
                 if (!referenced("/api/v1/media/" + id) && delete(id)) removed++;
             }
-            if (removed > 0 || !stale.isEmpty()) LOG.info("Cleaned {} orphan staged images ({} stale)", removed, stale.size());
+            long bytes = directoryBytes();
+            if (removed > 0 || !stale.isEmpty()) {
+                LOG.info("Cleaned {} orphan staged images ({} stale), staging directory holds {} bytes",
+                        removed, stale.size(), bytes);
+            }
+            if (bytes > properties.diskWarnBytes()) {
+                LOG.warn("Staging directory holds {} bytes, above the {} byte warning line", bytes,
+                        properties.diskWarnBytes());
+            }
         } catch (RuntimeException exception) {
             LOG.error("Failed to clean orphan staged images", exception);
+        }
+    }
+
+    private long directoryBytes() {
+        try (var files = Files.list(directory)) {
+            return files.mapToLong(path -> {
+                try {
+                    return Files.size(path);
+                } catch (IOException ignored) {
+                    return 0L;
+                }
+            }).sum();
+        } catch (IOException missing) {
+            return 0L;
         }
     }
 
