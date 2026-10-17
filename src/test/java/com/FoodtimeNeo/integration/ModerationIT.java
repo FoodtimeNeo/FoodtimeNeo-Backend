@@ -30,6 +30,19 @@ class ModerationIT extends IntegrationApiSupport {
     }
 
     @Test
+    void queueItemsCarryTheSubmitterDisplayName() throws Exception {
+        UUID id = review(login(owner), "named review");
+        Browser admin = login(account("admin"));
+        var items = body(admin.call("GET", "/api/v1/admin/moderation?status=pending&size=100", null))
+                .path("data").path("items");
+        var mine = java.util.stream.StreamSupport.stream(items.spliterator(), false)
+                .filter(item -> item.path("id").asString().equals(id.toString()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("created submission missing from queue"));
+        assertThat(mine.path("userDisplayName").asString()).isEqualTo("integration user");
+    }
+
+    @Test
     void approvedReviewCopiesSubmissionTimeAndUpdatesTheUniqueFormalReview() throws Exception {
         Browser student = login(owner), admin = login(account("admin"));
         UUID first = review(student,"first");

@@ -19,10 +19,12 @@ public interface PublishedReviewMapper {
     UUID lockVisibleDish(UUID id);
 
     @Select("""
-            SELECT r.id, r.dish_id, r.user_id, r.rating, r.content, r.created_at, r.updated_at,
+            SELECT r.id, r.dish_id, r.user_id, u.display_name AS user_display_name,
+                   r.rating, r.content, r.created_at, r.updated_at,
                    d.name AS dish_name, s.id AS stall_id, s.name AS stall_name,
                    h.id AS dining_hall_id, h.name AS dining_hall_name
             FROM foodtime.dish_reviews r
+            JOIN foodtime.users u ON u.id = r.user_id
             JOIN foodtime.dishes d ON d.id = r.dish_id
             JOIN foodtime.stalls s ON s.id = d.stall_id
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
@@ -36,10 +38,12 @@ public interface PublishedReviewMapper {
     long countForDish(UUID id);
 
     @Select("""
-            SELECT r.id, r.dish_id, r.user_id, r.rating, r.content, r.created_at, r.updated_at,
+            SELECT r.id, r.dish_id, r.user_id, u.display_name AS user_display_name,
+                   r.rating, r.content, r.created_at, r.updated_at,
                    d.name AS dish_name, s.id AS stall_id, s.name AS stall_name,
                    h.id AS dining_hall_id, h.name AS dining_hall_name
             FROM foodtime.dish_reviews r
+            JOIN foodtime.users u ON u.id = r.user_id
             JOIN foodtime.dishes d ON d.id = r.dish_id
             JOIN foodtime.stalls s ON s.id = d.stall_id
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id

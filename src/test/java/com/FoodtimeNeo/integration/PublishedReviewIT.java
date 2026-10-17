@@ -46,6 +46,7 @@ class PublishedReviewIT extends IntegrationApiSupport {
         var data = body(response).path("data");
         assertThat(data.path("total").asLong()).isEqualTo(1);
         assertThat(data.path("items").get(0).path("id").asString()).isEqualTo(id.toString());
+        assertThat(data.path("items").get(0).path("userDisplayName").asString()).isEqualTo("integration user");
         assertThat(data.path("items").get(0).path("diningHallName").asString()).isEqualTo("integration hall");
         assertThat(response.body()).doesNotContain("pending private", "avatar", "password");
     }
