@@ -117,7 +117,7 @@ class RegistrationControllerTest {
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(body("123@bjtu.edu.cn", password)))
                 .andExpect(status().isCreated());
-        verify(service).register(new RegisterRequest("123@bjtu.edu.cn", password, "012345"));
+        verify(service).register(new RegisterRequest("123@bjtu.edu.cn", password, "012345", null));
     }
 
     private static Stream<String> validPasswords() {

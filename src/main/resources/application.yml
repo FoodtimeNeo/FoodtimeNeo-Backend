@@ -147,6 +147,8 @@ springdoc:
 app:
   test-verification:
     enabled: ${TEST_VERIFICATION_ENABLED:false}
+  invitation:
+    secret: ${INVITATION_SECRET:}
   email-verification:
     enabled: ${EMAIL_VERIFICATION_ENABLED:false}
     from: ${MAIL_FROM:}

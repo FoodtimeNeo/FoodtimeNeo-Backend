@@ -11,6 +11,7 @@
 | 功能 | 方法与路径 | 接口文档 |
 | --- | --- | --- |
 | 用户注册 | `POST /api/v1/auth/register` | [注册接口](auth/register.md) |
+| 邀请码发放与管理 | `POST/GET /api/v1/admin/invitation-codes`、`PUT /api/v1/admin/invitation-codes/{id}` | [邀请码](auth/invitation-codes.md) |
 | 注册邮箱验证码 | `POST /api/v1/auth/register/email-code` | [邮箱验证码](auth/email-verification.md) |
 | 邮箱密码登录 | `POST /api/v1/auth/login` | [登录与会话](auth/login.md) |
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |

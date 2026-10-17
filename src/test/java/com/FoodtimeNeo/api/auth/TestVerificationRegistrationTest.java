@@ -51,7 +51,8 @@ class TestVerificationRegistrationTest {
                 new EmailVerificationProperties(false, "", "", "test:email", Duration.ofSeconds(60),
                         Duration.ofMinutes(15), 5, 20),
                 new TestVerificationProperties(true), mail, users, clock);
-        var registration = new RegistrationService(users, passwords, new DefaultDisplayNameGenerator(), verification, clock);
+        var registration = new RegistrationService(users, passwords, new DefaultDisplayNameGenerator(), verification,
+                mock(com.FoodtimeNeo.invitation.service.InvitationService.class), clock);
         mvc = MockMvcBuilders.standaloneSetup(new RegistrationController(registration))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
