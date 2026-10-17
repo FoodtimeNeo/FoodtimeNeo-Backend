@@ -27,6 +27,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiResponse.error(exception.getCode(), exception.getMessage(), null));
     }
 
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitedException(RateLimitedException exception) {
+        return ResponseEntity.status(exception.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.getRetryAfter()))
+                .body(ApiResponse.error(exception.getCode(), exception.getMessage(), null));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handlePersistenceFailure(DataAccessException exception) {
         LOG.error("Persistence unavailable: {}", exception.getClass().getSimpleName());

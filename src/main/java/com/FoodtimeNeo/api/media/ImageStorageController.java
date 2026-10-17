@@ -3,6 +3,7 @@ package com.FoodtimeNeo.api.media;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.media.service.ImageStorageService;
+import com.FoodtimeNeo.media.service.UploadRateLimiter;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -17,14 +18,19 @@ import java.util.UUID;
 @SecurityRequirement(name = "sessionCookie")
 public class ImageStorageController {
     private final ImageStorageService images;
-    public ImageStorageController(ImageStorageService images) { this.images = images; }
+    private final UploadRateLimiter limiter;
+    public ImageStorageController(ImageStorageService images, UploadRateLimiter limiter) {
+        this.images = images; this.limiter = limiter;
+    }
 
     @PostMapping(value = "/uploads/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "上传图片文件", description = "multipart字段file，JPEG/PNG，不超过10MB；只保存私有暂存文件，后续投稿需使用返回的imageUrl")
     public ApiResponse<ImageStorageService.UploadedImage> upload(@RequestPart("file") MultipartFile file,
             HttpServletRequest request) {
-        return ApiResponse.success(images.upload(file, current(request)));
+        UserProfile user = current(request);
+        limiter.check(user, request.getRemoteAddr());
+        return ApiResponse.success(images.upload(file, user));
     }
 
     @GetMapping("/media/{imageId}")
