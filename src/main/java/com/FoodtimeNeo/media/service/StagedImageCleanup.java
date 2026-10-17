@@ -109,6 +109,7 @@ public class StagedImageCleanup {
     private boolean delete(String id) {
         try {
             Files.deleteIfExists(directory.resolve(id + ".img"));
+            Files.deleteIfExists(directory.resolve(id + ".thumb"));
             Files.deleteIfExists(directory.resolve(id + ".properties"));
             return true;
         } catch (IOException failure) {

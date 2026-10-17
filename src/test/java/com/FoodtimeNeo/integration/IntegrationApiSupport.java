@@ -115,6 +115,13 @@ abstract class IntegrationApiSupport {
         HttpResponse<byte[]> image(String path) throws Exception {
             return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
         }
+
+        HttpResponse<byte[]> imageIfNoneMatch(String path, String etag) throws Exception {
+            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET()
+                    .header("If-None-Match", etag);
+            if (token != null) { request.header("X-CSRF-TOKEN", token); }
+            return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
+        }
     }
 
     protected JsonNode body(HttpResponse<String> response) { return json.readTree(response.body()); }

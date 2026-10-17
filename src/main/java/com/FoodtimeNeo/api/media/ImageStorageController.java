@@ -2,6 +2,7 @@ package com.FoodtimeNeo.api.media;
 
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
+import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.media.service.ImageStorageService;
 import com.FoodtimeNeo.media.service.UploadRateLimiter;
 import com.FoodtimeNeo.user.entity.UserProfile;
@@ -34,11 +35,28 @@ public class ImageStorageController {
     }
 
     @GetMapping("/media/{imageId}")
-    @Operation(summary = "读取授权图片", description = "作者/管理员可预览暂存图片，其他用户只能读取已审核且父级启用的公开图片")
-    public ResponseEntity<byte[]> read(@PathVariable UUID imageId, HttpServletRequest request) {
-        var image = images.read(imageId, current(request));
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
-                .cacheControl(CacheControl.noStore()).header("X-Content-Type-Options", "nosniff").body(image.bytes());
+    @Operation(summary = "读取授权图片", description = "作者/管理员可预览暂存图片，其他用户只能读取已审核且父级启用的公开图片；size=thumb 返回480px预览，公开图片可被浏览器长期缓存，暂存预览不缓存")
+    public ResponseEntity<byte[]> read(@PathVariable UUID imageId,
+                                       @RequestParam(defaultValue = "full") String size,
+                                       HttpServletRequest request) {
+        if (!size.equals("full") && !size.equals("thumb")) {
+            throw new BusinessException("VALIDATION_ERROR", "size只能为full或thumb", HttpStatus.BAD_REQUEST);
+        }
+        var image = images.read(imageId, current(request), size.equals("thumb"));
+        String etag = "\"" + imageId + (size.equals("thumb") ? "-thumb" : "") + "\"";
+        if (etag.equals(request.getHeader(HttpHeaders.IF_NONE_MATCH))) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
+        var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
+                .eTag(etag).lastModified(image.lastModified())
+                .header("X-Content-Type-Options", "nosniff");
+        if (image.cacheable()) {
+            // UUID-addressed bytes never change: safe for year-long immutable caching.
+            response.cacheControl(CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable());
+        } else {
+            response.cacheControl(CacheControl.noStore());
+        }
+        return response.body(image.bytes());
     }
 
     private UserProfile current(HttpServletRequest request) {
