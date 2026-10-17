@@ -240,6 +240,15 @@ class DatabaseSchemaIT {
     }
 
     @Test
+    void hotLookupPathsAreIndexed() {
+        assertThat(jdbc.queryForList("""
+                select indexname from pg_indexes where schemaname = 'foodtime'
+                """, String.class)).contains("ix_stalls_hall_id", "ix_dish_reviews_dish_id",
+                "ix_dish_images_image_url", "ix_stalls_cover_image_url",
+                "ix_dining_halls_cover_image_url", "ix_users_avatar_url");
+    }
+
+    @Test
     void summaryCountsOnlyFormalReviewsAndIncludesUnratedDishes() {
         rollback(status -> {
             Fixture fixture = seed();
