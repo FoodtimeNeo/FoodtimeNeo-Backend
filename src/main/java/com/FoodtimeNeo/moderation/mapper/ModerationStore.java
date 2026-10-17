@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,23 +30,41 @@ public class ModerationStore {
             FROM foodtime.dish_images i JOIN foodtime.dishes d ON d.id=i.dish_id
             JOIN foodtime.users u ON u.id = i.uploaded_by_user_id
             """;
+    private static final String ITEMS_WITH_AI =
+            "SELECT q.*, a.risk_level AS ai_risk_level, a.confidence AS ai_confidence,"
+            + " a.labels AS ai_labels, a.reason AS ai_reason, a.checked_at AS ai_checked_at FROM ("
+            + ITEMS + ") q LEFT JOIN foodtime.ai_moderation_results a"
+            + " ON a.submission_type = q.type AND a.submission_id = q.id";
     private static final RowMapper<ModerationItem> ROW = (r, n) -> new ModerationItem(
             r.getObject("id", UUID.class),r.getString("type"),r.getObject("target_id",UUID.class),
             r.getObject("user_id",UUID.class),r.getString("user_display_name"),r.getString("name"),r.getString("content"),r.getBigDecimal("price"),
             r.getString("image_url"),r.getObject("rating",Integer.class),r.getString("status"),
-            r.getString("reason"),r.getTimestamp("created_at").toInstant());
+            r.getString("reason"),r.getTimestamp("created_at").toInstant(),
+            r.getString("ai_risk_level"),r.getBigDecimal("ai_confidence"),readLabels(r),
+            r.getString("ai_reason"),readInstant(r,"ai_checked_at"));
     private final JdbcTemplate jdbc;
     public ModerationStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    private static java.util.List<String> readLabels(java.sql.ResultSet result) throws java.sql.SQLException {
+        java.sql.Array column = result.getArray("ai_labels");
+        if (column == null) return null;
+        return java.util.List.of((String[]) column.getArray());
+    }
+
+    private static Instant readInstant(java.sql.ResultSet result, String column) throws java.sql.SQLException {
+        Timestamp value = result.getTimestamp(column);
+        return value == null ? null : value.toInstant();
+    }
+
     public List<ModerationItem> page(String status, int size, long offset) {
-        return jdbc.query("SELECT * FROM (" + ITEMS + ") q WHERE status = ? ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?", ROW, status, size, offset);
+        return jdbc.query("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE status = ? ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?", ROW, status, size, offset);
     }
     public long count(String status) { return jdbc.queryForObject("SELECT COUNT(*) FROM (" + ITEMS + ") q WHERE status = ?", Long.class, status); }
 
     public ModerationItem lock(String type, UUID id) {
         List<UUID> locked = jdbc.query("SELECT id FROM " + table(type) + " WHERE id = ? FOR UPDATE", (r,n) -> r.getObject(1, UUID.class), id);
         if (locked.isEmpty()) return null;
-        return jdbc.queryForObject("SELECT * FROM (" + ITEMS + ") q WHERE type = ? AND id = ?", ROW, type, id);
+        return jdbc.queryForObject("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
     }
 
     public UUID publishReview(ModerationItem item) {

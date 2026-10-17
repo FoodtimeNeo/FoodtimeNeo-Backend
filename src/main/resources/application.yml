@@ -147,6 +147,17 @@ springdoc:
 app:
   test-verification:
     enabled: ${TEST_VERIFICATION_ENABLED:false}
+  ai:
+    triage:
+      enabled: ${AI_TRIAGE_ENABLED:false}
+      provider: ${AI_TRIAGE_PROVIDER:openai}
+      base-url: ${AI_TRIAGE_BASE_URL:}
+      api-key: ${AI_TRIAGE_API_KEY:}
+      model: ${AI_TRIAGE_MODEL:}
+      timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
+      batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
+      interval: ${AI_TRIAGE_INTERVAL:PT5M}
+      initial-delay: ${AI_TRIAGE_INITIAL_DELAY:PT1M}
   invitation:
     secret: ${INVITATION_SECRET:}
   email-verification:

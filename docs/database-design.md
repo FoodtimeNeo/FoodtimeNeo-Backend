@@ -1,4 +1,4 @@
-本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）。
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）、新增AI预检结论表（V9，结论只读）。
 
 # users（用户表）
 
@@ -185,3 +185,20 @@
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录最后更新时间，由触发器维护。 |
 
 注册可选填写邀请码，仅记录归因关系，不填不影响注册；发放、次数、有效期均为接口约定，数据库设计不规定必填性。V7 新增，已有迁移不变。
+
+# ai_moderation_results（AI预检结论表）
+
+| 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
+| --- | --- | --- | --- |
+| `id` | `UUID` | `PRIMARY KEY` | 结论唯一标识，由后端生成。 |
+| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo'))` | 投稿类型：评论或图片。 |
+| `submission_id` | `UUID` | `NOT NULL` | 对应投稿ID；组合唯一保证每条投稿最多一条结论。 |
+| `risk_level` | `VARCHAR(20)` | `NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH'))` | 风险等级，只做分诊。 |
+| `confidence` | `NUMERIC(4, 3)` | `NOT NULL CHECK (confidence >= 0 AND confidence <= 1)` | 置信度。 |
+| `labels` | `TEXT[]` | `NOT NULL DEFAULT '{}'` | AI打标数组，原文透传。 |
+| `reason` | `TEXT` | 可空 | 一句话中文说明。 |
+| `model` | `VARCHAR(100)` | `NOT NULL` | 诊断模型标识。 |
+| `checked_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 诊断时间。 |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录创建时间。 |
+
+结论行只读不改；同一投稿重复送检靠唯一约束去重。V9 新增，已有迁移不变。
