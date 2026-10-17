@@ -170,6 +170,22 @@ app:
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
       ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:50}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
+  content:
+    submissions:
+      window: ${SUBMISSION_WINDOW:PT15M}
+      user-limit: ${SUBMISSION_USER_LIMIT:20}
+      ip-limit: ${SUBMISSION_IP_LIMIT:200}
+      redis-namespace: ${SUBMISSION_REDIS_NAMESPACE:foodtime:content:submissions}
+    uploads:
+      window: ${UPLOAD_WINDOW:PT1H}
+      user-limit: ${UPLOAD_USER_LIMIT:10}
+      ip-limit: ${UPLOAD_IP_LIMIT:100}
+      redis-namespace: ${UPLOAD_REDIS_NAMESPACE:foodtime:content:uploads}
+  storage:
+    cleanup-enabled: ${STORAGE_CLEANUP_ENABLED:true}
+    cleanup-interval: ${STORAGE_CLEANUP_INTERVAL:PT24H}
+    cleanup-initial-delay: ${STORAGE_CLEANUP_INITIAL_DELAY:PT5M}
+    cleanup-max-age: ${STORAGE_CLEANUP_MAX_AGE:P7D}
   rating-summary:
     refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
     refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
