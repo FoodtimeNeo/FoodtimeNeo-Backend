@@ -50,15 +50,15 @@ public class OpenAiCompatibleProvider implements AiProvider {
     }
 
     @Override
-    public AiVerdict checkReview(int rating, String content) throws AiUnavailableException {
+    public AiVerdict checkReview(String model, int rating, String content) throws AiUnavailableException {
         ObjectNode user = json.createObjectNode();
         user.put("role", "user");
         user.put("content", "评分：" + rating + " / 5，正文：" + content);
-        return complete(REVIEW_SYSTEM, user);
+        return complete(model, REVIEW_SYSTEM, user);
     }
 
     @Override
-    public AiVerdict checkImage(byte[] image, String contentType) throws AiUnavailableException {
+    public AiVerdict checkImage(String model, byte[] image, String contentType) throws AiUnavailableException {
         ObjectNode user = json.createObjectNode();
         user.put("role", "user");
         ArrayNode parts = user.putArray("content");
@@ -70,13 +70,13 @@ public class OpenAiCompatibleProvider implements AiProvider {
         ObjectNode url = picture.putObject("image_url");
         String mime = contentType != null && contentType.equals("image/png") ? "image/png" : "image/jpeg";
         url.put("url", "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(image));
-        return complete(IMAGE_SYSTEM, user);
+        return complete(model, IMAGE_SYSTEM, user);
     }
 
-    private AiVerdict complete(String system, ObjectNode userMessage) throws AiUnavailableException {
+    private AiVerdict complete(String model, String system, ObjectNode userMessage) throws AiUnavailableException {
         try {
             ObjectNode body = json.createObjectNode();
-            body.put("model", properties.model());
+            body.put("model", model);
             body.put("temperature", 0);
             body.put("max_tokens", 400);
             ArrayNode messages = body.putArray("messages");
@@ -93,7 +93,7 @@ public class OpenAiCompatibleProvider implements AiProvider {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) throw new AiUnavailableException("AI服务返回" + response.statusCode());
             String text = json.readTree(response.body()).path("choices").path(0).path("message").path("content").asText("");
-            return parseVerdict(text, properties.model());
+            return parseVerdict(text, model);
         } catch (AiUnavailableException exception) {
             throw exception;
         } catch (Exception failure) {

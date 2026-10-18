@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
@@ -65,6 +66,21 @@ class AiTriageIT extends IntegrationApiSupport {
         var photo = findByImage(items, imageUrl);
         assertThat(photo.path("aiRiskLevel").asString()).isEqualTo("LOW");
         assertThat(photo.path("imageUrl").asString()).isEqualTo(imageUrl);
+    }
+
+    @Test
+    void lowConfidenceVerdictIsEscalatedToSecondLook() throws Exception {
+        String content = "存疑 escalation-" + UUID.randomUUID();
+        Browser browser = login(owner);
+        assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 3, "content", content)).statusCode()).isEqualTo(202);
+
+        assertThat(triage.triageOnce()).isGreaterThanOrEqualTo(1);
+
+        // The fake double answers 0.5 on first sight and 0.95 on second sight;
+        // seeing 0.95 here proves the escalation pass ran and its verdict was adopted.
+        assertThat(jdbc.queryForObject("SELECT confidence FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
+                BigDecimal.class, content)).isEqualByComparingTo("0.95");
     }
 
     private static tools.jackson.databind.JsonNode find(tools.jackson.databind.JsonNode items, String content) {

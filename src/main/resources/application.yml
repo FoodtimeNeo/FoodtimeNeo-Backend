@@ -153,7 +153,11 @@ app:
       provider: ${AI_TRIAGE_PROVIDER:openai}
       base-url: ${AI_TRIAGE_BASE_URL:}
       api-key: ${AI_TRIAGE_API_KEY:}
-      model: ${AI_TRIAGE_MODEL:}
+      primary-model: ${AI_TRIAGE_PRIMARY_MODEL:nvidia/nemotron-3-super-120b-a12b}
+      escalation-model: ${AI_TRIAGE_ESCALATION_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
+      fallback-model: ${AI_TRIAGE_FALLBACK_MODEL:z-ai/glm-5.3-flash}
+      escalation-below-confidence: ${AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE:0.9}
+      photo-model: ${AI_TRIAGE_PHOTO_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
       timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
       batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
       interval: ${AI_TRIAGE_INTERVAL:PT5M}

@@ -2,6 +2,8 @@ package com.FoodtimeNeo.config.properties;
 
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -14,7 +16,8 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.ai.triage")
 public record AiTriageProperties(boolean enabled,
         @Pattern(regexp = "fake|openai", message = "AI provider must be fake or openai") String provider,
-        String baseUrl, String apiKey, String model,
+        String baseUrl, String apiKey, String primaryModel, String escalationModel, String fallbackModel,
+        @DecimalMin("0.0") @DecimalMax("1.0") double escalationBelowConfidence, String photoModel,
         @NotNull Duration timeout, @Min(1) @Max(100) int batchSize,
         @NotNull Duration interval, @NotNull Duration initialDelay) {
     @AssertTrue(message = "AI triage timeout must be whole positive seconds and no more than 120")
@@ -35,10 +38,11 @@ public record AiTriageProperties(boolean enabled,
                 && initialDelay.compareTo(Duration.ofDays(1)) <= 0;
     }
 
-    @AssertFalse(message = "The openai provider requires base-url, api-key and model")
+    @AssertFalse(message = "The openai provider requires base-url, api-key, primary-model and photo-model")
     public boolean isOpenaiIncomplete() {
         return enabled && "openai".equals(provider)
                 && (baseUrl == null || baseUrl.isBlank() || apiKey == null || apiKey.isBlank()
-                        || model == null || model.isBlank());
+                        || primaryModel == null || primaryModel.isBlank()
+                        || photoModel == null || photoModel.isBlank());
     }
 }

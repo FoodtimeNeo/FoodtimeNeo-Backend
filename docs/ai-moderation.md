@@ -22,11 +22,21 @@
 | 取值 | 行为 |
 | --- | --- |
 | `openai`（默认） | 调 OpenAI 兼容的 `POST {base-url}/chat/completions`（chat + vision）；temperature 0，max_tokens 400，要求模型只回 JSON |
-| `fake` | 确定性演示：正文含“违禁”判 HIGH，其余 LOW；图片一律 LOW。仅供本地开发与集成测试，绝不用于真实判定 |
+| `fake` | 确定性演示：正文含“违禁”判 HIGH；含“存疑”首次 LOW 0.5、复核 LOW 0.95（演示升级链路）；其余 LOW；图片一律 LOW。仅供本地开发与集成测试，绝不用于真实判定 |
 
 模型回答的 JSON 形如 `{"risk":"HIGH","confidence":0.95,"labels":["广告"],"reason":"推广二维码"}`；`risk` 只认 LOW/MEDIUM/HIGH（大小写不敏感），`confidence` 钳到0–1，`labels` 最多取10个，`reason` 截断500字。解析失败按传输故障处理（重试，不写行）。
 
 提示词固定在 `OpenAiCompatibleProvider` 的 `REVIEW_SYSTEM` / `IMAGE_SYSTEM` 常量中，随代码版本管理；调提示词即发版，效果变化以验收记录为准。
+
+## 三模型链路
+
+评论走快车道+升级+兜底三段链：`primary-model`（快模型，如 super-120b-nano）先筛全部；
+首判为 LOW 且置信度低于 `escalation-below-confidence`（默认 0.9）时，用 `escalation-model`
+（强模型，如 super-vl）复核并采用复核结论；任一环节报传输故障（超时、鉴权失败、无法解析）
+则用 `fallback-model`（如 glm-flash）重试一次原输入。图片直接用 `photo-model`
+（视觉模型，如 super-vl）诊断，故障时同样走 `fallback-model`。升级失败保留首判；
+兜底也失败则不写行，下个周期重试。阈值 0.9 来自百条离线评测的敏感度扫描：
+仅升级低于该阈值的 LOW 首判即可拿回漏检的高风险项，同时不引入误伤。
 
 ## 结论表与展示
 
