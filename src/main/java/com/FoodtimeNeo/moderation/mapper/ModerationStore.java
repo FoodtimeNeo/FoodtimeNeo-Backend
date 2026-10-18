@@ -69,12 +69,13 @@ public class ModerationStore {
 
     public UUID publishReview(ModerationItem item) {
         return jdbc.queryForObject("""
-                INSERT INTO foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at,submission_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (dish_id,user_id) DO UPDATE
-                SET rating = EXCLUDED.rating,content = EXCLUDED.content,created_at = EXCLUDED.created_at
+                SET rating = EXCLUDED.rating,content = EXCLUDED.content,created_at = EXCLUDED.created_at,
+                    submission_id = EXCLUDED.submission_id
                 RETURNING id
-                """, UUID.class, UUID.randomUUID(), item.targetId(), item.userId(), item.rating(), item.content(), Timestamp.from(item.createdAt()));
+                """, UUID.class, UUID.randomUUID(), item.targetId(), item.userId(), item.rating(), item.content(), Timestamp.from(item.createdAt()), item.id());
     }
 
     public UUID publishDish(ModerationItem item, BigDecimal price, UUID moderator, String reason) {
