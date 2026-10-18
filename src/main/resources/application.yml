@@ -178,23 +178,23 @@ app:
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     login-window: ${AUTH_LOGIN_WINDOW:PT15M}
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
-    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
+    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:1000}
     redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
     password-change:
       window: ${PASSWORD_CHANGE_WINDOW:PT15M}
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
-      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:50}
+      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:500}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
   content:
     submissions:
       window: ${SUBMISSION_WINDOW:PT15M}
       user-limit: ${SUBMISSION_USER_LIMIT:20}
-      ip-limit: ${SUBMISSION_IP_LIMIT:200}
+      ip-limit: ${SUBMISSION_IP_LIMIT:2000}
       redis-namespace: ${SUBMISSION_REDIS_NAMESPACE:foodtime:content:submissions}
     uploads:
       window: ${UPLOAD_WINDOW:PT1H}
       user-limit: ${UPLOAD_USER_LIMIT:10}
-      ip-limit: ${UPLOAD_IP_LIMIT:100}
+      ip-limit: ${UPLOAD_IP_LIMIT:1000}
       redis-namespace: ${UPLOAD_REDIS_NAMESPACE:foodtime:content:uploads}
   storage:
     cleanup-enabled: ${STORAGE_CLEANUP_ENABLED:true}
