@@ -93,32 +93,35 @@ public class ModerationStore {
         return id;
     }
 
-    public void complete(ModerationItem item, UUID moderator, String status, String reason, UUID approvedId, BigDecimal price) {
+    public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
-        var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator,reason));
+        String ai = item.type().equals("review") ? ",reviewed_by_ai_model = ?" : "";
+        var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));
+        if (item.type().equals("review")) args.add(aiModel);
+        args.add(reason);
         if (item.type().equals("dish") || item.type().equals("stall")) args.add(approvedId);
         if (item.type().equals("dish")) args.add(price);
         args.add(item.id());
-        jdbc.update("UPDATE " + table(item.type()) + " SET status = ?,reviewed_by_user_id = ?,reviewed_at = now(),review_reason = ?" + extra + " WHERE id = ?", args.toArray());
+        jdbc.update("UPDATE " + table(item.type()) + " SET status = ?,reviewed_by_user_id = ?" + ai + ",reviewed_at = now(),review_reason = ?" + extra + " WHERE id = ?", args.toArray());
     }
 
-    public void log(ModerationItem item, UUID moderator, String action, String reason) {
+    public void log(ModerationItem item, UUID moderator, String actor, String aiModel, String action, String reason) {
         jdbc.update("""
-                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,moderator_user_id,action,reason)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,moderator_user_id,actor,ai_model,action,reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, UUID.randomUUID(),item.type().equals("review") ? item.id() : null,
                 item.type().equals("dish") ? item.id() : null,item.type().equals("stall") ? item.id() : null,
-                item.type().equals("photo") ? item.id() : null,moderator,action,reason);
+                item.type().equals("photo") ? item.id() : null,moderator,actor,aiModel,action,reason);
     }
 
     public List<ModerationLogResponse> logs(int size, long offset) {
         return jdbc.query("""
                 SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id) AS submission_id,
                        CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' ELSE 'photo' END AS type,
-                       moderator_user_id,action,reason,created_at
+                       moderator_user_id,actor,ai_model,action,reason,created_at
                 FROM foodtime.content_moderation_logs ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?
                 """, (r,n) -> new ModerationLogResponse(r.getObject("id",UUID.class),r.getObject("submission_id",UUID.class),
-                r.getString("type"),r.getObject("moderator_user_id",UUID.class),r.getString("action"),r.getString("reason"),r.getTimestamp("created_at").toInstant()), size, offset);
+                r.getString("type"),r.getObject("moderator_user_id",UUID.class),r.getString("actor"),r.getString("ai_model"),r.getString("action"),r.getString("reason"),r.getTimestamp("created_at").toInstant()), size, offset);
     }
     public long countLogs() { return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.content_moderation_logs", Long.class); }
 

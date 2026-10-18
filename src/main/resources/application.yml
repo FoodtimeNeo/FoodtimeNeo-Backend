@@ -158,6 +158,8 @@ app:
       fallback-model: ${AI_TRIAGE_FALLBACK_MODEL:z-ai/glm-5.3-flash}
       escalation-below-confidence: ${AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE:0.9}
       photo-model: ${AI_TRIAGE_PHOTO_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
+      auto-approve-above: ${AI_TRIAGE_AUTO_APPROVE_ABOVE:0.95}
+      auto-reject-above: ${AI_TRIAGE_AUTO_REJECT_ABOVE:0.9}
       timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
       batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
       interval: ${AI_TRIAGE_INTERVAL:PT5M}

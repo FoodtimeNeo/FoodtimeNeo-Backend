@@ -18,6 +18,8 @@ public record AiTriageProperties(boolean enabled,
         @Pattern(regexp = "fake|openai", message = "AI provider must be fake or openai") String provider,
         String baseUrl, String apiKey, String primaryModel, String escalationModel, String fallbackModel,
         @DecimalMin("0.0") @DecimalMax("1.0") double escalationBelowConfidence, String photoModel,
+        @DecimalMin("0.0") @DecimalMax("1.0") double autoApproveAbove,
+        @DecimalMin("0.0") @DecimalMax("1.0") double autoRejectAbove,
         @NotNull Duration timeout, @Min(1) @Max(100) int batchSize,
         @NotNull Duration interval, @NotNull Duration initialDelay) {
     @AssertTrue(message = "AI triage timeout must be whole positive seconds and no more than 120")

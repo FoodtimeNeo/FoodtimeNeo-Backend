@@ -39,6 +39,19 @@
 兜底也失败则不写行，下个周期重试。阈值 0.9 来自百条离线评测的敏感度扫描：
 仅升级低于该阈值的 LOW 首判即可拿回漏检的高风险项，同时不引入误伤。
 
+## 自动拍板（仅评论）
+
+最终结论够硬时 AI 直接执行，无需人工点按钮，拿不准的才留给人：
+
+- LOW 且置信度 ≥ `auto-approve-above`（默认 0.95）→ 自动通过，正式评论即时可见；
+- HIGH 且置信度 ≥ `auto-reject-above`（默认 0.9）→ 自动驳回，原因取 AI 说明；
+- MEDIUM，或置信度不够 → 保持 pending，进人工队列（管理端照常看到 AI 分诊参考）。
+
+自动决定走与人工审核同一事务路径（发布正式记录、更新投稿状态、记审核日志），
+只是日志记 `actor='ai'` + 模型名，与人工（`actor='human'` + 管理员）分开存放，
+核验时在审核日志里一眼区分。图片投稿暂不自动拍板，只做分诊参考。
+自动与人工撞单（人先点了）按 `ALREADY_REVIEWED` 吸收，不报错。
+
 ## 结论表与展示
 
 结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，**仍须人工点通过/驳回**。
