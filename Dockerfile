@@ -12,5 +12,7 @@ RUN addgroup -S foodtime && adduser -S foodtime -G foodtime \
 COPY --from=build --chown=foodtime:foodtime /workspace/target/foodtime-neo-backend.jar app.jar
 USER foodtime
 ENV SPRING_PROFILES_ACTIVE=prod
+# JVM heap is intentionally unset here: size it per box with JAVA_OPTS
+# (e.g. 2C4G single-box: -Xms768m -Xmx1280m), see docs/deployment.md.
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -jar /app/app.jar"]

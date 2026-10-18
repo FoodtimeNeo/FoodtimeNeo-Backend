@@ -38,3 +38,22 @@ docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath
 若出口IP更集中，继续调大 `*_IP_LIMIT` 即可，不动用户级配额。
 
 `.gitignore` 已覆盖 Maven 构建目录、IDE 状态、本地环境配置、日志、运行数据和私钥；保留 `.env.example`、Maven Wrapper 与版本化数据库迁移。`.dockerignore` 将本地凭据、Git 与构建缓存排除在镜像构建上下文之外。
+
+## 2核4G Debian 单机调配
+
+`compose.prod.yml` 是按 2C4G 单机（应用+PG+Redis 同机）调好的生产编排，
+内存预算合计约 3.1G，留 ~900M 给系统与峰值波动：
+
+| 组件 | 配置 | 理由 |
+| --- | --- | --- |
+| app | `JAVA_OPTS=-Xms768m -Xmx1280m`，`mem_limit` 1600m | 本地压测 150 并发下堆压力不大，1280M 上限足够；非堆（线程/元空间/直接内存）约 450M 打包进 limit |
+| app | `TOMCAT_MAX_THREADS=50` | 读链路单请求约 70ms 且多为序列化 CPU 活；2 核下 50 线程已能打出 ~600 rps，200 线程只会增加切换与栈内存 |
+| postgres | `shared_buffers=256MB`、`max_connections=60`、`mem_limit` 1g | 压测中连接池仅用 1–4 连接；60 上限防慢连接堆积，256M shared_buffers 够吃千级菜品+万级评论 |
+| redis | `maxmemory 256mb` + `volatile-lru` | 会话与限流键都有 TTL，只淘汰带过期时间的键；会话永不因内存被提前踢掉 |
+| cpu | app 1.5 / pg 0.5 / redis 0.25 | 读链路是 CPU 密集的 JSON 序列化，优先保应用 |
+
+Nginx 装本机即可（`worker_processes 2`），公网 443 同时转发页面与 `/api/v1`，
+并按上一节覆写 `X-Forwarded-For`。AI 预检是调远端模型接口，不占本机 GPU（本来也没有）；
+但生产默认关闭，上线前按 `ai-moderation.md` 走用户协议披露与审批再开。
+磁盘重点看 `/app/uploads` 与日志卷，`STORAGE_DISK_WARN_BYTES` 默认 1G 告警；
+首周盯 `monitoring.md` 的 p95、429 比例与 `hikaricp_connections_pending`（持续大于 0 再考虑加池）。
