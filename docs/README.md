@@ -17,6 +17,7 @@
 | 指标采集、慢请求与磁盘盯防 | [监控](monitoring.md) |
 | 并发压测结论与上线检查单 | [压测](load-test.md) |
 | AI预检分诊（只诊断、不自动审核） | [AI预检](ai-moderation.md) |
+| 隐私政策文本草案（展示与代码另议） | [隐私政策](privacy-policy.md) |
 | GitHub 检查和预留发布模板 | [CI/CD](ci-cd.md) |
 | 隔离环境历史验证 | [验收记录](verification.md) |
 | Android 专用本地环境 | [Android 本地联调](android-local-integration.md) |
