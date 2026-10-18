@@ -93,6 +93,12 @@ abstract class IntegrationApiSupport {
                     + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.community_comments WHERE user_id = ?", user);
+        }
+        // Reposts reference origin posts across users; drop all reposts before any origin.
+        for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ? AND repost_of_id IS NOT NULL", user);
+        }
+        for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.stall_submissions WHERE submitted_by_user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_images WHERE uploaded_by_user_id = ?", user);

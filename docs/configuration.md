@@ -11,6 +11,7 @@
 | `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](api/auth/invitation-codes.md) |
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `2000` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `1000` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |
+| `COMMUNITY_ACTION_WINDOW` / `COMMUNITY_ACTION_USER_LIMIT` / `COMMUNITY_ACTION_IP_LIMIT` / `COMMUNITY_ACTION_REDIS_NAMESPACE` | `PT1M` / `100` / `1000` / `foodtime:community:actions` | 社区点赞/收藏/转发的轻量动作限流；与投稿限流独立计数 |
 | `STORAGE_CLEANUP_ENABLED` / `STORAGE_CLEANUP_INTERVAL` / `STORAGE_CLEANUP_MAX_AGE` | `true` / `PT24H` / `P7D` | 孤儿暂存图片清理开关、周期与保留时长；保留时长为0至90天的整秒 |
 | `MONITORING_SCRAPE_IP` | `127.0.0.1` | Prometheus抓取允许的来源IP或CIDR；留空拒绝一切抓取。详见[监控](monitoring.md) |
 | `AI_TRIAGE_ENABLED` | `false` | AI预检总开关；**生产在用户协议披露并审批前保持关闭** |
