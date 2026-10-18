@@ -9,8 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -45,16 +48,11 @@ public class AiTriageService {
 
     /** Diagnoses a batch of pending submissions; returns the number of verdicts recorded. */
     public int triageOnce() {
-        AiProvider provider = "fake".equals(properties.provider()) ? fake : openai;
+        AiProvider provider = pick();
         int checked = 0;
         for (var item : store.pendingReviews(properties.batchSize())) {
             try {
-                AiVerdict verdict = diagnoseReview(provider, item.rating(), item.content());
-                checked += store.insert(UUID.randomUUID(), "review", item.id(), verdict.riskLevel(),
-                        BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
-                        verdict.reason(), verdict.model());
-            } catch (AiUnavailableException exception) {
-                LOG.warn("AI review triage deferred for {}: {}", item.id(), exception.getCode());
+                checked += diagnosePendingReview(provider, item);
             } catch (RuntimeException exception) {
                 LOG.error("AI review triage failed for {}", item.id(), exception);
                 break;
@@ -62,20 +60,7 @@ public class AiTriageService {
         }
         for (var item : store.pendingPhotos(properties.batchSize())) {
             try {
-                ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(item.imageUrl()));
-                AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
-                checked += store.insert(UUID.randomUUID(), "photo", item.id(), verdict.riskLevel(),
-                        BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
-                        verdict.reason(), verdict.model());
-            } catch (AiUnavailableException exception) {
-                LOG.warn("AI photo triage deferred for {}: {}", item.id(), exception.getCode());
-            } catch (BusinessException missing) {
-                if (!"IMAGE_NOT_FOUND".equals(missing.getCode())) throw missing;
-                // Staging file lost (manual deletion or volume loss): flag it so a human rejects the submission.
-                checked += store.insert(UUID.randomUUID(), "photo", item.id(), "HIGH", BigDecimal.ONE,
-                        new String[] {"文件缺失"}, missing.getMessage() + "，无法完成审核", "system");
-            } catch (IOException exception) {
-                LOG.warn("AI photo triage deferred for {}: staging file unreadable", item.id());
+                checked += diagnosePendingPhoto(provider, item);
             } catch (RuntimeException exception) {
                 LOG.error("AI photo triage failed for {}", item.id(), exception);
                 break;
@@ -83,6 +68,65 @@ public class AiTriageService {
         }
         if (checked > 0) LOG.info("AI triage diagnosed {} submissions", checked);
         return checked;
+    }
+
+    /**
+     * Instant path: a new submission is diagnosed within seconds of creation.
+     * Runs after the request transaction commits so the row is visible;
+     * anything failing here stays quiet and the scheduled sweep retries it.
+     */
+    @Async("aiTriageExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onSubmissionCreated(SubmissionDiagnoseEvent event) {
+        try {
+            AiProvider provider = pick();
+            if ("review".equals(event.type())) {
+                store.pendingReview(event.submissionId()).ifPresent(item -> diagnosePendingReview(provider, item));
+            } else if ("photo".equals(event.type())) {
+                store.pendingPhoto(event.submissionId()).ifPresent(item -> diagnosePendingPhoto(provider, item));
+            }
+        } catch (RuntimeException exception) {
+            LOG.warn("AI instant triage deferred for {} {}, sweep will retry", event.type(), event.submissionId());
+        }
+    }
+
+    private AiProvider pick() {
+        return "fake".equals(properties.provider()) ? fake : openai;
+    }
+
+    /** Returns 1 when a verdict was recorded, 0 when deferred to the sweep. */
+    private int diagnosePendingReview(AiProvider provider, AiModerationStore.PendingReview item) {
+        try {
+            AiVerdict verdict = diagnoseReview(provider, item.rating(), item.content());
+            return store.insert(UUID.randomUUID(), "review", item.id(), verdict.riskLevel(),
+                    BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
+                    verdict.reason(), verdict.model());
+        } catch (AiUnavailableException exception) {
+            LOG.warn("AI review triage deferred for {}: {}", item.id(), exception.getCode());
+            return 0;
+        }
+    }
+
+    /** Returns 1 when a verdict was recorded, 0 when deferred to the sweep. */
+    private int diagnosePendingPhoto(AiProvider provider, AiModerationStore.PendingPhoto item) {
+        try {
+            ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(item.imageUrl()));
+            AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
+            return store.insert(UUID.randomUUID(), "photo", item.id(), verdict.riskLevel(),
+                    BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
+                    verdict.reason(), verdict.model());
+        } catch (AiUnavailableException exception) {
+            LOG.warn("AI photo triage deferred for {}: {}", item.id(), exception.getCode());
+            return 0;
+        } catch (BusinessException missing) {
+            if (!"IMAGE_NOT_FOUND".equals(missing.getCode())) throw missing;
+            // Staging file lost (manual deletion or volume loss): flag it so a human rejects the submission.
+            return store.insert(UUID.randomUUID(), "photo", item.id(), "HIGH", BigDecimal.ONE,
+                    new String[] {"文件缺失"}, missing.getMessage() + "，无法完成审核", "system");
+        } catch (IOException exception) {
+            LOG.warn("AI photo triage deferred for {}: staging file unreadable", item.id());
+            return 0;
+        }
     }
 
     private AiVerdict diagnoseReview(AiProvider provider, int rating, String content) throws AiUnavailableException {

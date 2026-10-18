@@ -33,6 +33,28 @@ public class AiModerationStore {
                 """, (r, n) -> new PendingPhoto(r.getObject("id", UUID.class), r.getString("image_url")), limit);
     }
 
+    /** Single pending review without a verdict yet; empty when already diagnosed, decided or gone. */
+    public java.util.Optional<PendingReview> pendingReview(java.util.UUID id) {
+        var rows = jdbc.query("""
+                SELECT s.id, s.rating, s.content FROM foodtime.dish_review_submissions s
+                WHERE s.id = ? AND s.status = 'pending' AND NOT EXISTS (
+                    SELECT 1 FROM foodtime.ai_moderation_results a
+                    WHERE a.submission_type = 'review' AND a.submission_id = s.id)
+                """, (r, n) -> new PendingReview(r.getObject("id", java.util.UUID.class), r.getInt("rating"), r.getString("content")), id);
+        return rows.stream().findFirst();
+    }
+
+    /** Single pending photo without a verdict yet; empty when already diagnosed, decided or gone. */
+    public java.util.Optional<PendingPhoto> pendingPhoto(java.util.UUID id) {
+        var rows = jdbc.query("""
+                SELECT i.id, i.image_url FROM foodtime.dish_images i
+                WHERE i.id = ? AND i.status = 'pending' AND NOT EXISTS (
+                    SELECT 1 FROM foodtime.ai_moderation_results a
+                    WHERE a.submission_type = 'photo' AND a.submission_id = i.id)
+                """, (r, n) -> new PendingPhoto(r.getObject("id", java.util.UUID.class), r.getString("image_url")), id);
+        return rows.stream().findFirst();
+    }
+
     /** Returns 1 on insert, 0 when another worker already recorded this submission. */
     public int insert(UUID id, String type, UUID submissionId, String risk, BigDecimal confidence,
                       String[] labels, String reason, String model) {

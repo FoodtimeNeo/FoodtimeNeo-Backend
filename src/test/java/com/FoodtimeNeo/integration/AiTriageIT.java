@@ -43,8 +43,17 @@ class AiTriageIT extends IntegrationApiSupport {
         assertThat(browser.call("POST", "/api/v1/dishes/" + dish + "/image-submissions",
                 Map.of("imageUrl", imageUrl)).statusCode()).isEqualTo(201);
 
-        // The shared dev database may hold older pending rows; triage covers them too.
-        assertThat(triage.triageOnce()).isGreaterThanOrEqualTo(3);
+        // The shared dev database may hold older pending rows; instant triage or the sweep covers them.
+        // Wait for our three verdicts (instant path usually beats the sweep here), then prove idempotence.
+        for (int i = 0; i < 30; i++) {
+            Long got = jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_review_submissions WHERE content IN ('普通点评','含违禁词的点评'))"
+                    + " OR (submission_type = 'photo' AND submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_images WHERE image_url = ?))",
+                    Long.class, imageUrl);
+            if (got != null && got >= 3) break;
+            Thread.sleep(1000);
+        }
         assertThat(triage.triageOnce()).isZero();
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.ai_moderation_results WHERE submission_id IN"
@@ -74,13 +83,41 @@ class AiTriageIT extends IntegrationApiSupport {
         Browser browser = login(owner);
         assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 3, "content", content)).statusCode()).isEqualTo(202);
 
-        assertThat(triage.triageOnce()).isGreaterThanOrEqualTo(1);
+        // Instant path or sweep: wait for the verdict, then prove the escalation pass ran.
+        BigDecimal escalated = null;
+        for (int i = 0; i < 30 && escalated == null; i++) {
+            Thread.sleep(1000);
+            escalated = quietConfidence(content);
+        }
 
         // The fake double answers 0.5 on first sight and 0.95 on second sight;
         // seeing 0.95 here proves the escalation pass ran and its verdict was adopted.
-        assertThat(jdbc.queryForObject("SELECT confidence FROM foodtime.ai_moderation_results WHERE submission_id IN"
-                + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
-                BigDecimal.class, content)).isEqualByComparingTo("0.95");
+        assertThat(escalated).isEqualByComparingTo("0.95");
+    }
+
+    @Test
+    void submittedReviewIsDiagnosedWithinSecondsWithoutSweep() throws Exception {
+        String content = "即时分诊-" + UUID.randomUUID();
+        Browser browser = login(owner);
+        assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 5, "content", content)).statusCode()).isEqualTo(202);
+
+        // Never call triageOnce: the submission event alone must drive diagnosis.
+        BigDecimal confidence = null;
+        for (int i = 0; i < 30 && confidence == null; i++) {
+            Thread.sleep(1000);
+            confidence = quietConfidence(content);
+        }
+        assertThat(confidence).isEqualByComparingTo("0.9");
+    }
+
+    private BigDecimal quietConfidence(String content) {
+        try {
+            return jdbc.queryForObject("SELECT confidence FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
+                    BigDecimal.class, content);
+        } catch (org.springframework.dao.EmptyResultDataAccessException expected) {
+            return null;
+        }
     }
 
     @Test
@@ -88,7 +125,9 @@ class AiTriageIT extends IntegrationApiSupport {
         String content = "通过可见-" + UUID.randomUUID();
         Browser browser = login(owner);
         assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 4, "content", content)).statusCode()).isEqualTo(202);
-        assertThat(triage.triageOnce()).isGreaterThanOrEqualTo(1);
+        for (int i = 0; i < 30 && quietConfidence(content) == null; i++) {
+            Thread.sleep(1000);
+        }
 
         UUID submission = jdbc.queryForObject(
                 "SELECT id FROM foodtime.dish_review_submissions WHERE content = ?", UUID.class, content);
