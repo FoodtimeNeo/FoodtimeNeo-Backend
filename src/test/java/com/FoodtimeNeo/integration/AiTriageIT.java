@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.StreamSupport;
 import javax.imageio.ImageIO;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -61,8 +62,14 @@ class AiTriageIT extends IntegrationApiSupport {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.ai_moderation_results WHERE submission_id IN"
                 + " (SELECT id FROM foodtime.dish_review_submissions WHERE content IN ('普通点评','含违禁词的点评'))",
                 Long.class)).isEqualTo(2);
+        // Confident LOW stays human; confident HIGH is auto-rejected with an AI log entry.
         assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_review_submissions WHERE content = '普通点评'",
                 String.class)).isEqualTo("pending");
+        assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_review_submissions WHERE content = '含违禁词的点评'",
+                String.class)).isEqualTo("rejected");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.content_moderation_logs WHERE actor = 'ai'"
+                + " AND review_submission_id IN (SELECT id FROM foodtime.dish_review_submissions WHERE content = '含违禁词的点评')",
+                Long.class)).isEqualTo(1);
 
         Browser admin = login(account("admin"));
         var items = body(admin.call("GET", "/api/v1/admin/moderation?status=pending&size=100", null))
@@ -71,9 +78,10 @@ class AiTriageIT extends IntegrationApiSupport {
         assertThat(low.path("aiRiskLevel").asString()).isEqualTo("LOW");
         assertThat(low.path("aiConfidence").asDouble()).isEqualTo(0.9);
         assertThat(low.path("aiReason").asString()).isNotBlank();
-        var high = find(items, "含违禁词的点评");
-        assertThat(high.path("aiRiskLevel").asString()).isEqualTo("HIGH");
-        assertThat(high.path("userDisplayName").asString()).isEqualTo("integration user");
+        assertThat(low.path("userDisplayName").asString()).isEqualTo("integration user");
+        // Auto-rejected reviews leave the pending queue; humans only see the undecided ones.
+        assertThat(StreamSupport.stream(items.spliterator(), false)
+                .noneMatch(item -> item.path("content").asString().equals("含违禁词的点评"))).isTrue();
         var photo = findByImage(items, imageUrl);
         assertThat(photo.path("aiRiskLevel").asString()).isEqualTo("LOW");
         assertThat(photo.path("imageUrl").asString()).isEqualTo(imageUrl);
@@ -120,6 +128,27 @@ class AiTriageIT extends IntegrationApiSupport {
         } catch (org.springframework.dao.EmptyResultDataAccessException expected) {
             return null;
         }
+    }
+
+    @Test
+    void confidentLowReviewIsAutoApprovedWithAnAiLog() throws Exception {
+        String content = "放心通过-" + UUID.randomUUID();
+        Browser browser = login(owner);
+        assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 5, "content", content)).statusCode()).isEqualTo(202);
+
+        String status = null;
+        for (int i = 0; i < 30 && !"approved".equals(status); i++) {
+            Thread.sleep(1000);
+            status = jdbc.queryForObject("SELECT status FROM foodtime.dish_review_submissions WHERE content = ?",
+                    String.class, content);
+        }
+        assertThat(status).isEqualTo("approved");
+        // Published without human touch, and the AI decision is logged separately for verification.
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE content = ?",
+                Long.class, content)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT actor FROM foodtime.content_moderation_logs WHERE review_submission_id IN"
+                + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
+                String.class, content)).isEqualTo("ai");
     }
 
     @Test

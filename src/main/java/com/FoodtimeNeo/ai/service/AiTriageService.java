@@ -5,6 +5,7 @@ import com.FoodtimeNeo.ai.mapper.AiModerationStore;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.config.properties.AiTriageProperties;
 import com.FoodtimeNeo.media.service.ImageStorageService;
+import com.FoodtimeNeo.moderation.service.ModerationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,12 +33,13 @@ public class AiTriageService {
     private final OpenAiCompatibleProvider openai;
     private final FakeAiProvider fake;
     private final ImageStorageService images;
+    private final ModerationService moderation;
     private final AiTriageProperties properties;
 
     public AiTriageService(AiModerationStore store, OpenAiCompatibleProvider openai, FakeAiProvider fake,
-                           ImageStorageService images, AiTriageProperties properties) {
+                           ImageStorageService images, ModerationService moderation, AiTriageProperties properties) {
         this.store = store; this.openai = openai; this.fake = fake;
-        this.images = images; this.properties = properties;
+        this.images = images; this.moderation = moderation; this.properties = properties;
     }
 
     @Scheduled(fixedDelayString = "${app.ai.triage.interval:PT5M}",
@@ -98,12 +100,31 @@ public class AiTriageService {
     private int diagnosePendingReview(AiProvider provider, AiModerationStore.PendingReview item) {
         try {
             AiVerdict verdict = diagnoseReview(provider, item.rating(), item.content());
-            return store.insert(UUID.randomUUID(), "review", item.id(), verdict.riskLevel(),
+            int rows = store.insert(UUID.randomUUID(), "review", item.id(), verdict.riskLevel(),
                     BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
                     verdict.reason(), verdict.model());
+            maybeAutoDecide(verdict, "review", item.id());
+            return rows;
         } catch (AiUnavailableException exception) {
             LOG.warn("AI review triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
+        }
+    }
+
+    /**
+     * Hard verdicts execute immediately: confident LOW approves, confident HIGH rejects.
+     * Photos and uncertain calls stay human. Races with a human decision are absorbed.
+     */
+    private void maybeAutoDecide(AiVerdict verdict, String type, UUID submissionId) {
+        if (!"review".equals(type)) return;
+        boolean approve = verdict.riskLevel().equals("LOW") && verdict.confidence() >= properties.autoApproveAbove();
+        boolean reject = verdict.riskLevel().equals("HIGH") && verdict.confidence() >= properties.autoRejectAbove();
+        if (!approve && !reject) return;
+        try {
+            moderation.autoDecide(type, submissionId, verdict, approve);
+            LOG.info("AI auto-{} review {}", approve ? "approved" : "rejected", submissionId);
+        } catch (BusinessException busy) {
+            LOG.warn("AI auto-decision skipped for {}: {}", submissionId, busy.getCode());
         }
     }
 

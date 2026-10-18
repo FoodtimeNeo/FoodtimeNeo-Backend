@@ -21,6 +21,9 @@ public class FakeAiProvider implements AiProvider {
         if (content != null && content.contains("违禁")) {
             return new AiVerdict("HIGH", 0.95, List.of("违规"), "演示判定：命中测试标记", "fake");
         }
+        if (content != null && content.contains("放心")) {
+            return new AiVerdict("LOW", 0.99, List.of(), "演示判定：放心通过", "fake");
+        }
         if (content != null && content.contains("存疑")) {
             if (seen.add("review:" + content)) {
                 return new AiVerdict("LOW", 0.5, List.of(), "演示判定：拿不准", "fake");
