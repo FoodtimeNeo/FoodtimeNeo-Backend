@@ -64,6 +64,15 @@ abstract class IntegrationApiSupport {
     void cleanFixtures() {
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE moderator_user_id = ?", user);
+            // AI auto-decisions log with a null moderator; drop those rows before their submissions.
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE review_submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_review_submissions WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_image_id IN"
+                    + " (SELECT id FROM foodtime.dish_images WHERE uploaded_by_user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_review_submissions WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'photo' AND submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_images WHERE uploaded_by_user_id = ?)", user);
         }
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
