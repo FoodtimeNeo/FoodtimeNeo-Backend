@@ -36,4 +36,12 @@ class OpenAiCompatibleProviderTest {
         assertThatThrownBy(() -> OpenAiCompatibleProvider.parseVerdict("{\"risk\":\"CRITICAL\",\"confidence\":0.5,\"reason\":\"x\"}", "m"))
                 .isInstanceOf(AiUnavailableException.class);
     }
+
+    @Test
+    void keyListIgnoresBlanksAndSurroundingSpaces() {
+        assertThat(OpenAiCompatibleProvider.splitKeys("k1,k2 , k3,,"))
+                .containsExactly("k1", "k2", "k3");
+        assertThat(OpenAiCompatibleProvider.splitKeys("")).isEmpty();
+        assertThat(OpenAiCompatibleProvider.splitKeys(null)).isEmpty();
+    }
 }

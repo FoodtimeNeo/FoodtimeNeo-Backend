@@ -25,6 +25,8 @@ class AiTriageIT extends IntegrationApiSupport {
     private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "ai-triage-test-" + UUID.randomUUID());
     @DynamicPropertySource static void directory(DynamicPropertyRegistry properties) {
         properties.add("app.storage.directory", () -> STORAGE.toString());
+        // Beats the hermetic false from IntegrationApiSupport and any local .env.
+        properties.add("app.ai.triage.enabled", () -> "true");
     }
 
     @Autowired

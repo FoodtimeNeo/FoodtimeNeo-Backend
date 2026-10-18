@@ -22,7 +22,7 @@
 
 | 取值 | 行为 |
 | --- | --- |
-| `openai`（默认） | 调 OpenAI 兼容的 `POST {base-url}/chat/completions`（chat + vision）；temperature 0，max_tokens 400，要求模型只回 JSON |
+| `openai`（默认） | 调 OpenAI 兼容的 `POST {base-url}/chat/completions`（chat + vision）；temperature 0，max_tokens 400，要求模型只回 JSON。多 key 时按 `AI_TRIAGE_API_KEY` 的逗号分隔列表逐请求轮询，遇到 401/403/429 自动切下一个（全死则本轮记失败、扫批下轮重试） |
 | `fake` | 确定性演示：正文含“违禁”判 HIGH；含“存疑”首次 LOW 0.5、复核 LOW 0.95（演示升级链路）；其余 LOW；图片一律 LOW。仅供本地开发与集成测试，绝不用于真实判定 |
 
 模型回答的 JSON 形如 `{"risk":"HIGH","confidence":0.95,"labels":["广告"],"reason":"推广二维码"}`；`risk` 只认 LOW/MEDIUM/HIGH（大小写不敏感），`confidence` 钳到0–1，`labels` 最多取10个，`reason` 截断500字。解析失败按传输故障处理（重试，不写行）。

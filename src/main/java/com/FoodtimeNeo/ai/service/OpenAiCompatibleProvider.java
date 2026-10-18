@@ -15,8 +15,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Calls any OpenAI-compatible chat-completions endpoint with vision support.
@@ -43,6 +45,14 @@ public class OpenAiCompatibleProvider implements AiProvider {
     private final AiTriageProperties properties;
     private final ObjectMapper json = new ObjectMapper();
     private final HttpClient http;
+    private final AtomicInteger keyCursor = new AtomicInteger();
+
+    /** A key the server refused: dead, wrong scope or per-key throttled. The next key is worth one try. */
+    static final class KeyRejectedException extends AiUnavailableException {
+        KeyRejectedException(int status) {
+            super("AI服务返回" + status);
+        }
+    }
 
     public OpenAiCompatibleProvider(AiTriageProperties properties) {
         this.properties = properties;
@@ -74,6 +84,28 @@ public class OpenAiCompatibleProvider implements AiProvider {
     }
 
     private AiVerdict complete(String model, String system, ObjectNode userMessage) throws AiUnavailableException {
+        List<String> keys = splitKeys(properties.apiKey());
+        if (keys.isEmpty()) throw new AiUnavailableException("AI服务暂时不可用");
+        AiUnavailableException lastRejection = null;
+        for (int attempt = 0; attempt < keys.size(); attempt++) {
+            String key = keys.get(Math.floorMod(keyCursor.getAndIncrement(), keys.size()));
+            try {
+                return callOnce(model, system, userMessage, key);
+            } catch (KeyRejectedException rejected) {
+                LOG.warn("AI key rejected, rotating to next key ({}/{})", attempt + 1, keys.size());
+                lastRejection = rejected;
+            }
+        }
+        throw lastRejection;
+    }
+
+    /** Splits the comma-separated key list; blanks and surrounding spaces are ignored. */
+    static List<String> splitKeys(String apiKey) {
+        if (apiKey == null) return List.of();
+        return Arrays.stream(apiKey.split(",")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+    }
+
+    private AiVerdict callOnce(String model, String system, ObjectNode userMessage, String key) throws AiUnavailableException {
         try {
             ObjectNode body = json.createObjectNode();
             body.put("model", model);
@@ -87,11 +119,13 @@ public class OpenAiCompatibleProvider implements AiProvider {
             HttpRequest request = HttpRequest.newBuilder(URI.create(properties.baseUrl() + "/chat/completions"))
                     .timeout(properties.timeout())
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + properties.apiKey())
+                    .header("Authorization", "Bearer " + key)
                     .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) throw new AiUnavailableException("AI服务返回" + response.statusCode());
+            int status = response.statusCode();
+            if (status == 401 || status == 403 || status == 429) throw new KeyRejectedException(status);
+            if (status != 200) throw new AiUnavailableException("AI服务返回" + status);
             String text = json.readTree(response.body()).path("choices").path(0).path("message").path("content").asText("");
             return parseVerdict(text, model);
         } catch (AiUnavailableException exception) {
