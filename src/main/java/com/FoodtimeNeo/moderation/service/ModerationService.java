@@ -2,6 +2,7 @@ package com.FoodtimeNeo.moderation.service;
 
 import com.FoodtimeNeo.common.api.*;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.community.mapper.CommunityStore;
 import com.FoodtimeNeo.moderation.dto.*;
 import com.FoodtimeNeo.moderation.mapper.ModerationStore;
 import com.FoodtimeNeo.review.mapper.PublishedReviewMapper;
@@ -23,8 +24,10 @@ public class ModerationService {
     private final ModerationStore store;
     private final PublishedReviewMapper reviews;
     private final CatalogSubmissionMapper catalog;
-    public ModerationService(ModerationStore store, PublishedReviewMapper reviews, CatalogSubmissionMapper catalog) {
-        this.store = store; this.reviews = reviews; this.catalog = catalog;
+    private final CommunityStore community;
+    public ModerationService(ModerationStore store, PublishedReviewMapper reviews, CatalogSubmissionMapper catalog,
+                             CommunityStore community) {
+        this.store = store; this.reviews = reviews; this.catalog = catalog; this.community = community;
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
@@ -37,7 +40,7 @@ public class ModerationService {
     @Transactional
     public ModerationResult moderate(UserProfile actor, String type, UUID id, @Valid ModerationRequest request) {
         guard(actor);
-        if (!Set.of("review","dish","stall","photo").contains(type)) throw bad("审核类型不合法");
+        if (!Set.of("review","dish","stall","photo","community-post").contains(type)) throw bad("审核类型不合法");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
@@ -52,12 +55,12 @@ public class ModerationService {
     }
 
     /**
-     * AI automatic decision: only reviews are eligible, photos and catalog stay human.
+     * AI automatic decision: reviews and community posts are eligible, catalog and photos stay human.
      * Races with a human decision surface as ALREADY_REVIEWED for the caller to absorb.
      */
     @Transactional
     public ModerationResult autoDecide(String type, UUID id, com.FoodtimeNeo.ai.dto.AiVerdict verdict, boolean approve) {
-        if (!"review".equals(type)) throw bad("AI自动审核仅支持评论");
+        if (!Set.of("review", "community-post").contains(type)) throw bad("AI自动审核仅支持评论与社区动态");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
@@ -71,6 +74,7 @@ public class ModerationService {
             boolean visible = switch (type) {
                 case "review", "photo" -> reviews.lockVisibleDish(item.targetId()) != null;
                 case "dish" -> catalog.lockStall(item.targetId()) != null;
+                case "community-post" -> true;
                 default -> catalog.lockHall(item.targetId()) != null;
             };
             if (!visible) throw new BusinessException("TARGET_UNAVAILABLE", "目标已停用，请先恢复", HttpStatus.CONFLICT);
@@ -78,6 +82,7 @@ public class ModerationService {
                 if (type.equals("review")) approved = store.publishReview(item);
                 else if (type.equals("dish")) approved = store.publishDish(item,price,moderatorId,reason);
                 else if(type.equals("stall")) approved = store.publishStall(item);
+                else if(type.equals("community-post")) approved = item.id();
                 else approved = item.id();
             } catch (DuplicateKeyException conflict) {
                 throw new BusinessException("CATALOG_CONFLICT", "同一食堂已有同名档口", HttpStatus.CONFLICT);
@@ -85,6 +90,7 @@ public class ModerationService {
         }
         String status = action.equals("approve") ? "approved" : "rejected";
         store.complete(item,moderatorId,aiModel,status,reason,approved,price);
+        if (type.equals("community-post") && action.equals("approve")) community.bumpRepostOf(item.id());
         store.log(item,moderatorId,actor,aiModel,action,reason);
         return new ModerationResult(item.id(),status,approved);
     }

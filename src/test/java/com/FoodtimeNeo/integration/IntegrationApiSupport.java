@@ -18,9 +18,10 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Real HTTP/cookies/CSRF, with independently owned users and catalog fixtures. */
-// Local .env may enable real AI triage; the suite stays hermetic on this flag
-// (AiTriageIT opts back in via its own inlined properties, which take precedence).
-@TestPropertySource(properties = "app.ai.triage.enabled=false")
+// Local .env may enable real AI triage; the suite stays hermetic on these flags
+// (AiTriageIT opts back in via its own dynamic properties, which take precedence).
+@TestPropertySource(properties = {"app.ai.triage.enabled=false",
+        "app.ai.triage.auto-approve-above=0.95", "app.ai.triage.auto-reject-above=0.9"})
 abstract class IntegrationApiSupport {
     private static final String PREFIX = "foodtime:integration:api:" + UUID.randomUUID();
     static final String PASSWORD = "Foodtime2026!";
@@ -73,11 +74,26 @@ abstract class IntegrationApiSupport {
                     + " (SELECT id FROM foodtime.dish_review_submissions WHERE user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'photo' AND submission_id IN"
                     + " (SELECT id FROM foodtime.dish_images WHERE uploaded_by_user_id = ?)", user);
+            // Community rows: logs and verdicts first, then content, then the user.
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE community_post_id IN"
+                    + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE community_comment_id IN"
+                    + " (SELECT id FROM foodtime.community_comments WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'community-post' AND submission_id IN"
+                    + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'community-image' AND submission_id IN"
+                    + " (SELECT i.id FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id = i.post_id WHERE p.user_id = ?)", user);
         }
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_review_submissions WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?", user);
+            jdbc.update("DELETE FROM foodtime.community_likes WHERE user_id = ?", user);
+            jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'post' AND target_id IN"
+                    + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ?", user);
+            jdbc.update("DELETE FROM foodtime.community_comments WHERE user_id = ?", user);
+            jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.stall_submissions WHERE submitted_by_user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_images WHERE uploaded_by_user_id = ?", user);
         }

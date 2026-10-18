@@ -55,6 +55,29 @@ public class AiModerationStore {
         return rows.stream().findFirst();
     }
 
+    public record PendingCommunityPost(UUID id, String content) { }
+
+    public java.util.List<PendingCommunityPost> pendingCommunityPosts(int limit) {
+        return jdbc.query("""
+                SELECT p.id, p.content FROM foodtime.community_posts p
+                WHERE p.status = 'pending' AND NOT EXISTS (
+                    SELECT 1 FROM foodtime.ai_moderation_results a
+                    WHERE a.submission_type = 'community-post' AND a.submission_id = p.id)
+                ORDER BY p.created_at ASC, p.id ASC LIMIT ?
+                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), limit);
+    }
+
+    /** Single pending community post without a verdict yet; empty when already diagnosed, decided or gone. */
+    public java.util.Optional<PendingCommunityPost> pendingCommunityPost(java.util.UUID id) {
+        var rows = jdbc.query("""
+                SELECT p.id, p.content FROM foodtime.community_posts p
+                WHERE p.id = ? AND p.status = 'pending' AND NOT EXISTS (
+                    SELECT 1 FROM foodtime.ai_moderation_results a
+                    WHERE a.submission_type = 'community-post' AND a.submission_id = p.id)
+                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), id);
+        return rows.stream().findFirst();
+    }
+
     /** Returns 1 on insert, 0 when another worker already recorded this submission. */
     public int insert(UUID id, String type, UUID submissionId, String risk, BigDecimal confidence,
                       String[] labels, String reason, String model) {
