@@ -6,7 +6,11 @@ import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
 import com.FoodtimeNeo.community.dto.CreateCommentRequest;
 import com.FoodtimeNeo.community.dto.CreatePostRequest;
+import com.FoodtimeNeo.community.dto.FavoriteRequest;
+import com.FoodtimeNeo.community.dto.LikeRequest;
+import com.FoodtimeNeo.community.dto.RepostRequest;
 import com.FoodtimeNeo.community.service.CommunityCommentService;
+import com.FoodtimeNeo.community.service.CommunityInteractionService;
 import com.FoodtimeNeo.community.service.CommunityPostService;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,8 +29,10 @@ import java.util.UUID;
 public class CommunityController {
     private final CommunityPostService posts;
     private final CommunityCommentService comments;
-    public CommunityController(CommunityPostService posts, CommunityCommentService comments) {
-        this.posts = posts; this.comments = comments;
+    private final CommunityInteractionService interactions;
+    public CommunityController(CommunityPostService posts, CommunityCommentService comments,
+                               CommunityInteractionService interactions) {
+        this.posts = posts; this.comments = comments; this.interactions = interactions;
     }
 
     @PostMapping("/posts")
@@ -75,6 +82,28 @@ public class CommunityController {
     public ApiResponse<Void> deleteComment(@PathVariable UUID id, HttpServletRequest request) {
         comments.delete(id, current(request).id());
         return ApiResponse.success(null);
+    }
+
+    @PostMapping("/likes")
+    @Operation(summary = "点赞/取消赞", description = "目标可以是动态或评论；重复调用即取消，结果里返回最新状态与计数")
+    public ApiResponse<Map<String, Object>> like(@Valid @RequestBody LikeRequest body, HttpServletRequest request) {
+        return ApiResponse.success(interactions.toggleLike(current(request).id(), body.targetType(),
+                body.targetId(), request.getRemoteAddr()));
+    }
+
+    @PostMapping("/favorites")
+    @Operation(summary = "收藏/取消收藏", description = "重复调用即取消；我的收藏见 /users/me/community-favorites")
+    public ApiResponse<Map<String, Object>> favorite(@Valid @RequestBody FavoriteRequest body, HttpServletRequest request) {
+        return ApiResponse.success(interactions.toggleFavorite(current(request).id(), body.postId(), request.getRemoteAddr()));
+    }
+
+    @PostMapping("/posts/{postId}/reposts")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "转发动态", description = "须附一句话；原动态须已通过；转发本身同样走审核")
+    public ApiResponse<Map<String, UUID>> repost(@PathVariable UUID postId, @Valid @RequestBody RepostRequest body,
+                                                 HttpServletRequest request) {
+        return ApiResponse.success(interactions.repost(current(request).id(), postId,
+                new CreatePostRequest(body.content(), List.of(), postId), request.getRemoteAddr()));
     }
 
     private UserProfile current(HttpServletRequest request) {

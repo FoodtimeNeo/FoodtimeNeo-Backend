@@ -3,6 +3,7 @@ package com.FoodtimeNeo.api.user;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.*;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
+import com.FoodtimeNeo.community.service.CommunityInteractionService;
 import com.FoodtimeNeo.community.service.CommunityPostService;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
