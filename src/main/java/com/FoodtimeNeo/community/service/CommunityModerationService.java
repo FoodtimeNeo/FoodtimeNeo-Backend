@@ -37,10 +37,20 @@ public class CommunityModerationService {
         return PageResponse.of(posts.queue(status, page.size(), page.offset()), posts.queueCount(status), page);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<ModerationItem> queueComments(UserProfile actor, String status, PageRequest page) {
+        guard(actor);
+        if (!Set.of("pending", "approved", "rejected").contains(status)) {
+            throw new BusinessException("VALIDATION_ERROR", "审核状态不合法", HttpStatus.BAD_REQUEST);
+        }
+        return PageResponse.of(posts.queueComments(status, page.size(), page.offset()),
+                posts.queueCommentCount(status), page);
+    }
+
     @Transactional
     public ModerationResult moderate(UserProfile actor, String type, UUID id, @Valid ModerationRequest request) {
         guard(actor);
-        if (!"community-post".equals(type)) {
+        if (!Set.of("community-post", "community-comment").contains(type)) {
             throw new BusinessException("VALIDATION_ERROR", "审核类型不合法", HttpStatus.BAD_REQUEST);
         }
         return moderation.moderate(actor, type, id, request);

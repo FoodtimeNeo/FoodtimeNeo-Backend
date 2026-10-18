@@ -36,6 +36,21 @@ public class CommunityAdminController {
         return ApiResponse.success(moderation.moderate(current(request), "community-post", id, body));
     }
 
+    @GetMapping("/comments")
+    @Operation(summary = "社区评论审核队列", description = "按状态分页，附AI分诊结论")
+    public ApiResponse<PageResponse<ModerationItem>> commentQueue(HttpServletRequest request,
+            @RequestParam(defaultValue = "pending") String status,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(moderation.queueComments(current(request), status, new PageRequest(page, size)));
+    }
+
+    @PostMapping("/comments/{id}")
+    @Operation(summary = "通过或驳回社区评论", description = "仅处理pending；通过后动态评论数+1")
+    public ApiResponse<ModerationResult> moderateComment(@PathVariable UUID id, @Valid @RequestBody ModerationRequest body,
+                                                        HttpServletRequest request) {
+        return ApiResponse.success(moderation.moderate(current(request), "community-comment", id, body));
+    }
+
     private UserProfile current(HttpServletRequest request) {
         return (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
     }
