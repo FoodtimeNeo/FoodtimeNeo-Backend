@@ -15,7 +15,9 @@
 | `MONITORING_SCRAPE_IP` | `127.0.0.1` | Prometheus抓取允许的来源IP或CIDR；留空拒绝一切抓取。详见[监控](monitoring.md) |
 | `AI_TRIAGE_ENABLED` | `false` | AI预检总开关；**生产在用户协议披露并审批前保持关闭** |
 | `AI_TRIAGE_PROVIDER` | `openai` | `openai`（OpenAI兼容接口）或 `fake`（确定性演示，仅开发测试） |
-| `AI_TRIAGE_BASE_URL` / `AI_TRIAGE_API_KEY` / `AI_TRIAGE_MODEL` | 空 | `openai` 提供方必填；缺任何一项启动失败。密钥只走环境变量或平台密钥 |
+| `AI_TRIAGE_BASE_URL` / `AI_TRIAGE_API_KEY` / `AI_TRIAGE_PRIMARY_MODEL` | 空 | `openai` 提供方必填；缺任何一项启动失败。密钥只走环境变量或平台密钥 |
+| `AI_TRIAGE_ESCALATION_MODEL` / `AI_TRIAGE_FALLBACK_MODEL` / `AI_TRIAGE_PHOTO_MODEL` | 见 application.yml 默认值 | 升级复核 / 故障兜底 / 图片直诊模型；留空表示不启用对应环节 |
+| `AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE` | `0.9` | LOW 首判置信度低于此阈值时触发升级复核（0–1） |
 | `AI_TRIAGE_TIMEOUT` / `AI_TRIAGE_BATCH_SIZE` | `PT30S` / `10` | 单次调用超时（1–120秒整秒）；每轮最多诊断条数（1–100） |
 | `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT5M` / `PT1M` | 调度周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
 | `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |

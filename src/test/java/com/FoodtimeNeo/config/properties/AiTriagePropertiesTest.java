@@ -13,6 +13,7 @@ class AiTriagePropertiesTest {
 
     private AiTriageProperties config(boolean enabled, String provider, String baseUrl, String key, String model) {
         return new AiTriageProperties(enabled, provider, baseUrl, key, model,
+                "escalation-model", "fallback-model", 0.9, "photo-model",
                 Duration.ofSeconds(30), 10, Duration.ofMinutes(5), Duration.ofMinutes(1));
     }
 
@@ -37,8 +38,8 @@ class AiTriagePropertiesTest {
 
     @Test
     void windowsAndBatchesAreBounded() {
-        var bad = new AiTriageProperties(true, "fake", "", "", "", Duration.ofSeconds(0),
-                0, Duration.ofDays(2), Duration.ofSeconds(-1));
+        var bad = new AiTriageProperties(true, "fake", "", "", "", "", "", -0.5, "",
+                Duration.ofSeconds(0), 0, Duration.ofDays(2), Duration.ofSeconds(-1));
         assertThat(validator.validate(bad)).hasSizeGreaterThanOrEqualTo(4);
     }
 }

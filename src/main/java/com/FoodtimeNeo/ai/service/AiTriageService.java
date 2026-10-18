@@ -8,16 +8,18 @@ import com.FoodtimeNeo.media.service.ImageStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.http.HttpStatus;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Async triage: diagnoses pending reviews and photos, records verdicts, never approves or rejects.
- * Unchecked items stay in the human queue; transport failures leave no row and are retried next tick.
+ * Async triage with a review chain: the fast primary model screens everything,
+ * LOW verdicts below the confidence threshold are escalated to a stronger model,
+ * and a fallback model covers primary outages. Photos use a vision model directly.
+ * Nothing is ever approved or rejected here; humans decide.
  */
 @Service
 @ConditionalOnProperty(prefix = "app.ai.triage", name = "enabled", havingValue = "true")
@@ -41,13 +43,13 @@ public class AiTriageService {
         triageOnce();
     }
 
-    /** Runs one batch; returns the number of submissions diagnosed. */
+    /** Diagnoses a batch of pending submissions; returns the number of verdicts recorded. */
     public int triageOnce() {
         AiProvider provider = "fake".equals(properties.provider()) ? fake : openai;
         int checked = 0;
         for (var item : store.pendingReviews(properties.batchSize())) {
             try {
-                AiVerdict verdict = provider.checkReview(item.rating(), item.content());
+                AiVerdict verdict = diagnoseReview(provider, item.rating(), item.content());
                 checked += store.insert(UUID.randomUUID(), "review", item.id(), verdict.riskLevel(),
                         BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
                         verdict.reason(), verdict.model());
@@ -60,11 +62,8 @@ public class AiTriageService {
         }
         for (var item : store.pendingPhotos(properties.batchSize())) {
             try {
-                // Staged files are addressed by the file id embedded in the image reference,
-                // which differs from the dish_images row id.
-                UUID fileId = fileId(item.imageUrl());
-                ImageStorageService.StagedFile thumbnail = images.stagedThumbnail(fileId);
-                AiVerdict verdict = provider.checkImage(thumbnail.bytes(), thumbnail.contentType());
+                ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(item.imageUrl()));
+                AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
                 checked += store.insert(UUID.randomUUID(), "photo", item.id(), verdict.riskLevel(),
                         BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
                         verdict.reason(), verdict.model());
@@ -86,8 +85,52 @@ public class AiTriageService {
         return checked;
     }
 
+    private AiVerdict diagnoseReview(AiProvider provider, int rating, String content) throws AiUnavailableException {
+        AiVerdict first;
+        try {
+            first = provider.checkReview(properties.primaryModel(), rating, content);
+        } catch (AiUnavailableException primaryFailed) {
+            return diagnoseReviewFallback(provider, primaryFailed, rating, content);
+        }
+        if (first.riskLevel().equals("LOW") && first.confidence() < properties.escalationBelowConfidence()
+                && notBlank(properties.escalationModel()) && !properties.escalationModel().equals(properties.primaryModel())) {
+            try {
+                return provider.checkReview(properties.escalationModel(), rating, content);
+            } catch (AiUnavailableException escalated) {
+                LOG.warn("AI escalation deferred, keeping primary verdict");
+                return first;
+            }
+        }
+        return first;
+    }
+
+    private AiVerdict diagnoseReviewFallback(AiProvider provider, AiUnavailableException primaryFailed,
+                                             int rating, String content) throws AiUnavailableException {
+        if (!notBlank(properties.fallbackModel()) || properties.fallbackModel().equals(properties.primaryModel())) {
+            throw primaryFailed;
+        }
+        LOG.warn("AI primary unavailable, trying fallback");
+        return provider.checkReview(properties.fallbackModel(), rating, content);
+    }
+
+    private AiVerdict diagnosePhoto(AiProvider provider, byte[] image, String contentType) throws AiUnavailableException {
+        try {
+            return provider.checkImage(properties.photoModel(), image, contentType);
+        } catch (AiUnavailableException primaryFailed) {
+            if (!notBlank(properties.fallbackModel()) || properties.fallbackModel().equals(properties.photoModel())) {
+                throw primaryFailed;
+            }
+            LOG.warn("AI photo model unavailable, trying fallback");
+            return provider.checkImage(properties.fallbackModel(), image, contentType);
+        }
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
     /** Staged files are addressed by the file id embedded in the image reference. */
-    private UUID fileId(String imageUrl) {
+    private static UUID fileId(String imageUrl) {
         try {
             if (imageUrl == null || !imageUrl.startsWith("/api/v1/media/")) throw new IllegalArgumentException();
             return UUID.fromString(imageUrl.substring("/api/v1/media/".length()));
