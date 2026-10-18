@@ -52,9 +52,17 @@
 核验时在审核日志里一眼区分。图片投稿暂不自动拍板，只做分诊参考。
 自动与人工撞单（人先点了）按 `ALREADY_REVIEWED` 吸收，不报错。
 
+## 待调优（用户记录，策略未定）
+
+- 2026-10-18 本地试跑：一条低俗评论首判为 MEDIUM/0.85（标签含低俗），按规则留人工，
+  未自动驳回。MEDIUM 目前永不升级、不自动执行，是已知的召回缺口。
+- 候选方向（待用户定）：MEDIUM 也送升级模型复核；或对含低俗/色情标签的高置信
+  MEDIUM 直接自动驳回；或收紧 `auto-approve-above`。改动前先补评测用例，确认
+  0 误伤再上线。
+
 ## 结论表与展示
 
-结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，**仍须人工点通过/驳回**。
+结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回（自动拍板的不进队列）。
 
 ## 开关与配额
 
