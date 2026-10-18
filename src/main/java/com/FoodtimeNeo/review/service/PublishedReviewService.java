@@ -5,8 +5,10 @@ import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.review.dto.*;
 import com.FoodtimeNeo.review.mapper.PublishedReviewMapper;
+import com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -18,7 +20,10 @@ import java.util.UUID;
 @Validated
 public class PublishedReviewService {
     private final PublishedReviewMapper reviews;
-    public PublishedReviewService(PublishedReviewMapper reviews) { this.reviews = reviews; }
+    private final ApplicationEventPublisher events;
+    public PublishedReviewService(PublishedReviewMapper reviews, ApplicationEventPublisher events) {
+        this.reviews = reviews; this.events = events;
+    }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public PageResponse<PublishedReviewResponse> list(@NotNull UUID dishId, @NotNull PageRequest page) {
@@ -39,6 +44,7 @@ public class PublishedReviewService {
         if (reviews.submit(id, dishId, userId, request.rating(), request.content().strip()) == 0) {
             throw new BusinessException("REVIEW_PENDING", "此菜品已有待审核评论", HttpStatus.CONFLICT);
         }
+        events.publishEvent(new SubmissionDiagnoseEvent("review", id));
         return reviews.findSubmission(id);
     }
 
