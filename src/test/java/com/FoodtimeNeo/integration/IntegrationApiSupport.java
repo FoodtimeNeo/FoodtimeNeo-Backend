@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import java.net.*;
@@ -17,6 +18,9 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Real HTTP/cookies/CSRF, with independently owned users and catalog fixtures. */
+// Local .env may enable real AI triage; the suite stays hermetic on this flag
+// (AiTriageIT opts back in via its own inlined properties, which take precedence).
+@TestPropertySource(properties = "app.ai.triage.enabled=false")
 abstract class IntegrationApiSupport {
     private static final String PREFIX = "foodtime:integration:api:" + UUID.randomUUID();
     static final String PASSWORD = "Foodtime2026!";
