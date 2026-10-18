@@ -42,7 +42,7 @@ public class PublishedReviewService {
         visible(dishId);
         UUID id = UUID.randomUUID();
         if (reviews.submit(id, dishId, userId, request.rating(), request.content().strip()) == 0) {
-            throw new BusinessException("REVIEW_PENDING", "此菜品已有待审核评论", HttpStatus.CONFLICT);
+            throw new BusinessException("REVIEW_PENDING", "该菜品已有一条待审核点评，审核完成后可再评", HttpStatus.CONFLICT);
         }
         events.publishEvent(new SubmissionDiagnoseEvent("review", id));
         return reviews.findSubmission(id);
