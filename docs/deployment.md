@@ -22,4 +22,19 @@ docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath
 
 上述PowerShell命令从Backend根目录执行；Linux或远程部署需将准备好的图片和元数据放到宿主机持久化目录，再挂载到 `/app/uploads`。非root的 `foodtime` 用户必须能读写该目录。Dockerfile只复制应用JAR，不复制 `seed-images/`；V5/V6数据库迁移成功并不代表图片已经可读。详见 [种子数据与图片部署](seed-data.md)。生产Web应由HTTPS入口同时转发页面与 `/api/v1`，并保留媒体请求；本地Vite代理不承担生产部署。
 
+## 反向代理与客户端IP（上线前必做）
+
+所有写接口限流同时按用户与按IP计数，IP取自连接地址。直连部署不用改；一旦经过Nginx等反向代理，
+所有用户在后端看来都是同一个代理IP，整校会共用每IP配额（登录每15分钟1000次等），饭点必被误伤。
+代理部署必须同时做这两件事：
+
+1. 代理层覆写转发头，只传真实客户端IP（示例：`proxy_set_header X-Forwarded-For $remote_addr;`，
+   同时丢弃客户端自带的 `X-Forwarded-For`，防止伪造）。
+2. 后端设置 `FORWARD_HEADERS_STRATEGY=framework`，让Spring从 `X-Forwarded-For` 还原客户端IP；
+   该值仅在可信代理之后才能启用，直连或代理未清洗请求头时保持 `none`。
+
+校园网多为统一出口，单个出口IP背后可能有数百学生：每IP配额默认值已按此放大10倍
+（登录1000、投稿2000、上传1000，窗口不变），真正的单人滥用仍由每用户/每账号配额卡住。
+若出口IP更集中，继续调大 `*_IP_LIMIT` 即可，不动用户级配额。
+
 `.gitignore` 已覆盖 Maven 构建目录、IDE 状态、本地环境配置、日志、运行数据和私钥；保留 `.env.example`、Maven Wrapper 与版本化数据库迁移。`.dockerignore` 将本地凭据、Git 与构建缓存排除在镜像构建上下文之外。

@@ -15,6 +15,7 @@
 | 开发环境注册测试码 | [测试验证码](testing-verification.md) |
 | 生产容器、持久化与反向代理边界 | [部署](deployment.md) |
 | 指标采集、慢请求与磁盘盯防 | [监控](monitoring.md) |
+| 并发压测结论与上线检查单 | [压测](load-test.md) |
 | AI预检分诊（只诊断、不自动审核） | [AI预检](ai-moderation.md) |
 | GitHub 检查和预留发布模板 | [CI/CD](ci-cd.md) |
 | 隔离环境历史验证 | [验收记录](verification.md) |
