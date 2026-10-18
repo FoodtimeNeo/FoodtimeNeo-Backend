@@ -83,6 +83,27 @@ class AiTriageIT extends IntegrationApiSupport {
                 BigDecimal.class, content)).isEqualByComparingTo("0.95");
     }
 
+    @Test
+    void approvedReviewKeepsAiVerdictVisibleToAdmins() throws Exception {
+        String content = "通过可见-" + UUID.randomUUID();
+        Browser browser = login(owner);
+        assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 4, "content", content)).statusCode()).isEqualTo(202);
+        assertThat(triage.triageOnce()).isGreaterThanOrEqualTo(1);
+
+        UUID submission = jdbc.queryForObject(
+                "SELECT id FROM foodtime.dish_review_submissions WHERE content = ?", UUID.class, content);
+        Browser admin = login(account("admin"));
+        assertThat(admin.call("POST", "/api/v1/admin/moderation/review/" + submission,
+                Map.of("action", "approve")).statusCode()).isEqualTo(200);
+
+        var items = body(admin.call("GET", "/api/v1/admin/reviews?size=100", null))
+                .path("data").path("items");
+        var row = find(items, content);
+        assertThat(row.path("aiRiskLevel").asString()).isEqualTo("LOW");
+        assertThat(row.path("aiConfidence").asDouble()).isEqualTo(0.9);
+        assertThat(row.path("aiReason").asString()).isNotBlank();
+    }
+
     private static tools.jackson.databind.JsonNode find(tools.jackson.databind.JsonNode items, String content) {
         for (var item : items) {
             if (item.path("content").asString().equals(content)) return item;
