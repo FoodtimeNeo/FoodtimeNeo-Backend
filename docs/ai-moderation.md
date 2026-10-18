@@ -4,7 +4,8 @@
 
 ## 范围与触发
 
-- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）与 `dish_images`（图片投稿）。菜品/档口投稿暂不送检。
+- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）、`dish_images`（图片投稿）
+  与 `community_posts`（社区动态，文本类型 `community-post`、配图逐张 `community-image`）。菜品/档口投稿暂不送检。
 - 即时：投稿创建事务提交后，`SubmissionDiagnoseEvent` 经有界线程池（2–4 线程、队列 200，满了丢弃）异步诊断，通常几秒内出结论；请求线程绝不等 AI，AI 再慢也不影响发帖返回。
 - 兜底：定时扫批（默认每 5 分钟一批，最多 10 条）只处理漏网的（崩溃重启、线程池满丢弃）；每条投稿最多检一次（`uq_ai_moderation_result` 保证，即使并发也不重复）。
 - 传输故障（超时、鉴权失败、返回无法解析）不写结论行，下个周期重试；日志只记ID与错误类型，不记原文和图片字节。

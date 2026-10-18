@@ -9,5 +9,11 @@ import com.FoodtimeNeo.ai.dto.AiVerdict;
  */
 public interface AiProvider {
     AiVerdict checkReview(String model, int rating, String content) throws AiUnavailableException;
+
+    /** Rating-free variant for community posts, which carry no score. */
+    default AiVerdict checkText(String model, String content) throws AiUnavailableException {
+        return checkReview(model, 0, content);
+    }
+
     AiVerdict checkImage(String model, byte[] image, String contentType) throws AiUnavailableException;
 }

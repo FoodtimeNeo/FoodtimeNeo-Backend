@@ -1,4 +1,4 @@
-本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）、新增AI预检结论表（V9，结论只读）。
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）、新增AI预检结论表（V9，结论只读）。2026-10-18 评论通过保留投稿ID（V10）、AI自动审核身份列（V11）、社区动态全套表与审核日志社区列（V12）、AI结论类型放开社区（V13）。
 
 # users（用户表）
 
@@ -191,7 +191,7 @@
 | 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
 | --- | --- | --- | --- |
 | `id` | `UUID` | `PRIMARY KEY` | 结论唯一标识，由后端生成。 |
-| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo'))` | 投稿类型：评论或图片。 |
+| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo', 'community-post', 'community-image'))` | 投稿类型：评论、图片、社区动态正文或社区配图（V13 放开社区）。 |
 | `submission_id` | `UUID` | `NOT NULL` | 对应投稿ID；组合唯一保证每条投稿最多一条结论。 |
 | `risk_level` | `VARCHAR(20)` | `NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH'))` | 风险等级，只做分诊。 |
 | `confidence` | `NUMERIC(4, 3)` | `NOT NULL CHECK (confidence >= 0 AND confidence <= 1)` | 置信度。 |

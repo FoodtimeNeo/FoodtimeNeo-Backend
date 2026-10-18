@@ -64,7 +64,27 @@ public class ModerationStore {
     public ModerationItem lock(String type, UUID id) {
         List<UUID> locked = jdbc.query("SELECT id FROM " + table(type) + " WHERE id = ? FOR UPDATE", (r,n) -> r.getObject(1, UUID.class), id);
         if (locked.isEmpty()) return null;
+        if (type.equals("community-post")) return lockCommunityPost(id);
         return jdbc.queryForObject("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
+    }
+
+    /** Community posts live outside the catalog union; lock builds the same item shape. */
+    public ModerationItem lockCommunityPost(UUID id) {
+        var rows = jdbc.query("""
+                SELECT p.id, p.user_id, p.content, p.status, p.review_reason, p.created_at,
+                u.display_name AS user_display_name,
+                (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
+                a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
+                a.reason AS ai_reason, a.checked_at AS ai_checked_at
+                FROM foodtime.community_posts p JOIN foodtime.users u ON u.id = p.user_id
+                LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-post' AND a.submission_id = p.id
+                WHERE p.id = ? FOR UPDATE OF p
+                """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-post", r.getObject("id", UUID.class),
+                r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
+                r.getString("image_url"), null, r.getString("status"), r.getString("review_reason"),
+                r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
+                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at")), id);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     public UUID publishReview(ModerationItem item) {
@@ -94,10 +114,11 @@ public class ModerationStore {
     }
 
     public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
+        boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post");
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
-        String ai = item.type().equals("review") ? ",reviewed_by_ai_model = ?" : "";
+        String ai = aiReviewed ? ",reviewed_by_ai_model = ?" : "";
         var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));
-        if (item.type().equals("review")) args.add(aiModel);
+        if (aiReviewed) args.add(aiModel);
         args.add(reason);
         if (item.type().equals("dish") || item.type().equals("stall")) args.add(approvedId);
         if (item.type().equals("dish")) args.add(price);
@@ -107,17 +128,20 @@ public class ModerationStore {
 
     public void log(ModerationItem item, UUID moderator, String actor, String aiModel, String action, String reason) {
         jdbc.update("""
-                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,moderator_user_id,actor,ai_model,action,reason)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id,moderator_user_id,actor,ai_model,action,reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, UUID.randomUUID(),item.type().equals("review") ? item.id() : null,
                 item.type().equals("dish") ? item.id() : null,item.type().equals("stall") ? item.id() : null,
-                item.type().equals("photo") ? item.id() : null,moderator,actor,aiModel,action,reason);
+                item.type().equals("photo") ? item.id() : null,
+                item.type().equals("community-post") ? item.id() : null,
+                item.type().equals("community-comment") ? item.id() : null,
+                moderator,actor,aiModel,action,reason);
     }
 
     public List<ModerationLogResponse> logs(int size, long offset) {
         return jdbc.query("""
-                SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id) AS submission_id,
-                       CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' ELSE 'photo' END AS type,
+                SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id) AS submission_id,
+                       CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' WHEN dish_image_id IS NOT NULL THEN 'photo' WHEN community_post_id IS NOT NULL THEN 'community-post' ELSE 'community-comment' END AS type,
                        moderator_user_id,actor,ai_model,action,reason,created_at
                 FROM foodtime.content_moderation_logs ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?
                 """, (r,n) -> new ModerationLogResponse(r.getObject("id",UUID.class),r.getObject("submission_id",UUID.class),
@@ -132,6 +156,7 @@ public class ModerationStore {
             case "dish" -> "foodtime.dish_submissions";
             case "stall" -> "foodtime.stall_submissions";
             case "photo" -> "foodtime.dish_images";
+            case "community-post" -> "foodtime.community_posts";
             default -> throw new IllegalArgumentException("Unknown submission type");
         };
     }

@@ -32,6 +32,7 @@
 | 独立图片投稿和个人记录 | POST/GET接口 | [图片投稿](dish/image-submissions.md) |
 | 已审核评论、评论提交、我的评论及评分快照 | 多个GET/POST/DELETE接口 | [评论与评分](dish/reviews.md) |
 | 管理审核队列、操作和日志 | GET/POST管理接口 | [管理审核](user/moderation.md) |
+| 社区动态、信息流与社区审核 | GET/POST社区及管理接口 | [社区动态](community.md) |
 | 管理基础数据与违规评论 | GET/POST/PUT/DELETE接口 | [数据管理](user/catalog-admin.md) |
 | 平台管理员查询用户与调整角色/状态 | GET/PUT接口 | [用户管理](user/user-admin.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |

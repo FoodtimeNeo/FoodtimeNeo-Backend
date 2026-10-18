@@ -35,7 +35,9 @@ class DatabaseSchemaIT {
                 where table_schema = 'foodtime' and table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
-                "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results");
+                "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
+                "community_posts", "community_post_images", "community_comments",
+                "community_likes", "community_favorites");
         assertThat(jdbc.queryForObject("""
                 select ispopulated from pg_matviews
                 where schemaname = 'foodtime' and matviewname = 'dish_rating_summary'

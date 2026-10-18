@@ -68,6 +68,14 @@ public class OpenAiCompatibleProvider implements AiProvider {
     }
 
     @Override
+    public AiVerdict checkText(String model, String content) throws AiUnavailableException {
+        ObjectNode user = json.createObjectNode();
+        user.put("role", "user");
+        user.put("content", "社区动态正文：" + content);
+        return complete(model, REVIEW_SYSTEM, user);
+    }
+
+    @Override
     public AiVerdict checkImage(String model, byte[] image, String contentType) throws AiUnavailableException {
         ObjectNode user = json.createObjectNode();
         user.put("role", "user");
