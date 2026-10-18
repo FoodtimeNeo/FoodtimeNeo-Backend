@@ -1,4 +1,4 @@
-# 社区动态（P1）
+# 社区动态（P1 动态 + P2 评论）
 
 登录后可用；写请求需当前Cookie及CSRF。动态与评论走与点评相同的AI即审链
 （文本用 `community-post` 类型按评论阈值，配图用 `community-image` 类型按图片链逐张诊断；
@@ -14,5 +14,10 @@
 | `GET /api/v1/users/me/community-posts?page=1&size=20` | 我的动态，含 pending/approved/rejected，附 AI 结论与驳回原因 |
 | `GET /api/v1/admin/community/posts?status=pending&page=1&size=20` | 社区审核队列，含 AI 分诊结论 |
 | `POST /api/v1/admin/community/posts/{id}` | body 为 `{action:"approve或reject",reason:"驳回必填"}`；通过后转发数+1（转发的原帖） |
+| `POST /api/v1/community/posts/{postId}/comments` | 发表评论，body 为 `{content:"1到500字"}`；202 受理，仅已通过动态可评论，同样走AI即审 |
+| `GET /api/v1/community/posts/{postId}/comments?page=1&size=20` | 只返回已通过评论，最新在前 |
+| `DELETE /api/v1/community/comments/{id}` | 只能删除本人的评论 |
+| `GET /api/v1/admin/community/comments?status=pending&page=1&size=20` | 评论审核队列，附 AI 分诊结论 |
+| `POST /api/v1/admin/community/comments/{id}` | body 为 `{action:"approve或reject",reason:"驳回必填"}`；通过后动态评论数+1 |
 
-同一用户同一动态的点赞/收藏见 P2（`community_likes` 按（用户,类型,目标）唯一，`community_favorites` 按（用户,动态）唯一，表已建好）。转发即一条轻量动态（`repostOfId`），同样过审。
+同一用户同一目标的点赞见 P3（`community_likes` 按（用户,类型,目标）唯一，`target_type` 预留 post/comment，表已建好）。收藏与转发见 P3（表与 `repostOfId` 机制已在 P1 落地）。

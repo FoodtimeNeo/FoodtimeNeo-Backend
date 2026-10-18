@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.community.mapper;
 
+import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
 import org.springframework.jdbc.core.*;
 import org.springframework.stereotype.Repository;
@@ -125,6 +126,79 @@ public class CommunityStore {
 
     public long queueCount(String status) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_posts WHERE status = ?", Long.class, status);
+    }
+
+    /** Admin queue for community comments, reusing the moderation item shape. */
+    public java.util.List<com.FoodtimeNeo.moderation.dto.ModerationItem> queueComments(String status, int size, long offset) {
+        return jdbc.query("""
+                SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
+                u.display_name AS user_display_name,
+                a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
+                a.reason AS ai_reason, a.checked_at AS ai_checked_at
+                FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
+                LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-comment' AND a.submission_id = c.id
+                WHERE c.status = ? ORDER BY c.created_at DESC, c.id ASC LIMIT ? OFFSET ?""",
+                (r, n) -> {
+                    java.sql.Array labels = r.getArray("ai_labels");
+                    return new com.FoodtimeNeo.moderation.dto.ModerationItem(r.getObject("id", UUID.class), "community-comment",
+                        r.getObject("post_id", UUID.class), r.getObject("user_id", UUID.class), r.getString("user_display_name"),
+                        null, r.getString("content"), null, null, null, r.getString("status"),
+                        r.getString("review_reason"), r.getTimestamp("created_at").toInstant(),
+                        r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
+                        labels == null ? null : java.util.List.of((String[]) labels.getArray()),
+                        r.getString("ai_reason"), instant(r, "ai_checked_at"));
+                }, status, size, offset);
+    }
+
+    public long queueCommentCount(String status) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_comments WHERE status = ?", Long.class, status);
+    }
+
+    public UUID createComment(UUID postId, UUID userId, String content) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO foodtime.community_comments(id,post_id,user_id,content) VALUES (?, ?, ?, ?)",
+                id, postId, userId, content);
+        return id;
+    }
+
+    public boolean postVisibleForComment(UUID postId) {
+        return !jdbc.query("SELECT id FROM foodtime.community_posts WHERE id = ? AND status = 'approved'",
+                (r, n) -> r.getObject(1, UUID.class), postId).isEmpty();
+    }
+
+    public void bumpCommentCount(UUID postId) {
+        jdbc.update("UPDATE foodtime.community_posts SET comment_count = comment_count + 1 WHERE id = ?", postId);
+    }
+
+    public void bumpCommentCountByComment(UUID commentId) {
+        jdbc.update("""
+                UPDATE foodtime.community_posts SET comment_count = comment_count + 1 WHERE id = (
+                    SELECT post_id FROM foodtime.community_comments WHERE id = ?)""",
+                commentId);
+    }
+
+    public List<CommunityCommentResponse> comments(UUID postId, int size, long offset) {
+        return jdbc.query("""
+                SELECT c.id, c.post_id, c.user_id, c.content, c.like_count, c.status, c.review_reason, c.created_at,
+                u.display_name AS user_display_name
+                FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
+                WHERE c.post_id = ? AND c.status = 'approved' ORDER BY c.created_at DESC, c.id ASC LIMIT ? OFFSET ?""",
+                (r, n) -> new CommunityCommentResponse(r.getObject("id", UUID.class), r.getObject("post_id", UUID.class),
+                        r.getObject("user_id", UUID.class), r.getString("user_display_name"), r.getString("content"),
+                        r.getInt("like_count"), r.getString("status"), r.getString("review_reason"),
+                        null, null, null, null, null, r.getTimestamp("created_at").toInstant()),
+                postId, size, offset);
+    }
+
+    public long commentCount(UUID postId) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_comments WHERE post_id = ? AND status = 'approved'",
+                Long.class, postId);
+    }
+
+    public int deleteCommentOwned(UUID id, UUID userId) {
+        jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'comment' AND target_id = ? AND user_id = ?",
+                id, userId);
+        return jdbc.update("DELETE FROM foodtime.community_comments WHERE id = ? AND user_id = ?", id, userId);
     }
 
     public UUID lock(UUID id) {

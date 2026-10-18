@@ -83,6 +83,14 @@ public class AiTriageService {
                 break;
             }
         }
+        for (var item : store.pendingCommunityComments(properties.batchSize())) {
+            try {
+                checked += diagnosePendingCommunityComment(provider, item);
+            } catch (RuntimeException exception) {
+                LOG.error("AI community comment triage failed for {}", item.id(), exception);
+                break;
+            }
+        }
         if (checked > 0) LOG.info("AI triage diagnosed {} submissions", checked);
         return checked;
     }
@@ -112,6 +120,8 @@ public class AiTriageService {
                 store.pendingPhoto(event.submissionId()).ifPresent(item -> diagnosePendingPhoto(provider, item));
             } else if ("community-post".equals(event.type())) {
                 store.pendingCommunityPost(event.submissionId()).ifPresent(item -> diagnosePendingCommunityPost(provider, item));
+            } else if ("community-comment".equals(event.type())) {
+                store.pendingCommunityComment(event.submissionId()).ifPresent(item -> diagnosePendingCommunityComment(provider, item));
             }
         } catch (RuntimeException exception) {
             LOG.warn("AI instant triage deferred for {} {}, sweep will retry: {}",
@@ -143,7 +153,7 @@ public class AiTriageService {
      * Photos and uncertain calls stay human. Races with a human decision are absorbed.
      */
     private void maybeAutoDecide(AiVerdict verdict, String type, UUID submissionId) {
-        if (!"review".equals(type) && !"community-post".equals(type)) return;
+        if (!"review".equals(type) && !"community-post".equals(type) && !"community-comment".equals(type)) return;
         boolean approve = verdict.riskLevel().equals("LOW") && verdict.confidence() >= properties.autoApproveAbove();
         boolean reject = verdict.riskLevel().equals("HIGH") && verdict.confidence() >= properties.autoRejectAbove();
         if (!approve && !reject) return;
@@ -209,6 +219,21 @@ public class AiTriageService {
             return rows;
         } catch (AiUnavailableException exception) {
             LOG.warn("AI community triage deferred for {}: {}", item.id(), exception.getCode());
+            return 0;
+        }
+    }
+
+    /** Community comment: text chain only, then the same auto thresholds. */
+    private int diagnosePendingCommunityComment(AiProvider provider, AiModerationStore.PendingCommunityComment item) {
+        try {
+            AiVerdict verdict = diagnoseCommunityText(provider, item.content());
+            int rows = store.insert(UUID.randomUUID(), "community-comment", item.id(), verdict.riskLevel(),
+                    BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
+                    verdict.reason(), verdict.model());
+            maybeAutoDecide(verdict, "community-comment", item.id());
+            return rows;
+        } catch (AiUnavailableException exception) {
+            LOG.warn("AI community comment triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
         }
     }

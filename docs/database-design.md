@@ -191,7 +191,7 @@
 | 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
 | --- | --- | --- | --- |
 | `id` | `UUID` | `PRIMARY KEY` | 结论唯一标识，由后端生成。 |
-| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo', 'community-post', 'community-image'))` | 投稿类型：评论、图片、社区动态正文或社区配图（V13 放开社区）。 |
+| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo', 'community-post', 'community-image'))` | 投稿类型：评论、图片、社区动态正文或社区配图（V13 放开社区动态，V14 补社区评论）。 |
 | `submission_id` | `UUID` | `NOT NULL` | 对应投稿ID；组合唯一保证每条投稿最多一条结论。 |
 | `risk_level` | `VARCHAR(20)` | `NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH'))` | 风险等级，只做分诊。 |
 | `confidence` | `NUMERIC(4, 3)` | `NOT NULL CHECK (confidence >= 0 AND confidence <= 1)` | 置信度。 |

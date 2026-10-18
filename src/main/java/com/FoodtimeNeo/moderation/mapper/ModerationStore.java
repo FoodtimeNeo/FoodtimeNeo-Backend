@@ -65,6 +65,7 @@ public class ModerationStore {
         List<UUID> locked = jdbc.query("SELECT id FROM " + table(type) + " WHERE id = ? FOR UPDATE", (r,n) -> r.getObject(1, UUID.class), id);
         if (locked.isEmpty()) return null;
         if (type.equals("community-post")) return lockCommunityPost(id);
+        if (type.equals("community-comment")) return lockCommunityComment(id);
         return jdbc.queryForObject("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
     }
 
@@ -82,6 +83,24 @@ public class ModerationStore {
                 """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-post", r.getObject("id", UUID.class),
                 r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
                 r.getString("image_url"), null, r.getString("status"), r.getString("review_reason"),
+                r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
+                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at")), id);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Community comment lock for moderation and auto-decision. */
+    public ModerationItem lockCommunityComment(UUID id) {
+        var rows = jdbc.query("""
+                SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
+                u.display_name AS user_display_name,
+                a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
+                a.reason AS ai_reason, a.checked_at AS ai_checked_at
+                FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
+                LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-comment' AND a.submission_id = c.id
+                WHERE c.id = ? FOR UPDATE OF c
+                """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-comment", r.getObject("id", UUID.class),
+                r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
+                null, null, r.getString("status"), r.getString("review_reason"),
                 r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
                 readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at")), id);
         return rows.isEmpty() ? null : rows.get(0);
@@ -114,7 +133,8 @@ public class ModerationStore {
     }
 
     public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
-        boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post");
+        boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post")
+                || item.type().equals("community-comment");
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
         String ai = aiReviewed ? ",reviewed_by_ai_model = ?" : "";
         var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));
@@ -157,6 +177,7 @@ public class ModerationStore {
             case "stall" -> "foodtime.stall_submissions";
             case "photo" -> "foodtime.dish_images";
             case "community-post" -> "foodtime.community_posts";
+            case "community-comment" -> "foodtime.community_comments";
             default -> throw new IllegalArgumentException("Unknown submission type");
         };
     }

@@ -2,8 +2,11 @@ package com.FoodtimeNeo.api.community;
 
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.*;
+import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
+import com.FoodtimeNeo.community.dto.CreateCommentRequest;
 import com.FoodtimeNeo.community.dto.CreatePostRequest;
+import com.FoodtimeNeo.community.service.CommunityCommentService;
 import com.FoodtimeNeo.community.service.CommunityPostService;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +23,10 @@ import java.util.UUID;
 @SecurityRequirement(name = "sessionCookie")
 public class CommunityController {
     private final CommunityPostService posts;
-    public CommunityController(CommunityPostService posts) { this.posts = posts; }
+    private final CommunityCommentService comments;
+    public CommunityController(CommunityPostService posts, CommunityCommentService comments) {
+        this.posts = posts; this.comments = comments;
+    }
 
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -46,6 +52,28 @@ public class CommunityController {
     @Operation(summary = "删除自己的动态", description = "只能删除本人的动态；审核记录保留")
     public ApiResponse<Void> delete(@PathVariable UUID id, HttpServletRequest request) {
         posts.delete(id, current(request).id());
+        return ApiResponse.success(null);
+    }
+
+    @PostMapping("/posts/{postId}/comments")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "发表社区评论", description = "仅已通过动态可评论；同样走AI即审，结论够硬自动过")
+    public ApiResponse<Map<String, UUID>> comment(@PathVariable UUID postId, @Valid @RequestBody CreateCommentRequest body,
+                                                 HttpServletRequest request) {
+        return ApiResponse.success(comments.submit(current(request).id(), postId, body, request.getRemoteAddr()));
+    }
+
+    @GetMapping("/posts/{postId}/comments")
+    @Operation(summary = "动态评论列表", description = "只返回已通过评论，最新在前")
+    public ApiResponse<PageResponse<CommunityCommentResponse>> comments(@PathVariable UUID postId,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(comments.list(postId, new PageRequest(page, size)));
+    }
+
+    @DeleteMapping("/comments/{id}")
+    @Operation(summary = "删除自己的评论", description = "只能删除本人的评论；审核记录保留")
+    public ApiResponse<Void> deleteComment(@PathVariable UUID id, HttpServletRequest request) {
+        comments.delete(id, current(request).id());
         return ApiResponse.success(null);
     }
 

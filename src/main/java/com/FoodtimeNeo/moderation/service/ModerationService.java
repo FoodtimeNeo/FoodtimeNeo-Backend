@@ -40,7 +40,7 @@ public class ModerationService {
     @Transactional
     public ModerationResult moderate(UserProfile actor, String type, UUID id, @Valid ModerationRequest request) {
         guard(actor);
-        if (!Set.of("review","dish","stall","photo","community-post").contains(type)) throw bad("审核类型不合法");
+        if (!Set.of("review","dish","stall","photo","community-post","community-comment").contains(type)) throw bad("审核类型不合法");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
@@ -60,7 +60,7 @@ public class ModerationService {
      */
     @Transactional
     public ModerationResult autoDecide(String type, UUID id, com.FoodtimeNeo.ai.dto.AiVerdict verdict, boolean approve) {
-        if (!Set.of("review", "community-post").contains(type)) throw bad("AI自动审核仅支持评论与社区动态");
+        if (!Set.of("review", "community-post", "community-comment").contains(type)) throw bad("AI自动审核仅支持评论与社区动态");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
@@ -74,7 +74,7 @@ public class ModerationService {
             boolean visible = switch (type) {
                 case "review", "photo" -> reviews.lockVisibleDish(item.targetId()) != null;
                 case "dish" -> catalog.lockStall(item.targetId()) != null;
-                case "community-post" -> true;
+                case "community-post", "community-comment" -> true;
                 default -> catalog.lockHall(item.targetId()) != null;
             };
             if (!visible) throw new BusinessException("TARGET_UNAVAILABLE", "目标已停用，请先恢复", HttpStatus.CONFLICT);
@@ -91,6 +91,7 @@ public class ModerationService {
         String status = action.equals("approve") ? "approved" : "rejected";
         store.complete(item,moderatorId,aiModel,status,reason,approved,price);
         if (type.equals("community-post") && action.equals("approve")) community.bumpRepostOf(item.id());
+        if (type.equals("community-comment") && action.equals("approve")) community.bumpCommentCountByComment(item.id());
         store.log(item,moderatorId,actor,aiModel,action,reason);
         return new ModerationResult(item.id(),status,approved);
     }
