@@ -106,6 +106,29 @@ class AiTriageIT extends IntegrationApiSupport {
     }
 
     @Test
+    void mediumVerdictIsEscalatedAndStaysHuman() throws Exception {
+        String content = "拿不准 escalation-" + UUID.randomUUID();
+        Browser browser = login(owner);
+        assertThat(browser.call("POST", dishPath("/reviews"), Map.of("rating", 3, "content", content)).statusCode()).isEqualTo(202);
+
+        String reason = null;
+        for (int i = 0; i < 30 && reason == null; i++) {
+            Thread.sleep(1000);
+            reason = quietReason(content);
+        }
+
+        // The fake double answers MEDIUM twice with different reasons;
+        // seeing the second reason proves the MEDIUM escalation ran, and the
+        // submission stays pending for a human (no auto-decision on MEDIUM).
+        assertThat(reason).isEqualTo("演示判定：复核仍存疑");
+        assertThat(jdbc.queryForObject("SELECT risk_level FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
+                String.class, content)).isEqualTo("MEDIUM");
+        assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_review_submissions WHERE content = ?",
+                String.class, content)).isEqualTo("pending");
+    }
+
+    @Test
     void submittedReviewIsDiagnosedWithinSecondsWithoutSweep() throws Exception {
         String content = "即时分诊-" + UUID.randomUUID();
         Browser browser = login(owner);
@@ -120,8 +143,17 @@ class AiTriageIT extends IntegrationApiSupport {
         assertThat(confidence).isEqualByComparingTo("0.9");
     }
 
-    private BigDecimal quietConfidence(String content) {
+    private String quietReason(String content) {
         try {
+            return jdbc.queryForObject("SELECT reason FROM foodtime.ai_moderation_results WHERE submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
+                    String.class, content);
+        } catch (org.springframework.dao.EmptyResultDataAccessException expected) {
+            return null;
+        }
+    }
+
+    private BigDecimal quietConfidence(String content) {        try {
             return jdbc.queryForObject("SELECT confidence FROM foodtime.ai_moderation_results WHERE submission_id IN"
                     + " (SELECT id FROM foodtime.dish_review_submissions WHERE content = ?)",
                     BigDecimal.class, content);

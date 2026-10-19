@@ -10,7 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Deterministic demo double for local development and integration tests.
  * Never use its verdicts for real moderation judgments.
  * Remembers content containing 存疑: first look is unsure, second look confirms,
- * which exercises the escalation path end to end.
+ * which exercises the escalation path end to end. Content containing 拿不准
+ * stays MEDIUM on both looks (with a different second reason), which exercises
+ * MEDIUM escalation without auto-deciding.
  */
 @Service
 public class FakeAiProvider implements AiProvider {
@@ -29,6 +31,12 @@ public class FakeAiProvider implements AiProvider {
                 return new AiVerdict("LOW", 0.5, List.of(), "演示判定：拿不准", "fake");
             }
             return new AiVerdict("LOW", 0.95, List.of(), "演示判定：复核确认无风险", "fake");
+        }
+        if (content != null && content.contains("拿不准")) {
+            if (seen.add("review:" + content)) {
+                return new AiVerdict("MEDIUM", 0.8, List.of("无关"), "演示判定：需复核", "fake");
+            }
+            return new AiVerdict("MEDIUM", 0.85, List.of("无关"), "演示判定：复核仍存疑", "fake");
         }
         return new AiVerdict("LOW", 0.9, List.of(), "演示判定：无风险", "fake");
     }
