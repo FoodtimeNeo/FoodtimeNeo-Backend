@@ -245,8 +245,7 @@ public class AiTriageService {
         } catch (AiUnavailableException primaryFailed) {
             return diagnoseCommunityTextFallback(provider, primaryFailed, content);
         }
-        if (first.riskLevel().equals("LOW") && first.confidence() < properties.escalationBelowConfidence()
-                && notBlank(properties.escalationModel()) && !properties.escalationModel().equals(properties.primaryModel())) {
+        if (needsEscalation(first)) {
             try {
                 return provider.checkText(properties.escalationModel(), content);
             } catch (AiUnavailableException escalated) {
@@ -301,8 +300,7 @@ public class AiTriageService {
         } catch (AiUnavailableException primaryFailed) {
             return diagnoseReviewFallback(provider, primaryFailed, rating, content);
         }
-        if (first.riskLevel().equals("LOW") && first.confidence() < properties.escalationBelowConfidence()
-                && notBlank(properties.escalationModel()) && !properties.escalationModel().equals(properties.primaryModel())) {
+        if (needsEscalation(first)) {
             try {
                 return provider.checkReview(properties.escalationModel(), rating, content);
             } catch (AiUnavailableException escalated) {
@@ -311,6 +309,19 @@ public class AiTriageService {
             }
         }
         return first;
+    }
+
+    /**
+     * Escalate when the fast model is unsure: LOW below the confidence threshold,
+     * or any MEDIUM (the fast model punts edge cases there; the stronger model
+     * separates them). Never escalate when no distinct escalation model is set.
+     */
+    private boolean needsEscalation(AiVerdict first) {
+        if (!notBlank(properties.escalationModel()) || properties.escalationModel().equals(properties.primaryModel())) {
+            return false;
+        }
+        if (first.riskLevel().equals("MEDIUM")) return true;
+        return first.riskLevel().equals("LOW") && first.confidence() < properties.escalationBelowConfidence();
     }
 
     private AiVerdict diagnoseReviewFallback(AiProvider provider, AiUnavailableException primaryFailed,
