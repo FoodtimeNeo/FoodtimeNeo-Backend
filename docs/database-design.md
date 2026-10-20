@@ -215,3 +215,9 @@
 ## V16 点评互动统计
 
 新增 dish_review_stats(review_id UUID主键外键、like_count/reply_count/counter_version BIGINT非空默认0非负、updated_at TIMESTAMPTZ非空) 和 dish_review_likes(review_id/user_id UUID非空联合主键外键、created_at TIMESTAMPTZ非空)。统计在实际点赞明细变动时由事务触发器维护；新点评自动初始化统计，已有点评回填零。
+
+## V17 点评回复
+
+新增dish_review_replies，字段为id/review_id/reply_to_id/user_id/client_request_id UUID、content VARCHAR(500)、status VARCHAR(20)、reviewed_by_user_id UUID、reviewed_by_ai_model VARCHAR(100)、reviewed_at/created_at/updated_at/deleted_at TIMESTAMPTZ、review_reason TEXT。主键id；(user_id,client_request_id)唯一；(review_id,reply_to_id)外键约束对象同楼，创建后身份、内容和对象不可修改。审核人或AI来源互斥；正文1–500字，状态pending/approved/rejected。时间与状态通过现有审核服务维护。
+
+公开分页使用(review_id,created_at,id)的approved且未删除部分索引；个人记录按(user_id,created_at DESC,id DESC)分页，审核队列按pending状态时间索引。只对approved且未删除回复维护主点评reply_count，触发器单一写入；删除回复保留后续回复的对象关系。审核日志增加dish_review_reply_id，并扩展唯一目标CHECK；AI结论增加dish-review-reply类型。完整约束及索引以V17迁移为准。
