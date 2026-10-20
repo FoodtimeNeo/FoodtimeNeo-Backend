@@ -64,6 +64,8 @@ abstract class IntegrationApiSupport {
     @AfterEach
     void cleanFixtures() {
         for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.dish_review_likes WHERE user_id=? OR review_id IN"
+                    + " (SELECT id FROM foodtime.dish_reviews WHERE user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE moderator_user_id = ?", user);
             // AI auto-decisions log with a null moderator; drop those rows before their submissions.
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE review_submission_id IN"

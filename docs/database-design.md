@@ -211,3 +211,7 @@
 - 统计只保存未删除正式点评。新建+1/+评分；重评只更新新旧评分差；删除-1/-旧评分；待审核、驳回不计入。统计由写事务触发器维护。
 - `dish_rating_summary` 替换为普通视图，均分为 `ROUND(rating_sum::NUMERIC/review_count,2)`，零评论时NULL。每日及启动刷新均已取消。
 - 现有用户、菜品、审核提交外键及历史保留规则继续适用；完整实现见 V15 迁移。
+
+## V16 点评互动统计
+
+新增 dish_review_stats(review_id UUID主键外键、like_count/reply_count/counter_version BIGINT非空默认0非负、updated_at TIMESTAMPTZ非空) 和 dish_review_likes(review_id/user_id UUID非空联合主键外键、created_at TIMESTAMPTZ非空)。统计在实际点赞明细变动时由事务触发器维护；新点评自动初始化统计，已有点评回填零。

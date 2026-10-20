@@ -28,9 +28,10 @@ public class DishReviewController {
 
     @GetMapping("/reviews")
     @Operation(summary = "查看已审核评论", description = "只返回正式评论；菜品及其父级必须启用，不返回头像")
-    public ApiResponse<PageResponse<PublishedReviewResponse>> list(@PathVariable UUID dishId,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(reviews.list(dishId, new PageRequest(page, size)));
+    public ApiResponse<PageResponse<InteractiveReviewResponse>> list(@PathVariable UUID dishId,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size, HttpServletRequest request) {
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(reviews.list(dishId, user.id(), new PageRequest(page, size)));
     }
 
     @PostMapping("/reviews")

@@ -59,3 +59,5 @@
 从Backend目录启动服务，开发环境文档地址为 `http://localhost:8080/swagger-ui.html`，OpenAPI地址为 `http://localhost:8080/v3/api-docs`。生产环境默认关闭实时文档；文件接口文档仍保留在本目录。
 
 Java认证HTTP入口位于 `src/main/java/com/FoodtimeNeo/api/auth`；本目录维护接口文档与联调请求。发送邮件前须按 [邮箱验证码配置说明](auth/email-verification.md#邮箱配置) 填写正式SMTP配置并启用。未配置邮件时发送验证码返回503；缺少验证码的注册请求返回400，普通验证码在验证服务未启用时返回503，启用的 `000000` 测试通道可直接注册。应用的账号、登录和会话功能依赖可用的PostgreSQL与Redis。
+
+菜品点评点赞与后续回复接口见 [点评互动](dish/review-interactions.md)。
