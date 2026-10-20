@@ -6,6 +6,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -20,6 +21,8 @@ public record AiTriageProperties(boolean enabled,
         @DecimalMin("0.0") @DecimalMax("1.0") double escalationBelowConfidence, String photoModel,
         @DecimalMin("0.0") @DecimalMax("1.0") double autoApproveAbove,
         @DecimalMin("0.0") @DecimalMax("1.0") double autoRejectAbove,
+        @NotBlank @Pattern(regexp = "[A-Za-z0-9:_-]{1,100}", message = "AI triage redis namespace has illegal characters")
+        String redisNamespace,
         @NotNull Duration timeout, @Min(1) @Max(100) int batchSize,
         @NotNull Duration interval, @NotNull Duration initialDelay) {
     @AssertTrue(message = "AI triage timeout must be whole positive seconds and no more than 120")

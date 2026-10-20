@@ -63,6 +63,19 @@
 - 候选方向（待用户定）：对含低俗/色情标签的高置信 MEDIUM 直接自动驳回；
   或收紧 `auto-approve-above`。改动前先补评测用例，确认 0 误伤再上线。
 
+## 模型映射与热切换
+
+四个逻辑槽位（`primary-model` / `escalation-model` / `fallback-model` / `photo-model`）
+每次调用前经 `AiModelRouter` 解析：Redis 哈希（`AI_TRIAGE_REDIS_NAMESPACE`，默认
+`foodtime:ai:triage`）里有覆盖值就用覆盖值，否则用环境变量默认值；Redis 不可达则
+回退环境变量并只告警一次（fail-open，绝不因映射层中断分诊）。
+
+`GET /api/v1/admin/ai/models` 查看各槽位当前生效 ID 及其来源（redis/env）与最近一次
+钉选记录；`POST` 同路径热切换（仅 superadmin，记审计日志），写入后下一次 AI 调用
+即生效，无需重启，回滚也是同一个调用。monitor 进程的新模型晋升走的就是这个入口。
+
+环境变量仍是兜底真相源：Redis 里删掉对应字段即回到 env 默认值。
+
 ## 结论表与展示
 
 结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回（自动拍板的不进队列）。

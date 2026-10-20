@@ -37,16 +37,17 @@ public class AiTriageService {
     private final ModerationService moderation;
     private final CommunityStore community;
     private final java.util.concurrent.Executor triageExecutor;
+    private final AiModelRouter models;
     private final AiTriageProperties properties;
 
     public AiTriageService(AiModerationStore store, OpenAiCompatibleProvider openai, FakeAiProvider fake,
                            ImageStorageService images, ModerationService moderation, CommunityStore community,
                            @org.springframework.beans.factory.annotation.Qualifier("aiTriageExecutor")
                            java.util.concurrent.Executor triageExecutor,
-                           AiTriageProperties properties) {
+                           AiModelRouter models, AiTriageProperties properties) {
         this.store = store; this.openai = openai; this.fake = fake;
         this.images = images; this.moderation = moderation; this.community = community;
-        this.triageExecutor = triageExecutor; this.properties = properties;
+        this.triageExecutor = triageExecutor; this.models = models; this.properties = properties;
     }
 
     @Scheduled(fixedDelayString = "${app.ai.triage.interval:PT5M}",
@@ -241,13 +242,13 @@ public class AiTriageService {
     private AiVerdict diagnoseCommunityText(AiProvider provider, String content) throws AiUnavailableException {
         AiVerdict first;
         try {
-            first = provider.checkText(properties.primaryModel(), content);
+            first = provider.checkText(models.primary(), content);
         } catch (AiUnavailableException primaryFailed) {
             return diagnoseCommunityTextFallback(provider, primaryFailed, content);
         }
         if (needsEscalation(first)) {
             try {
-                return provider.checkText(properties.escalationModel(), content);
+                return provider.checkText(models.escalation(), content);
             } catch (AiUnavailableException escalated) {
                 LOG.warn("AI escalation deferred, keeping primary verdict");
                 return first;
@@ -258,11 +259,11 @@ public class AiTriageService {
 
     private AiVerdict diagnoseCommunityTextFallback(AiProvider provider, AiUnavailableException primaryFailed,
                                                     String content) throws AiUnavailableException {
-        if (!notBlank(properties.fallbackModel()) || properties.fallbackModel().equals(properties.primaryModel())) {
+        if (!notBlank(models.fallback()) || models.fallback().equals(models.primary())) {
             throw primaryFailed;
         }
         LOG.warn("AI primary unavailable, trying fallback");
-        return provider.checkText(properties.fallbackModel(), content);
+        return provider.checkText(models.fallback(), content);
     }
 
     /**
@@ -296,13 +297,13 @@ public class AiTriageService {
     private AiVerdict diagnoseReview(AiProvider provider, int rating, String content) throws AiUnavailableException {
         AiVerdict first;
         try {
-            first = provider.checkReview(properties.primaryModel(), rating, content);
+            first = provider.checkReview(models.primary(), rating, content);
         } catch (AiUnavailableException primaryFailed) {
             return diagnoseReviewFallback(provider, primaryFailed, rating, content);
         }
         if (needsEscalation(first)) {
             try {
-                return provider.checkReview(properties.escalationModel(), rating, content);
+                return provider.checkReview(models.escalation(), rating, content);
             } catch (AiUnavailableException escalated) {
                 LOG.warn("AI escalation deferred, keeping primary verdict");
                 return first;
@@ -317,7 +318,7 @@ public class AiTriageService {
      * separates them). Never escalate when no distinct escalation model is set.
      */
     private boolean needsEscalation(AiVerdict first) {
-        if (!notBlank(properties.escalationModel()) || properties.escalationModel().equals(properties.primaryModel())) {
+        if (!notBlank(models.escalation()) || models.escalation().equals(models.primary())) {
             return false;
         }
         if (first.riskLevel().equals("MEDIUM")) return true;
@@ -326,22 +327,22 @@ public class AiTriageService {
 
     private AiVerdict diagnoseReviewFallback(AiProvider provider, AiUnavailableException primaryFailed,
                                              int rating, String content) throws AiUnavailableException {
-        if (!notBlank(properties.fallbackModel()) || properties.fallbackModel().equals(properties.primaryModel())) {
+        if (!notBlank(models.fallback()) || models.fallback().equals(models.primary())) {
             throw primaryFailed;
         }
         LOG.warn("AI primary unavailable, trying fallback");
-        return provider.checkReview(properties.fallbackModel(), rating, content);
+        return provider.checkReview(models.fallback(), rating, content);
     }
 
     private AiVerdict diagnosePhoto(AiProvider provider, byte[] image, String contentType) throws AiUnavailableException {
         try {
-            return provider.checkImage(properties.photoModel(), image, contentType);
+            return provider.checkImage(models.photo(), image, contentType);
         } catch (AiUnavailableException primaryFailed) {
-            if (!notBlank(properties.fallbackModel()) || properties.fallbackModel().equals(properties.photoModel())) {
+            if (!notBlank(models.fallback()) || models.fallback().equals(models.photo())) {
                 throw primaryFailed;
             }
             LOG.warn("AI photo model unavailable, trying fallback");
-            return provider.checkImage(properties.fallbackModel(), image, contentType);
+            return provider.checkImage(models.fallback(), image, contentType);
         }
     }
 

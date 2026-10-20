@@ -160,6 +160,7 @@ app:
       photo-model: ${AI_TRIAGE_PHOTO_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
       auto-approve-above: ${AI_TRIAGE_AUTO_APPROVE_ABOVE:0.95}
       auto-reject-above: ${AI_TRIAGE_AUTO_REJECT_ABOVE:0.9}
+      redis-namespace: ${AI_TRIAGE_REDIS_NAMESPACE:foodtime:ai:triage}
       timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
       batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
       interval: ${AI_TRIAGE_INTERVAL:PT5M}
