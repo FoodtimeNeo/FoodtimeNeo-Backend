@@ -107,6 +107,7 @@ java -jar target/foodtime-neo-backend.jar
 | 档口下菜品、价格与父级状态规则 | [菜品列表接口](docs/api/dish/list.md) |
 | 菜品基础信息与所属关系 | [菜品基础详情](docs/api/dish/detail.md) |
 | 已审核图片及分页 | [菜品图册](docs/api/dish/images.md) |
+| 点评/回复点赞、游标回复与个人记录 | [点评互动接口](docs/api/dish/review-interactions.md) |
 | 当前用户的评论审核历史 | [我的评论审核记录](docs/api/user/review-submissions.md) |
 | 当前用户的菜品提交内容与状态 | [我的菜品提交](docs/api/user/dish-submissions.md) |
 | 个人记录联调请求 | [提交记录联调](docs/api/submissions.http) |

@@ -1,4 +1,4 @@
-本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）、新增AI预检结论表（V9，结论只读）。2026-10-18 评论通过保留投稿ID（V10）、AI自动审核身份列（V11）、社区动态全套表与审核日志社区列（V12）、AI结论类型放开社区（V13）。
+本文以用户提供的数据库设计为基础；2026-10-13 按后续要求移除 `stalls.floor`（V3）；2026-10-14 经确认补充图片审核信息与日志关联（V4）；2026-10-17 新增邀请码表与用户归因列（V7）、补充热点查询索引（V8，索引迁移，不改表结构）、新增AI预检结论表（V9，结论只读）。2026-10-18 评论通过保留投稿ID（V10）、AI自动审核身份列（V11）、社区动态全套表与审核日志社区列（V12）、AI结论类型放开社区（V13）。2026-10-20按开发授权新增V15–V18：实时评分、两级点赞、楼内回复与审核；当前结构以本文及正式迁移为准。
 
 # users（用户表）
 
@@ -101,17 +101,20 @@
 | `user_id` | `UUID` | `NOT NULL REFERENCES users(id) ON DELETE RESTRICT` | 评论发布用户 ID。 |
 | `rating` | `SMALLINT` | `NOT NULL CHECK (rating BETWEEN 1 AND 5)` | 评论评分，范围为 1 至 5 分。 |
 | `content` | `TEXT` | `NOT NULL` | 已通过审核的评论正文。 |
-| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 评论提交时间；通过审核后从审核提交记录复制。 |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 首次发布时间；首次通过时复制提交时间，重评不变。 |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录最后更新时间。 |
-| 组合约束 | — | `UNIQUE (dish_id, user_id)` | 同一用户对同一菜品只保留一条正式评论；再次提交并审核通过时更新原记录。 |
+| `deleted_at` | `TIMESTAMPTZ` | 可空 | 软删除时间；删除隐藏讨论并实时扣除菜品评分。 |
+| 组合约束 | — | `(dish_id,user_id) WHERE deleted_at IS NULL` 唯一 | 同用户同菜品最多一条未删除点评；重评保留ID及互动，删除后重发为新ID。 |
 
-# dish_rating_summary（物化视图；每 24 小时刷新）
+# dish_rating_summary（实时普通视图，V15）
 
 | 字段 | PostgreSQL 类型 | 计算方式 | 简要说明 |
 | --- | --- | --- | --- |
-| `dish_id` | `UUID` | 来自 `dishes.id`；`UNIQUE INDEX` | 菜品 ID；唯一索引用于支持并发刷新。 |
-| `average_score` | `NUMERIC(3,2)` | 正式评论的 `AVG(rating)`；无评论时为空 | 菜品平均评分。 |
-| `review_count` | `BIGINT` | 正式评论的数量 | 菜品正式评论总数。 |
+| `dish_id` | `UUID` | 来自 `dish_stats.dish_id` | 菜品ID，统计表以其为主键 |
+| `average_score` | `NUMERIC(3,2)` | ROUND(rating_sum::NUMERIC/review_count,2) | 无评论时NULL，读取时只做除法 |
+| `review_count` | `BIGINT` | dish_stats.review_count | 未删除正式点评数，写事务触发器维护 |
+
+无启动刷新或周期评分任务。V1–V14历史迁移保留，升级V15后原物化视图被替换。
 
 # stall_submissions（档口提交审核表）
 
@@ -161,11 +164,15 @@
 | `dish_submission_id` | `UUID` | 可空；`REFERENCES dish_submissions(id) ON DELETE RESTRICT` | 菜品审核提交 ID；菜品审核日志使用。 |
 | `stall_submission_id` | `UUID` | 可空；`REFERENCES stall_submissions(id) ON DELETE RESTRICT` | 档口审核提交 ID；档口审核日志使用。 |
 | `dish_image_id` | `UUID` | 可空；`REFERENCES dish_images(id) ON DELETE RESTRICT` | 独立图片审核目标；经项目负责人确认由 V4 新增。 |
-| `moderator_user_id` | `UUID` | `NOT NULL REFERENCES users(id) ON DELETE RESTRICT` | 执行审核的用户 ID；权限由服务端校验。 |
+| `community_post_id` / `community_comment_id` | `UUID` | 可空，分别外键社区正文/评论RESTRICT | V12加入的社区审核关联。 |
+| `dish_review_reply_id` | `UUID` | 可空，外键dish_review_replies RESTRICT | V17加入的点评回复审核关联。 |
+| `moderator_user_id` | `UUID` | 可空，外键users RESTRICT | 人工审核时非空；权限由服务端校验。 |
+| `actor` | `VARCHAR(20)` | 非空默认human，human/ai | 与审核人或模型来源对应。 |
+| `ai_model` | `TEXT` | 可空，actor为ai时非空 | AI自动审核模型名，人工时为空。 |
 | `action` | `VARCHAR(20)` | `NOT NULL CHECK (action IN ('approve', 'reject'))` | 审核动作；每次操作新增一条记录。 |
 | `reason` | `TEXT` | 可空 | 审核说明或拒绝原因。 |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 审核操作时间。 |
-| 组合约束 | — | `CHECK (num_nonnulls(review_submission_id, dish_submission_id, stall_submission_id, dish_image_id) = 1)` | V4 扩展为四类，每条日志必须且只能关联一个目标。 |
+| 组合约束 | — | `CHECK (num_nonnulls(review_submission_id, dish_submission_id, stall_submission_id, dish_image_id, community_post_id, community_comment_id, dish_review_reply_id) = 1)` | V17共七类，每条日志必须且只能关联一个目标，审核身份由actor与审核人/模型CHECK约束。 |
 
 图片审核扩展保留 V1–V3 历史迁移，仅通过 V4 增量修改。新审核通过或驳回操作同时写入审核人、时间、原因及对应日志；旧图片审核信息允许为空，不虚构历史审核。菜品投稿审核时附带图片在同一事务通过，沿用该菜品投稿日志，不重复伪造独立图片审核事件。
 
@@ -191,7 +198,7 @@
 | 字段 | PostgreSQL 类型 | 约束 / 默认值 | 简要说明 |
 | --- | --- | --- | --- |
 | `id` | `UUID` | `PRIMARY KEY` | 结论唯一标识，由后端生成。 |
-| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo', 'community-post', 'community-image'))` | 投稿类型：评论、图片、社区动态正文或社区配图（V13 放开社区动态，V14 补社区评论）。 |
+| `submission_type` | `VARCHAR(20)` | `NOT NULL CHECK (submission_type IN ('review', 'photo', 'community-post', 'community-image', 'community-comment', 'dish-review-reply'))` | V17允许点评回复；并保留评论、图片、社区正文、配图及评论。 |
 | `submission_id` | `UUID` | `NOT NULL` | 对应投稿ID；组合唯一保证每条投稿最多一条结论。 |
 | `risk_level` | `VARCHAR(20)` | `NOT NULL CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH'))` | 风险等级，只做分诊。 |
 | `confidence` | `NUMERIC(4, 3)` | `NOT NULL CHECK (confidence >= 0 AND confidence <= 1)` | 置信度。 |
@@ -204,7 +211,7 @@
 结论行只读不改；同一投稿重复送检靠唯一约束去重。V9 新增，已有迁移不变。
 
 
-# 2026-10-20 V15 实时评分修订（覆盖上文旧每日快照约定）
+# 2026-10-20 V15 实时评分修订
 
 - `dish_reviews` 新增可空 `deleted_at TIMESTAMPTZ`；唯一约束改为 `(dish_id,user_id) WHERE deleted_at IS NULL`，按菜品和作者添加未删除记录的时间分页索引。身份和首次创建时间不可修改，已删除记录不可恢复或编辑。
 - 新增 `dish_stats`：`dish_id UUID PRIMARY KEY REFERENCES dishes ON DELETE CASCADE`、`review_count BIGINT NOT NULL DEFAULT 0`、`rating_sum BIGINT NOT NULL DEFAULT 0`、`counter_version BIGINT NOT NULL DEFAULT 0`、`updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`。各数值非负，评分总和处于评论数至评论数×5之间。
@@ -218,6 +225,17 @@
 
 ## V17 点评回复
 
-新增dish_review_replies，字段为id/review_id/reply_to_id/user_id/client_request_id UUID、content VARCHAR(500)、status VARCHAR(20)、reviewed_by_user_id UUID、reviewed_by_ai_model VARCHAR(100)、reviewed_at/created_at/updated_at/deleted_at TIMESTAMPTZ、review_reason TEXT。主键id；(user_id,client_request_id)唯一；(review_id,reply_to_id)外键约束对象同楼，创建后身份、内容和对象不可修改。审核人或AI来源互斥；正文1–500字，状态pending/approved/rejected。时间与状态通过现有审核服务维护。
+新增dish_review_replies，字段为id/review_id/reply_to_id/user_id/client_request_id UUID、content TEXT（CHECK限制1–500字）、status VARCHAR(20)、reviewed_by_user_id UUID、reviewed_by_ai_model TEXT、reviewed_at/created_at/updated_at/deleted_at TIMESTAMPTZ、review_reason TEXT。主键id；(user_id,client_request_id)唯一；(review_id,reply_to_id)外键约束对象同楼，创建后身份、内容和对象不可修改。审核人或AI来源互斥；正文1–500字，状态pending/approved/rejected。时间与状态通过现有审核服务维护。
 
-公开分页使用(review_id,created_at,id)的approved且未删除部分索引；个人记录按(user_id,created_at DESC,id DESC)分页，审核队列按pending状态时间索引。只对approved且未删除回复维护主点评reply_count，触发器单一写入；删除回复保留后续回复的对象关系。审核日志增加dish_review_reply_id，并扩展唯一目标CHECK；AI结论增加dish-review-reply类型。完整约束及索引以V17迁移为准。
+公开分页使用(review_id,created_at,id)的approved且未删除部分索引；个人记录按(user_id,created_at DESC,id ASC)分页，审核队列按pending状态时间索引。只对approved且未删除回复维护主点评reply_count，触发器单一写入；删除回复保留后续回复的对象关系。审核日志增加dish_review_reply_id，并扩展唯一目标CHECK；AI结论增加dish-review-reply类型。完整约束及索引以V17迁移为准。
+
+## V18 回复点赞
+
+| 表 | 字段及约束 |
+| --- | --- |
+| dish_review_reply_stats | reply_id UUID主键，外键dish_review_replies CASCADE；like_count/counter_version BIGINT非空默认0且非负；updated_at TIMESTAMPTZ非空默认now() |
+| dish_review_reply_likes | reply_id/user_id UUID非空联合主键，各自外键RESTRICT；created_at TIMESTAMPTZ非空默认now() |
+
+统计表fillfactor=80，除主键不增加会随计数变化的索引，允许HOT更新。实际插入/删除点赞明细时由触发器±1并增加版本；冲突忽略和不存在取消不改计数；事务回滚同时回滚明细及计数。每个新回复自动创建统计行，已有回复一次性回填0。
+
+读取公开回复时在单页SQL中关联统计主键和(reply_id,user_id)点赞联合主键，直接返回计数及本人状态。回复点赞只写回复统计，不写主点评统计、正文时间或菜品统计；两类点赞使用独立明细。高并发同目标写入仍会竞争该目标统计行，尚未进行QPS压测，不承诺无限吞吐。
