@@ -91,6 +91,10 @@ public class AiTriageService {
                 break;
             }
         }
+        for (var item : store.pendingReviewReplies(properties.batchSize())) {
+            try { checked += diagnosePendingReviewReply(provider,item); }
+            catch (RuntimeException e) { LOG.error("AI reply triage deferred for {}",item.id(),e); break; }
+        }
         if (checked > 0) LOG.info("AI triage diagnosed {} submissions", checked);
         return checked;
     }
@@ -120,6 +124,8 @@ public class AiTriageService {
                 store.pendingPhoto(event.submissionId()).ifPresent(item -> diagnosePendingPhoto(provider, item));
             } else if ("community-post".equals(event.type())) {
                 store.pendingCommunityPost(event.submissionId()).ifPresent(item -> diagnosePendingCommunityPost(provider, item));
+            } else if ("dish-review-reply".equals(event.type())) {
+                store.pendingReviewReply(event.submissionId()).ifPresent(item -> diagnosePendingReviewReply(provider,item));
             } else if ("community-comment".equals(event.type())) {
                 store.pendingCommunityComment(event.submissionId()).ifPresent(item -> diagnosePendingCommunityComment(provider, item));
             }
@@ -153,7 +159,7 @@ public class AiTriageService {
      * Photos and uncertain calls stay human. Races with a human decision are absorbed.
      */
     private void maybeAutoDecide(AiVerdict verdict, String type, UUID submissionId) {
-        if (!"review".equals(type) && !"community-post".equals(type) && !"community-comment".equals(type)) return;
+        if (!"review".equals(type) && !"community-post".equals(type) && !"community-comment".equals(type) && !"dish-review-reply".equals(type)) return;
         boolean approve = verdict.riskLevel().equals("LOW") && verdict.confidence() >= properties.autoApproveAbove();
         boolean reject = verdict.riskLevel().equals("HIGH") && verdict.confidence() >= properties.autoRejectAbove();
         if (!approve && !reject) return;
@@ -236,6 +242,16 @@ public class AiTriageService {
             LOG.warn("AI community comment triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
         }
+    }
+
+    private int diagnosePendingReviewReply(AiProvider provider,AiModerationStore.PendingReviewReply item) {
+        try {
+            AiVerdict verdict=diagnoseCommunityText(provider,item.content());
+            int rows=store.insert(UUID.randomUUID(),"dish-review-reply",item.id(),verdict.riskLevel(),
+                    BigDecimal.valueOf(verdict.confidence()),verdict.labels().toArray(new String[0]),verdict.reason(),verdict.model());
+            maybeAutoDecide(verdict,"dish-review-reply",item.id());
+            return rows;
+        } catch(AiUnavailableException e) {LOG.warn("AI reply triage deferred for {}",item.id());return 0;}
     }
 
     private AiVerdict diagnoseCommunityText(AiProvider provider, String content) throws AiUnavailableException {

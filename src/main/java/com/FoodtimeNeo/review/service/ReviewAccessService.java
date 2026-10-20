@@ -31,7 +31,7 @@ public class ReviewAccessService {
         return roots.get(0);
     }
 
-    public void readable(UUID id) {
+    public boolean visible(UUID id) {
         Boolean visible = jdbc.queryForObject("""
                 SELECT EXISTS(SELECT 1 FROM foodtime.dish_reviews r
                 JOIN foodtime.dishes d ON d.id=r.dish_id AND d.status='active'
@@ -39,8 +39,9 @@ public class ReviewAccessService {
                 JOIN foodtime.dining_halls h ON h.id=s.dining_hall_id AND h.status='active'
                 WHERE r.id=? AND r.deleted_at IS NULL)
                 """,Boolean.class,id);
-        if (!Boolean.TRUE.equals(visible)) throw missing();
+        return Boolean.TRUE.equals(visible);
     }
+    public void readable(UUID id) { if (!visible(id)) throw missing(); }
     public static BusinessException missing() {
         return new BusinessException("REVIEW_NOT_FOUND","评论不存在或暂不可用",HttpStatus.NOT_FOUND);
     }
