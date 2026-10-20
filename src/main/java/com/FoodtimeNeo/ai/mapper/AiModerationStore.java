@@ -101,6 +101,22 @@ public class AiModerationStore {
         return rows.stream().findFirst();
     }
 
+    public record PendingReviewReply(UUID id,String content) { }
+    private static final String PENDING_REPLIES="""
+            SELECT c.id,c.content FROM foodtime.dish_review_replies c
+            JOIN foodtime.dish_reviews r ON r.id=c.review_id AND r.deleted_at IS NULL
+            WHERE c.status='pending' AND c.deleted_at IS NULL AND NOT EXISTS (
+                SELECT 1 FROM foodtime.ai_moderation_results a
+                WHERE a.submission_type='dish-review-reply' AND a.submission_id=c.id)
+            """;
+    public List<PendingReviewReply> pendingReviewReplies(int limit) {
+        return jdbc.query(PENDING_REPLIES+" ORDER BY c.created_at,c.id LIMIT ?",
+                (r,n)->new PendingReviewReply(r.getObject("id",UUID.class),r.getString("content")),limit);
+    }
+    public Optional<PendingReviewReply> pendingReviewReply(UUID id) {
+        return jdbc.query(PENDING_REPLIES+" AND c.id=?",(r,n)->new PendingReviewReply(r.getObject("id",UUID.class),r.getString("content")),id).stream().findFirst();
+    }
+
     /** Returns 1 on insert, 0 when another worker already recorded this submission. */
     public int insert(UUID id, String type, UUID submissionId, String risk, BigDecimal confidence,
                       String[] labels, String reason, String model) {

@@ -40,6 +40,7 @@ abstract class IntegrationApiSupport {
     static void namespaces(DynamicPropertyRegistry properties) {
         properties.add("spring.session.redis.namespace", () -> PREFIX + ":sessions");
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":limits");
+        properties.add("app.review.actions.redis-namespace", () -> PREFIX + ":review-actions");
     }
 
     @BeforeEach
@@ -64,6 +65,14 @@ abstract class IntegrationApiSupport {
     @AfterEach
     void cleanFixtures() {
         for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_review_reply_id IN"
+                    + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type='dish-review-reply' AND submission_id IN"
+                    + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
+            jdbc.update("DELETE FROM foodtime.dish_review_reply_likes WHERE user_id=? OR reply_id IN"
+                    + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user,user);
+            jdbc.update("DELETE FROM foodtime.dish_review_likes WHERE user_id=? OR review_id IN"
+                    + " (SELECT id FROM foodtime.dish_reviews WHERE user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE moderator_user_id = ?", user);
             // AI auto-decisions log with a null moderator; drop those rows before their submissions.
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE review_submission_id IN"
@@ -84,6 +93,13 @@ abstract class IntegrationApiSupport {
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'community-image' AND submission_id IN"
                     + " (SELECT i.id FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id = i.post_id WHERE p.user_id = ?)", user);
         }
+        int removed;
+        do {
+            removed=0;
+            for(UUID user:users) removed+=jdbc.update("DELETE FROM foodtime.dish_review_replies c WHERE"
+                    + " (c.user_id=? OR c.review_id IN(SELECT id FROM foodtime.dish_reviews WHERE user_id=?))"
+                    + " AND NOT EXISTS(SELECT 1 FROM foodtime.dish_review_replies child WHERE child.reply_to_id=c.id)",user,user);
+        } while(removed>0);
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_review_submissions WHERE user_id = ?", user);

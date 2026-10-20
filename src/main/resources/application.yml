@@ -199,6 +199,12 @@ app:
       user-limit: ${UPLOAD_USER_LIMIT:10}
       ip-limit: ${UPLOAD_IP_LIMIT:1000}
       redis-namespace: ${UPLOAD_REDIS_NAMESPACE:foodtime:content:uploads}
+  review:
+    actions:
+      window: ${REVIEW_ACTION_WINDOW:PT1M}
+      user-limit: ${REVIEW_ACTION_USER_LIMIT:100}
+      ip-limit: ${REVIEW_ACTION_IP_LIMIT:1000}
+      redis-namespace: ${REVIEW_ACTION_REDIS_NAMESPACE:foodtime:review:actions}
   community:
     actions:
       window: ${COMMUNITY_ACTION_WINDOW:PT1M}
@@ -211,10 +217,6 @@ app:
     cleanup-initial-delay: ${STORAGE_CLEANUP_INITIAL_DELAY:PT5M}
     cleanup-max-age: ${STORAGE_CLEANUP_MAX_AGE:P7D}
     disk-warn-bytes: ${STORAGE_DISK_WARN_BYTES:1073741824}
-  rating-summary:
-    refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
-    refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
-    initial-delay: ${RATING_SUMMARY_INITIAL_DELAY:PT0S}
   monitoring:
     scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}

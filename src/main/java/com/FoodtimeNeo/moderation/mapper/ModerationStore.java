@@ -1,6 +1,7 @@
 package com.FoodtimeNeo.moderation.mapper;
 
 import com.FoodtimeNeo.moderation.dto.*;
+import com.FoodtimeNeo.review.service.ReviewAccessService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -29,6 +30,12 @@ public class ModerationStore {
             SELECT i.id,'photo',i.dish_id,i.uploaded_by_user_id,u.display_name,d.name,NULL::text,NULL::numeric,i.image_url,NULL::integer,i.status,i.review_reason,i.created_at
             FROM foodtime.dish_images i JOIN foodtime.dishes d ON d.id=i.dish_id
             JOIN foodtime.users u ON u.id = i.uploaded_by_user_id
+            UNION ALL
+            SELECT c.id,'dish-review-reply',c.review_id,c.user_id,u.display_name,d.name,c.content,
+                   NULL::numeric,NULL::text,NULL::integer,c.status,c.review_reason,c.created_at
+            FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id
+            JOIN foodtime.dishes d ON d.id=r.dish_id JOIN foodtime.users u ON u.id=c.user_id
+            WHERE c.deleted_at IS NULL
             """;
     private static final String ITEMS_WITH_AI =
             "SELECT q.*, a.risk_level AS ai_risk_level, a.confidence AS ai_confidence,"
@@ -43,7 +50,8 @@ public class ModerationStore {
             r.getString("ai_risk_level"),r.getBigDecimal("ai_confidence"),readLabels(r),
             r.getString("ai_reason"),readInstant(r,"ai_checked_at"));
     private final JdbcTemplate jdbc;
-    public ModerationStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final ReviewAccessService reviewAccess;
+    public ModerationStore(JdbcTemplate jdbc, ReviewAccessService reviewAccess) { this.jdbc = jdbc; this.reviewAccess=reviewAccess; }
 
     private static java.util.List<String> readLabels(java.sql.ResultSet result) throws java.sql.SQLException {
         java.sql.Array column = result.getArray("ai_labels");
@@ -62,11 +70,17 @@ public class ModerationStore {
     public long count(String status) { return jdbc.queryForObject("SELECT COUNT(*) FROM (" + ITEMS + ") q WHERE status = ?", Long.class, status); }
 
     public ModerationItem lock(String type, UUID id) {
+        if (type.equals("dish-review-reply")) {
+            var roots=jdbc.query("SELECT review_id FROM foodtime.dish_review_replies WHERE id=?",(r,n)->r.getObject(1,UUID.class),id);
+            if(roots.isEmpty()) return null;
+            reviewAccess.lock(roots.get(0),false,false);
+        }
         List<UUID> locked = jdbc.query("SELECT id FROM " + table(type) + " WHERE id = ? FOR UPDATE", (r,n) -> r.getObject(1, UUID.class), id);
         if (locked.isEmpty()) return null;
         if (type.equals("community-post")) return lockCommunityPost(id);
         if (type.equals("community-comment")) return lockCommunityComment(id);
-        return jdbc.queryForObject("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
+        var rows=jdbc.query("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
+        return rows.isEmpty()?null:rows.get(0);
     }
 
     /** Community posts live outside the catalog union; lock builds the same item shape. */
@@ -110,8 +124,8 @@ public class ModerationStore {
         return jdbc.queryForObject("""
                 INSERT INTO foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at,submission_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (dish_id,user_id) DO UPDATE
-                SET rating = EXCLUDED.rating,content = EXCLUDED.content,created_at = EXCLUDED.created_at,
+                ON CONFLICT (dish_id,user_id) WHERE deleted_at IS NULL DO UPDATE
+                SET rating = EXCLUDED.rating,content = EXCLUDED.content,
                     submission_id = EXCLUDED.submission_id
                 RETURNING id
                 """, UUID.class, UUID.randomUUID(), item.targetId(), item.userId(), item.rating(), item.content(), Timestamp.from(item.createdAt()), item.id());
@@ -134,7 +148,7 @@ public class ModerationStore {
 
     public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
         boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post")
-                || item.type().equals("community-comment");
+                || item.type().equals("community-comment") || item.type().equals("dish-review-reply");
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
         String ai = aiReviewed ? ",reviewed_by_ai_model = ?" : "";
         var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));
@@ -148,20 +162,20 @@ public class ModerationStore {
 
     public void log(ModerationItem item, UUID moderator, String actor, String aiModel, String action, String reason) {
         jdbc.update("""
-                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id,moderator_user_id,actor,ai_model,action,reason)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO foodtime.content_moderation_logs(id,review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id,dish_review_reply_id,moderator_user_id,actor,ai_model,action,reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, UUID.randomUUID(),item.type().equals("review") ? item.id() : null,
                 item.type().equals("dish") ? item.id() : null,item.type().equals("stall") ? item.id() : null,
                 item.type().equals("photo") ? item.id() : null,
                 item.type().equals("community-post") ? item.id() : null,
                 item.type().equals("community-comment") ? item.id() : null,
-                moderator,actor,aiModel,action,reason);
+                item.type().equals("dish-review-reply") ? item.id() : null,moderator,actor,aiModel,action,reason);
     }
 
     public List<ModerationLogResponse> logs(int size, long offset) {
         return jdbc.query("""
-                SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id) AS submission_id,
-                       CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' WHEN dish_image_id IS NOT NULL THEN 'photo' WHEN community_post_id IS NOT NULL THEN 'community-post' ELSE 'community-comment' END AS type,
+                SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id,dish_review_reply_id) AS submission_id,
+                       CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' WHEN dish_image_id IS NOT NULL THEN 'photo' WHEN community_post_id IS NOT NULL THEN 'community-post' WHEN community_comment_id IS NOT NULL THEN 'community-comment' ELSE 'dish-review-reply' END AS type,
                        moderator_user_id,actor,ai_model,action,reason,created_at
                 FROM foodtime.content_moderation_logs ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?
                 """, (r,n) -> new ModerationLogResponse(r.getObject("id",UUID.class),r.getObject("submission_id",UUID.class),
@@ -173,6 +187,7 @@ public class ModerationStore {
         // Identifiers are selected only from constants; caller data is never interpolated as SQL.
         return switch (type) {
             case "review" -> "foodtime.dish_review_submissions";
+            case "dish-review-reply" -> "foodtime.dish_review_replies";
             case "dish" -> "foodtime.dish_submissions";
             case "stall" -> "foodtime.stall_submissions";
             case "photo" -> "foodtime.dish_images";

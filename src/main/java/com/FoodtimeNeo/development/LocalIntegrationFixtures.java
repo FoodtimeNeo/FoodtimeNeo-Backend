@@ -39,7 +39,6 @@ public class LocalIntegrationFixtures implements CommandLineRunner {
         jdbc.update("INSERT INTO foodtime.stalls(id,dining_hall_id,name) VALUES (?, ?, '联调示例档口') ON CONFLICT DO NOTHING",id(201),id(101));
         jdbc.update("INSERT INTO foodtime.dishes(id,stall_id,name,description,price) VALUES (?, ?, '联调示例菜品', '示例介绍', 12.30) ON CONFLICT DO NOTHING",id(301),id(201));
         jdbc.update("INSERT INTO foodtime.dishes(id,stall_id,name,price) VALUES (?, ?, '无图示例菜品', 8.00) ON CONFLICT DO NOTHING",id(302),id(201));
-        jdbc.execute("REFRESH MATERIALIZED VIEW foodtime.dish_rating_summary");
     }
     private static UUID id(int value) { return UUID.fromString(String.format("00000000-0000-4000-8000-%012d",value)); }
 }

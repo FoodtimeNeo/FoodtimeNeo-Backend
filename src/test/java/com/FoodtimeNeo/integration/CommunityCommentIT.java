@@ -15,7 +15,7 @@ import java.util.UUID;
  * pending, "放心" auto-approves at 0.99, "违禁" auto-rejects at 0.95.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.ai.triage.enabled=true",
                 "app.ai.triage.provider=fake",
                 "app.ai.triage.initial-delay=PT30M"})

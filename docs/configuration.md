@@ -55,3 +55,5 @@
 `ImageStorageService` 读取 `app.storage.directory`，默认是进程工作目录下的 `uploads`。可通过启动参数 `--app.storage.directory=/var/lib/foodtime/uploads` 指定持久化目录；需保证运行账号可读写。调大multipart配置不会取消存储服务的10MiB和2000万像素业务限制。
 
 数据库迁移不会创建图片字节。V5菜单图片、V6食堂封面及 `.properties` 元数据的铺放方式见 [种子数据与图片部署](seed-data.md)。容器挂载见 [部署说明](deployment.md)。
+
+点评轻量动作使用 REVIEW_ACTION_WINDOW / REVIEW_ACTION_USER_LIMIT / REVIEW_ACTION_IP_LIMIT / REVIEW_ACTION_REDIS_NAMESPACE，默认 PT1M / 100 / 1000 / foodtime:review:actions；与内容投稿及社区互动独立。

@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.content.submissions.user-limit=2",
                 "app.content.uploads.user-limit=2"})
 class WriteLimitsIT extends IntegrationApiSupport {

@@ -28,9 +28,10 @@ public class DishReviewController {
 
     @GetMapping("/reviews")
     @Operation(summary = "查看已审核评论", description = "只返回正式评论；菜品及其父级必须启用，不返回头像")
-    public ApiResponse<PageResponse<PublishedReviewResponse>> list(@PathVariable UUID dishId,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(reviews.list(dishId, new PageRequest(page, size)));
+    public ApiResponse<PageResponse<InteractiveReviewResponse>> list(@PathVariable UUID dishId,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size, HttpServletRequest request) {
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(reviews.list(dishId, user.id(), new PageRequest(page, size)));
     }
 
     @PostMapping("/reviews")
@@ -44,7 +45,7 @@ public class DishReviewController {
     }
 
     @GetMapping("/rating")
-    @Operation(summary = "查询菜品评分快照", description = "使用每24小时刷新的物化视图；无评分平均分为null")
+    @Operation(summary = "查询菜品实时评分", description = "读取事务内维护的实时统计；无评分平均分为null")
     public ApiResponse<DishRatingResponse> rating(@PathVariable UUID dishId) {
         return ApiResponse.success(reviews.rating(dishId));
     }

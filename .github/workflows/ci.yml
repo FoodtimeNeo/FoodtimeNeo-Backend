@@ -50,7 +50,6 @@ jobs:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
       EMAIL_VERIFICATION_ENABLED: 'false'
-      RATING_SUMMARY_REFRESH_ENABLED: 'false'
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

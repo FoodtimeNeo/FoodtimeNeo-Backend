@@ -19,6 +19,14 @@ public interface PublishedReviewMapper {
     UUID lockVisibleDish(UUID id);
 
     @Select("""
+            SELECT d.id FROM foodtime.dishes d
+            JOIN foodtime.stalls s ON s.id = d.stall_id AND s.status = 'active'
+            JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
+            WHERE d.id = #{id,jdbcType=OTHER} AND d.status = 'active'
+            """)
+    UUID visibleDish(UUID id);
+
+    @Select("""
             SELECT r.id, r.dish_id, r.user_id, u.display_name AS user_display_name,
                    r.rating, r.content, r.created_at, r.updated_at,
                    d.name AS dish_name, s.id AS stall_id, s.name AS stall_name,
@@ -30,13 +38,13 @@ public interface PublishedReviewMapper {
             JOIN foodtime.dishes d ON d.id = r.dish_id
             JOIN foodtime.stalls s ON s.id = d.stall_id
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
-            WHERE r.dish_id = #{dishId,jdbcType=OTHER}
+            WHERE r.dish_id = #{dishId,jdbcType=OTHER} AND r.deleted_at IS NULL
             ORDER BY r.created_at DESC, r.id ASC LIMIT #{size} OFFSET #{offset}
             """)
     List<PublishedReviewResponse> visiblePage(@Param("dishId") UUID dishId, @Param("size") int size,
                                             @Param("offset") long offset);
 
-    @Select("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE dish_id = #{id,jdbcType=OTHER}")
+    @Select("SELECT review_count FROM foodtime.dish_stats WHERE dish_id = #{id,jdbcType=OTHER}")
     long countForDish(UUID id);
 
     @Select("""
@@ -51,13 +59,13 @@ public interface PublishedReviewMapper {
             JOIN foodtime.dishes d ON d.id = r.dish_id
             JOIN foodtime.stalls s ON s.id = d.stall_id
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
-            WHERE r.user_id = #{userId,jdbcType=OTHER}
+            WHERE r.user_id = #{userId,jdbcType=OTHER} AND r.deleted_at IS NULL
             ORDER BY r.created_at DESC, r.id ASC LIMIT #{size} OFFSET #{offset}
             """)
     List<PublishedReviewResponse> ownedPage(@Param("userId") UUID userId, @Param("size") int size,
                                           @Param("offset") long offset);
 
-    @Select("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE user_id = #{id,jdbcType=OTHER}")
+    @Select("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE user_id = #{id,jdbcType=OTHER} AND deleted_at IS NULL")
     long countOwned(UUID id);
 
     @Insert("""
@@ -74,7 +82,7 @@ public interface PublishedReviewMapper {
             """)
     ReviewCreatedResponse findSubmission(UUID id);
 
-    @Delete("DELETE FROM foodtime.dish_reviews WHERE id = #{id,jdbcType=OTHER} AND user_id = #{userId,jdbcType=OTHER}")
+    @Update("UPDATE foodtime.dish_reviews SET deleted_at = now() WHERE id = #{id,jdbcType=OTHER} AND user_id = #{userId,jdbcType=OTHER} AND deleted_at IS NULL")
     int deleteOwned(@Param("id") UUID id, @Param("userId") UUID userId);
 
     @Select("""
