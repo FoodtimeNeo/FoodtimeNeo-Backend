@@ -44,7 +44,7 @@ public class DishReviewController {
     }
 
     @GetMapping("/rating")
-    @Operation(summary = "查询菜品评分快照", description = "使用每24小时刷新的物化视图；无评分平均分为null")
+    @Operation(summary = "查询菜品实时评分", description = "读取事务内维护的实时统计；无评分平均分为null")
     public ApiResponse<DishRatingResponse> rating(@PathVariable UUID dishId) {
         return ApiResponse.success(reviews.rating(dishId));
     }

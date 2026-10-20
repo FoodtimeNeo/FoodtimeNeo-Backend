@@ -6,8 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties="app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UserAdminIT extends IntegrationApiSupport {
     @Test
     void onlyPlatformAdministratorsCanReadAndWriteUserAccess() throws Exception {

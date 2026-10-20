@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.storage.cleanup-max-age=PT0S",
                 "app.storage.cleanup-initial-delay=PT30M"})
 class StagedImageCleanupIT extends IntegrationApiSupport {

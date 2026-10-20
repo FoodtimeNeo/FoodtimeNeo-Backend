@@ -202,3 +202,12 @@
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录创建时间。 |
 
 结论行只读不改；同一投稿重复送检靠唯一约束去重。V9 新增，已有迁移不变。
+
+
+# 2026-10-20 V15 实时评分修订（覆盖上文旧每日快照约定）
+
+- `dish_reviews` 新增可空 `deleted_at TIMESTAMPTZ`；唯一约束改为 `(dish_id,user_id) WHERE deleted_at IS NULL`，按菜品和作者添加未删除记录的时间分页索引。身份和首次创建时间不可修改，已删除记录不可恢复或编辑。
+- 新增 `dish_stats`：`dish_id UUID PRIMARY KEY REFERENCES dishes ON DELETE CASCADE`、`review_count BIGINT NOT NULL DEFAULT 0`、`rating_sum BIGINT NOT NULL DEFAULT 0`、`counter_version BIGINT NOT NULL DEFAULT 0`、`updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`。各数值非负，评分总和处于评论数至评论数×5之间。
+- 统计只保存未删除正式点评。新建+1/+评分；重评只更新新旧评分差；删除-1/-旧评分；待审核、驳回不计入。统计由写事务触发器维护。
+- `dish_rating_summary` 替换为普通视图，均分为 `ROUND(rating_sum::NUMERIC/review_count,2)`，零评论时NULL。每日及启动刷新均已取消。
+- 现有用户、菜品、审核提交外键及历史保留规则继续适用；完整实现见 V15 迁移。

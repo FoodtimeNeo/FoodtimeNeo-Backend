@@ -110,8 +110,8 @@ public class ModerationStore {
         return jdbc.queryForObject("""
                 INSERT INTO foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at,submission_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (dish_id,user_id) DO UPDATE
-                SET rating = EXCLUDED.rating,content = EXCLUDED.content,created_at = EXCLUDED.created_at,
+                ON CONFLICT (dish_id,user_id) WHERE deleted_at IS NULL DO UPDATE
+                SET rating = EXCLUDED.rating,content = EXCLUDED.content,
                     submission_id = EXCLUDED.submission_id
                 RETURNING id
                 """, UUID.class, UUID.randomUUID(), item.targetId(), item.userId(), item.rating(), item.content(), Timestamp.from(item.createdAt()), item.id());

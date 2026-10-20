@@ -25,9 +25,9 @@ public class PublishedReviewService {
         this.reviews = reviews; this.events = events;
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public PageResponse<PublishedReviewResponse> list(@NotNull UUID dishId, @NotNull PageRequest page) {
-        visible(dishId);
+        readable(dishId);
         return PageResponse.of(reviews.visiblePage(dishId, page.size(), page.offset()), reviews.countForDish(dishId), page);
     }
 
@@ -55,10 +55,16 @@ public class PublishedReviewService {
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public DishRatingResponse rating(@NotNull UUID dishId) {
-        visible(dishId);
+        readable(dishId);
         return reviews.rating(dishId);
+    }
+
+    private void readable(UUID id) {
+        if (reviews.visibleDish(id) == null) {
+            throw new BusinessException("DISH_NOT_FOUND", "菜品不存在或暂不可用", HttpStatus.NOT_FOUND);
+        }
     }
 
     private void visible(UUID id) {

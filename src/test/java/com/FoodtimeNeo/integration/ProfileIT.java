@@ -9,8 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Map;
 import javax.imageio.ImageIO;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProfileIT extends IntegrationApiSupport {
     @Test
     void profileReadsOnlyTheAuthenticatedUserIncludingNullableAvatar() throws Exception {

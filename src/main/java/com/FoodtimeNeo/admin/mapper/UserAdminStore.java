@@ -15,7 +15,7 @@ public class UserAdminStore {
     public UserAdminStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
     public List<AdminUserResponse> page(String q,int size,long offset) {
         return jdbc.query("SELECT u.id,u.email,u.display_name,u.avatar_url,u.role,u.status,u.created_at," +
-                "(SELECT count(*) FROM foodtime.dish_reviews r WHERE r.user_id=u.id) AS review_count FROM foodtime.users u" +
+                "(SELECT count(*) FROM foodtime.dish_reviews r WHERE r.user_id=u.id AND r.deleted_at IS NULL) AS review_count FROM foodtime.users u" +
                 FILTER + " ORDER BY u.created_at DESC,u.id ASC LIMIT ? OFFSET ?",ROW,q,q,size,offset);
     }
     public long count(String q) { return jdbc.queryForObject("SELECT count(*) FROM foodtime.users u" + FILTER,Long.class,q,q); }

@@ -39,7 +39,7 @@ public class CatalogAdminController {
             @RequestParam(defaultValue = "1") int page,@RequestParam(defaultValue = "20") int size,HttpServletRequest request) {
         return ApiResponse.success(catalog.reviews(current(request),q,new PageRequest(page,size)));
     }
-    @DeleteMapping("/reviews/{reviewId}") @Operation(summary = "移除违规正式评论",description = "保留审核历史，不伪造审核日志中的delete动作；评分等待下一次刷新")
+    @DeleteMapping("/reviews/{reviewId}") @Operation(summary = "移除违规正式评论",description = "软删除并保留审核历史；评分在同一事务内更新")
     public ApiResponse<Void> remove(@PathVariable UUID reviewId,@Valid @RequestBody RemoveReviewRequest body,HttpServletRequest request) {
         UserProfile actor = current(request);
         catalog.removeReview(actor,reviewId);
