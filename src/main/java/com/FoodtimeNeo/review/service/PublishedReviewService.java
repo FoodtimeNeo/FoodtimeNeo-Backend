@@ -5,6 +5,7 @@ import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.review.dto.*;
 import com.FoodtimeNeo.review.mapper.PublishedReviewMapper;
+import com.FoodtimeNeo.review.mapper.ReviewInteractionStore;
 import com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -21,14 +22,17 @@ import java.util.UUID;
 public class PublishedReviewService {
     private final PublishedReviewMapper reviews;
     private final ApplicationEventPublisher events;
-    public PublishedReviewService(PublishedReviewMapper reviews, ApplicationEventPublisher events) {
-        this.reviews = reviews; this.events = events;
+    private final ReviewInteractionStore interactions;
+    public PublishedReviewService(PublishedReviewMapper reviews, ApplicationEventPublisher events, ReviewInteractionStore interactions) {
+        this.reviews = reviews; this.events = events; this.interactions = interactions;
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
-    public PageResponse<PublishedReviewResponse> list(@NotNull UUID dishId, @NotNull PageRequest page) {
+    public PageResponse<InteractiveReviewResponse> list(@NotNull UUID dishId, @NotNull UUID viewer, @NotNull PageRequest page) {
         readable(dishId);
-        return PageResponse.of(reviews.visiblePage(dishId, page.size(), page.offset()), reviews.countForDish(dishId), page);
+        var rows = reviews.visiblePage(dishId, page.size(), page.offset());
+        var counters = interactions.counters(rows.stream().map(PublishedReviewResponse::id).toList(), viewer);
+        return PageResponse.of(rows.stream().map(row -> new InteractiveReviewResponse(row, counters.get(row.id()))).toList(), reviews.countForDish(dishId), page);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)

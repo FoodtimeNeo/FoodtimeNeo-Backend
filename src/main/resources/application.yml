@@ -198,6 +198,12 @@ app:
       user-limit: ${UPLOAD_USER_LIMIT:10}
       ip-limit: ${UPLOAD_IP_LIMIT:1000}
       redis-namespace: ${UPLOAD_REDIS_NAMESPACE:foodtime:content:uploads}
+  review:
+    actions:
+      window: ${REVIEW_ACTION_WINDOW:PT1M}
+      user-limit: ${REVIEW_ACTION_USER_LIMIT:100}
+      ip-limit: ${REVIEW_ACTION_IP_LIMIT:1000}
+      redis-namespace: ${REVIEW_ACTION_REDIS_NAMESPACE:foodtime:review:actions}
   community:
     actions:
       window: ${COMMUNITY_ACTION_WINDOW:PT1M}
