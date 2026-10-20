@@ -21,10 +21,12 @@ public class ReviewReplyStore {
                    tu.display_name AS reply_to_user_display_name,(t.deleted_at IS NOT NULL) AS reply_to_deleted,
                    (c.user_id=?) AS owned_by_me,d.id AS dish_id,s.id AS stall_id,s.dining_hall_id,
                    d.name AS dish_name,(r.deleted_at IS NOT NULL) AS review_deleted,
-                   0::bigint AS like_count,false AS liked_by_me,0::bigint AS counter_version
+                   stats.like_count,(likes.user_id IS NOT NULL) AS liked_by_me,stats.counter_version
             FROM foodtime.dish_review_replies c JOIN foodtime.users u ON u.id=c.user_id
             JOIN foodtime.dish_reviews r ON r.id=c.review_id JOIN foodtime.dishes d ON d.id=r.dish_id
             JOIN foodtime.stalls s ON s.id=d.stall_id
+            JOIN foodtime.dish_review_reply_stats stats ON stats.reply_id=c.id
+            LEFT JOIN foodtime.dish_review_reply_likes likes ON likes.reply_id=c.id AND likes.user_id=?
             LEFT JOIN foodtime.dish_review_replies t ON t.id=c.reply_to_id AND t.review_id=c.review_id
             LEFT JOIN foodtime.users tu ON tu.id=t.user_id
             """;
@@ -42,6 +44,11 @@ public class ReviewReplyStore {
         var rows=jdbc.query("SELECT * FROM foodtime.dish_review_replies WHERE id=?"+(lock?" FOR UPDATE":""),STORED,id);
         return rows.isEmpty()?null:rows.get(0);
     }
+    public Stored lockForLike(UUID id,boolean visible) {
+        var rows=jdbc.query("SELECT * FROM foodtime.dish_review_replies WHERE id=?"
+                +(visible?" AND status='approved' AND deleted_at IS NULL":"")+" FOR SHARE",STORED,id);
+        return rows.isEmpty()?null:rows.get(0);
+    }
     public boolean visibleTarget(UUID review,UUID target) {
         return !jdbc.query("SELECT id FROM foodtime.dish_review_replies WHERE id=? AND review_id=? AND status='approved' AND deleted_at IS NULL FOR SHARE",
                 (r,n)->r.getObject(1,UUID.class),target,review).isEmpty();
@@ -54,14 +61,14 @@ public class ReviewReplyStore {
     }
     public List<ReviewReplyResponse> page(UUID review,UUID viewer,int limit,Instant after,UUID afterId) {
         String cursor=after==null?"":" AND (c.created_at,c.id)>(?,?)";
-        var args=new ArrayList<Object>(Arrays.asList(viewer,review));
+        var args=new ArrayList<Object>(Arrays.asList(viewer,viewer,review));
         if(after!=null) {args.add(Timestamp.from(after));args.add(afterId);}args.add(limit);
         return jdbc.query(SELECT+" WHERE c.review_id=? AND c.status='approved' AND c.deleted_at IS NULL"+cursor
                 +" ORDER BY c.created_at ASC,c.id ASC LIMIT ?",ROW,args.toArray());
     }
     public long count(UUID review) {return jdbc.queryForObject("SELECT reply_count FROM foodtime.dish_review_stats WHERE review_id=?",Long.class,review);}
     public List<ReviewReplyResponse> mine(UUID user,int size,long offset) {
-        return jdbc.query(SELECT+" WHERE c.user_id=? AND c.deleted_at IS NULL ORDER BY c.created_at DESC,c.id ASC LIMIT ? OFFSET ?",ROW,user,user,size,offset);
+        return jdbc.query(SELECT+" WHERE c.user_id=? AND c.deleted_at IS NULL ORDER BY c.created_at DESC,c.id ASC LIMIT ? OFFSET ?",ROW,user,user,user,size,offset);
     }
     public long countMine(UUID user) {return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_review_replies WHERE user_id=? AND deleted_at IS NULL",Long.class,user);}
     public void delete(UUID id) {jdbc.update("UPDATE foodtime.dish_review_replies SET deleted_at=now() WHERE id=? AND deleted_at IS NULL",id);}

@@ -2,7 +2,7 @@
 
 日期：2026-10-20。基线：后端 dev f9b5d78 / 数据库 V14，Web develop 439d4a9，Android dev de351f2。
 
-本稿替代 V2。交付内容为修改建议、完整字段、约束索引和 [SQL 草案](dish-review-interactions-v3.sql)，尚未修改业务实现或执行数据库变更。V3 基于现有 V14，不能先执行 V2 再执行 V3；审查通过后才整理正式的新版本 Flyway 迁移。
+本稿保留V14基线的审查记录，已按后续开发指令拆分实现为Flyway V15（实时评分）、V16（点评点赞）、V17（回复）、V18（回复点赞）。当前字段与接口以[数据库设计](../database-design.md)和[互动契约](../api/dish/review-interactions.md)为准；[SQL草案](dish-review-interactions-v3.sql)不可与正式迁移叠加执行。
 
 ## 1. 范围与建议规则
 

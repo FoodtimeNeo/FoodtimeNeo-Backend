@@ -40,6 +40,7 @@ abstract class IntegrationApiSupport {
     static void namespaces(DynamicPropertyRegistry properties) {
         properties.add("spring.session.redis.namespace", () -> PREFIX + ":sessions");
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":limits");
+        properties.add("app.review.actions.redis-namespace", () -> PREFIX + ":review-actions");
     }
 
     @BeforeEach
@@ -68,6 +69,8 @@ abstract class IntegrationApiSupport {
                     + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type='dish-review-reply' AND submission_id IN"
                     + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
+            jdbc.update("DELETE FROM foodtime.dish_review_reply_likes WHERE user_id=? OR reply_id IN"
+                    + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user,user);
             jdbc.update("DELETE FROM foodtime.dish_review_likes WHERE user_id=? OR review_id IN"
                     + " (SELECT id FROM foodtime.dish_reviews WHERE user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE moderator_user_id = ?", user);
