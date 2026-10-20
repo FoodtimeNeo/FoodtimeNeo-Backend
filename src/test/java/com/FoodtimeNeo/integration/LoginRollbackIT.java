@@ -35,8 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doCallRealMethod;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LoginRollbackIT {
     private static final String PREFIX = "foodtime:integration:login-rollback:" + UUID.randomUUID();
     private static final String PASSWORD = "Foodtime2026!";

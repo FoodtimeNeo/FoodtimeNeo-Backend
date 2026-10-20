@@ -14,7 +14,7 @@ import java.util.UUID;
  * repost creates a pending post linked to its origin.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.ai.triage.enabled=true",
                 "app.ai.triage.provider=fake",
                 "app.ai.triage.initial-delay=PT30M"})

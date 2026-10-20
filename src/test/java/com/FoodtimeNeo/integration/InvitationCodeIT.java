@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.invitation.secret=0123456789abcdef0123456789abcdef0123456789abcdef",
                 "app.test-verification.enabled=true"})
 class InvitationCodeIT extends IntegrationApiSupport {

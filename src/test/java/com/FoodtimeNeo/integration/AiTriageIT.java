@@ -18,7 +18,7 @@ import java.util.stream.StreamSupport;
 import javax.imageio.ImageIO;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false",
+        properties = {
                 "app.ai.triage.enabled=true",
                 "app.ai.triage.provider=fake",
                 "app.ai.triage.initial-delay=PT30M"})

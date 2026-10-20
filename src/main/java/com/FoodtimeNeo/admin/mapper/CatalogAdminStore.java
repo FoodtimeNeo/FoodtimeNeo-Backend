@@ -9,7 +9,7 @@ import java.util.*;
 @Repository
 public class CatalogAdminStore {
     private final JdbcTemplate jdbc;
-    private static final String REVIEW_FILTER = " WHERE strpos(lower(u.email),lower(?)) > 0 OR strpos(lower(u.display_name),lower(?)) > 0 OR strpos(r.user_id::text,lower(?)) > 0";
+    private static final String REVIEW_FILTER = " WHERE r.deleted_at IS NULL AND (strpos(lower(u.email),lower(?)) > 0 OR strpos(lower(u.display_name),lower(?)) > 0 OR strpos(r.user_id::text,lower(?)) > 0)";
     private static final RowMapper<AdminCatalogResponse> ROW = (r,n) -> new AdminCatalogResponse(
             r.getObject("id",UUID.class),r.getObject("parent_id",UUID.class),r.getString("name"),r.getString("description"),
             r.getBigDecimal("price"),r.getString("cover_image_url"),r.getString("status"),r.getObject("sort_order",Integer.class));
@@ -68,7 +68,7 @@ public class CatalogAdminStore {
         return value == null ? null : value.toInstant();
     }
     public long reviewCount(String q) { return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews r JOIN foodtime.users u ON u.id = r.user_id" + REVIEW_FILTER,Long.class,q,q,q); }
-    public int removeReview(UUID id) { return jdbc.update("DELETE FROM foodtime.dish_reviews WHERE id = ?",id); }
+    public int removeReview(UUID id) { return jdbc.update("UPDATE foodtime.dish_reviews SET deleted_at = now() WHERE id = ? AND deleted_at IS NULL",id); }
     public int remove(String type,UUID id) { return jdbc.update("DELETE FROM " + table(type) + " WHERE id = ?",id); }
 
     private String select(String type) {

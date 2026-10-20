@@ -29,7 +29,7 @@ import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false", "app.auth.login-account-limit=3",
+        properties = { "app.auth.login-account-limit=3",
                 "app.auth.login-ip-limit=6"})
 class LoginIT {
     private static final String PREFIX = "foodtime:integration:login:" + UUID.randomUUID();

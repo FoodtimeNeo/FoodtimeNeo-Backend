@@ -17,17 +17,15 @@ SQL 包含文档规定的字段、默认值、状态检查、评分与价格检�
 
 V5、V6仅保存媒体引用，图片文件需另行铺入运行目录，见 [种子数据与图片部署](seed-data.md)。V6新增的东区学生餐厅和学苑餐厅目前没有种子档口与菜品。
 
-`dish_rating_summary` 仅统计正式评论，包含没有评论的菜品（平均分为 NULL，评论数为 0）。唯一索引支持并发刷新；应用启动后刷新一次，之后每次刷新完成后等待 24 小时再刷新，重启会重新计时。刷新使用事务级 PostgreSQL advisory lock，使多个实例不会同时刷新；失败会记录日志并保留原快照。无需安装 pg_cron。
+V15 新增 `dish_stats`，实时维护未删除正式点评的 `review_count` 和 `rating_sum`；评分是后者除以前者，无评论时为 NULL。点评新增、评分修改、软删除及事务回滚由数据库触发器同步处理。普通读取不执行评论明细 COUNT/AVG。
 
-调度配置：`RATING_SUMMARY_REFRESH_ENABLED`（默认 true）、`RATING_SUMMARY_REFRESH_INTERVAL`（默认 PT24H）、`RATING_SUMMARY_INITIAL_DELAY`（默认 PT0S）。应用停止期间不会自动刷新；需要持续刷新时，应保证至少一个应用实例运行。手动刷新：
+`dish_rating_summary` 已改为读取 `dish_stats` 的普通兼容视图，仍返回 dish_id/average_score/review_count。已移除每日和启动刷新任务，不再接受 `REFRESH MATERIALIZED VIEW`。`RATING_SUMMARY_*` 环境变量已废弃。暂存图片每日清理不受影响。
 
-```sql
-REFRESH MATERIALIZED VIEW CONCURRENTLY foodtime.dish_rating_summary;
-```
+正式点评新增 deleted_at，公开和个人列表只返回未删除记录；同用户同菜品仅允许一条未删除点评。重新点评保留原ID和created_at；删除后再提交通过创建新ID。用户及管理员删除都同步扣除评分，审核历史保留。
 
-并发刷新需要物化视图已初始化且有覆盖所有行的唯一索引，V2 已满足这两个条件，参见 [PostgreSQL 文档](https://www.postgresql.org/docs/17/sql-refreshmaterializedview.html)。
+部署 V15 需同时更新应用：旧版审核UPSERT和物化视图刷新与新结构不兼容。首次部署在停止旧应用写入后执行迁移并启动新应用；先在专用库验证升级与数据回填。不要修改已经应用的V1–V14迁移。
 
-后续 SQL 从 `V10__描述.sql` 起递增命名。已经执行的迁移文件不得修改，以新版本迁移演进数据库；校验默认开启，禁止 clean，禁止自动 baseline。不要将业务建表脚本放到 Compose 的初始化目录，以免与 Flyway 双重管理。
+后续 SQL 从 `V16__描述.sql` 起递增命名。已经执行的迁移文件不得修改，以新版本迁移演进数据库；校验默认开启，禁止 clean，禁止自动 baseline。不要将业务建表脚本放到 Compose 的初始化目录，以免与 Flyway 双重管理。
 
 当前设计保存在本仓库 `docs/database-design.md`，包含用户后续修订；现有接口的设计符合性、尚未实现的业务及验证结果见 [数据库设计核查报告](database-design-audit.md)。
 

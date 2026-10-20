@@ -7,8 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CatalogAdminIT extends IntegrationApiSupport {
     @Test
     void filtersPublishedReviewsByUserIdEmailAndNicknameWithMatchingCounts() throws Exception {
@@ -84,7 +83,7 @@ class CatalogAdminIT extends IntegrationApiSupport {
         assertThat(admin.call("GET","/api/v1/admin/reviews",null).statusCode()).isEqualTo(200);
         assertThat(admin.call("DELETE","/api/v1/admin/reviews/" + review,Map.of("reason"," ")).statusCode()).isEqualTo(400);
         assertThat(admin.call("DELETE","/api/v1/admin/reviews/" + review,Map.of("reason","unrelated content")).statusCode()).isEqualTo(200);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE id = ?",Long.class,review)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE id = ? AND deleted_at IS NULL",Long.class,review)).isZero();
         assertThat(admin.call("DELETE","/api/v1/admin/reviews/" + review,Map.of("reason","unrelated content")).statusCode()).isEqualTo(404);
     }
 

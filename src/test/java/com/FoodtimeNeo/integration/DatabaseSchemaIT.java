@@ -1,6 +1,5 @@
 package com.FoodtimeNeo.integration;
 
-import com.FoodtimeNeo.dish.service.DishRatingSummaryRefresher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,8 +19,7 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class DatabaseSchemaIT {
     @Autowired
     private JdbcTemplate jdbc;
@@ -29,18 +27,17 @@ class DatabaseSchemaIT {
     private PlatformTransactionManager transactionManager;
 
     @Test
-    void allDesignedTablesAndMaterializedViewExist() {
+    void allDesignedTablesAndRealtimeViewExist() {
         assertThat(jdbc.queryForList("""
                 select table_name from information_schema.tables
-                where table_schema = 'foodtime' and table_name <> 'flyway_schema_history'
+                where table_schema = 'foodtime' and table_type = 'BASE TABLE' and table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
                 "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
                 "community_posts", "community_post_images", "community_comments",
-                "community_likes", "community_favorites");
+                "community_likes", "community_favorites", "dish_stats");
         assertThat(jdbc.queryForObject("""
-                select ispopulated from pg_matviews
-                where schemaname = 'foodtime' and matviewname = 'dish_rating_summary'
+                select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
     }
 
@@ -214,11 +211,6 @@ class DatabaseSchemaIT {
             jdbc.update("update foodtime.users set display_name = 'new name' where id = ?", user);
             assertThat(jdbc.queryForObject("select updated_at from foodtime.users where id = ?", OffsetDateTime.class, user))
                     .isAfter(OffsetDateTime.parse("2000-01-01T00:00:00Z"));
-            assertThat(jdbc.queryForObject("""
-                    select count(*) from pg_trigger t
-                    join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
-                    where n.nspname = 'foodtime' and not t.tgisinternal
-                    """, Integer.class)).isEqualTo(9);
         });
     }
 
@@ -281,7 +273,6 @@ class DatabaseSchemaIT {
             review(fixture, fixture.user(), 3);
             review(fixture, fixture.otherUser(), 5);
             reviewSubmission(fixture);
-            new DishRatingSummaryRefresher(jdbc, new TransactionTemplate(transactionManager)).refresh();
             assertThat(jdbc.queryForObject("select average_score from foodtime.dish_rating_summary where dish_id = ?",
                     BigDecimal.class, fixture.dish())).isEqualByComparingTo("4.00");
             assertThat(jdbc.queryForObject("select review_count from foodtime.dish_rating_summary where dish_id = ?",

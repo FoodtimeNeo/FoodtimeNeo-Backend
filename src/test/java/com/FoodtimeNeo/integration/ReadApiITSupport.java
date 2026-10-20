@@ -19,8 +19,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 abstract class ReadApiITSupport {
     private static final String PREFIX = "foodtime:integration:read-api:" + UUID.randomUUID();
     @Value("${local.server.port}") private int port;
