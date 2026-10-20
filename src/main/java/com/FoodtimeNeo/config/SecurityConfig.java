@@ -1,6 +1,7 @@
 package com.FoodtimeNeo.config;
 
 import com.FoodtimeNeo.config.properties.AuthProperties;
+import com.FoodtimeNeo.config.properties.MonitoringProperties;
 import com.FoodtimeNeo.auth.security.SecurityErrorWriter;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.security.SessionValidationFilter;
@@ -50,7 +51,8 @@ public class SecurityConfig {
     @Bean
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contexts,
-                                                   SessionAuthenticationService sessions, SecurityErrorWriter errors)
+                                                   SessionAuthenticationService sessions, SecurityErrorWriter errors,
+                                                   MonitoringProperties monitoring)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -81,8 +83,21 @@ public class SecurityConfig {
                                 "/api/v1/auth/register/email-code").permitAll()
                         .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**").hasRole("superadmin")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")
+                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus").access(prometheusScrape(monitoring))
                         .anyRequest().authenticated())
                 .addFilterBefore(new SessionValidationFilter(sessions, errors), CsrfFilter.class);
         return http.build();
+    }
+
+    /** Metrics scraping is fail-closed: no configured scraper address means no access. */
+    private static org.springframework.security.authorization.AuthorizationManager<
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext> prometheusScrape(
+            MonitoringProperties monitoring) {
+        if (monitoring.scrapeIp() == null || monitoring.scrapeIp().isBlank()) {
+            return (authentication, context) ->
+                    new org.springframework.security.authorization.AuthorizationDecision(false);
+        }
+        return new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                "hasIpAddress('" + monitoring.scrapeIp() + "')");
     }
 }

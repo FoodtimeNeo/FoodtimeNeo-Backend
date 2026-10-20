@@ -13,8 +13,7 @@ import java.util.concurrent.*;
 import javax.imageio.ImageIO;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ModerationIT extends IntegrationApiSupport {
     private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "moderation-test-" + UUID.randomUUID());
     @DynamicPropertySource static void directory(DynamicPropertyRegistry properties) { properties.add("app.storage.directory", STORAGE::toString); }
@@ -27,6 +26,19 @@ class ModerationIT extends IntegrationApiSupport {
         assertThat(student.call("GET", "/api/v1/admin/moderation/logs", null).statusCode()).isEqualTo(403);
         assertThat(student.call("POST", moderate("review",id), Map.of("action","approve","role","superadmin")).statusCode()).isEqualTo(403);
         assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_review_submissions WHERE id = ?", String.class,id)).isEqualTo("pending");
+    }
+
+    @Test
+    void queueItemsCarryTheSubmitterDisplayName() throws Exception {
+        UUID id = review(login(owner), "named review");
+        Browser admin = login(account("admin"));
+        var items = body(admin.call("GET", "/api/v1/admin/moderation?status=pending&size=100", null))
+                .path("data").path("items");
+        var mine = java.util.stream.StreamSupport.stream(items.spliterator(), false)
+                .filter(item -> item.path("id").asString().equals(id.toString()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("created submission missing from queue"));
+        assertThat(mine.path("userDisplayName").asString()).isEqualTo("integration user");
     }
 
     @Test

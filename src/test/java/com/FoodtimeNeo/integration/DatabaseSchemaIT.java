@@ -1,6 +1,5 @@
 package com.FoodtimeNeo.integration;
 
-import com.FoodtimeNeo.dish.service.DishRatingSummaryRefresher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,8 +19,7 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class DatabaseSchemaIT {
     @Autowired
     private JdbcTemplate jdbc;
@@ -29,16 +27,17 @@ class DatabaseSchemaIT {
     private PlatformTransactionManager transactionManager;
 
     @Test
-    void allDesignedTablesAndMaterializedViewExist() {
+    void allDesignedTablesAndRealtimeViewExist() {
         assertThat(jdbc.queryForList("""
                 select table_name from information_schema.tables
-                where table_schema = 'foodtime' and table_name <> 'flyway_schema_history'
+                where table_schema = 'foodtime' and table_type = 'BASE TABLE' and table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
-                "dish_submissions", "content_moderation_logs");
+                "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
+                "community_posts", "community_post_images", "community_comments",
+                "community_likes", "community_favorites", "dish_stats", "dish_review_stats", "dish_review_likes", "dish_review_replies", "dish_review_reply_stats", "dish_review_reply_likes");
         assertThat(jdbc.queryForObject("""
-                select ispopulated from pg_matviews
-                where schemaname = 'foodtime' and matviewname = 'dish_rating_summary'
+                select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
     }
 
@@ -212,11 +211,58 @@ class DatabaseSchemaIT {
             jdbc.update("update foodtime.users set display_name = 'new name' where id = ?", user);
             assertThat(jdbc.queryForObject("select updated_at from foodtime.users where id = ?", OffsetDateTime.class, user))
                     .isAfter(OffsetDateTime.parse("2000-01-01T00:00:00Z"));
-            assertThat(jdbc.queryForObject("""
-                    select count(*) from pg_trigger t
-                    join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
-                    where n.nspname = 'foodtime' and not t.tgisinternal
-                    """, Integer.class)).isEqualTo(8);
+        });
+    }
+
+    @Test
+    void invitationCodeHashesAreUniqueAndBounded() {
+        rollback(status -> {
+            UUID code = UUID.randomUUID();
+            jdbc.update("insert into foodtime.invitation_codes (id, code_hash) values (?, 'hash')", code);
+            rejected(status, "23505", () -> jdbc.update(
+                    "insert into foodtime.invitation_codes (id, code_hash) values (?, 'hash')", UUID.randomUUID()));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set status = 'deleted' where id = ?", code));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set max_uses = 0 where id = ?", code));
+            rejected(status, "23514", () -> jdbc.update(
+                    "update foodtime.invitation_codes set used_count = -1 where id = ?", code));
+            rejected(status, "23503", () -> jdbc.update(
+                    "update foodtime.users set invited_by_code_id = ? where id = ?",
+                    UUID.randomUUID(), seed().user()));
+        });
+    }
+
+    @Test
+    void hotLookupPathsAreIndexed() {
+        assertThat(jdbc.queryForList("""
+                select indexname from pg_indexes where schemaname = 'foodtime'
+                """, String.class)).contains("ix_stalls_hall_id", "ix_dish_reviews_dish_id",
+                "ix_dish_images_image_url", "ix_stalls_cover_image_url",
+                "ix_dining_halls_cover_image_url", "ix_users_avatar_url");
+    }
+
+    @Test
+    void aiVerdictsAreSinglePerSubmissionAndBounded() {
+        rollback(status -> {
+            Fixture fixture = seed();
+            UUID review = reviewSubmission(fixture);
+            jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'HIGH', 0.95, 'test-model')
+                    """, UUID.randomUUID(), review);
+            rejected(status, "23505", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'LOW', 0.1, 'test-model')
+                    """, UUID.randomUUID(), review));
+            rejected(status, "23514", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'review', ?, 'CRITICAL', 0.5, 'test-model')
+                    """, UUID.randomUUID(), UUID.randomUUID()));
+            rejected(status, "23514", () -> jdbc.update("""
+                    insert into foodtime.ai_moderation_results (id, submission_type, submission_id, risk_level, confidence, model)
+                    values (?, 'photo', ?, 'LOW', 1.5, 'test-model')
+                    """, UUID.randomUUID(), UUID.randomUUID()));
         });
     }
 
@@ -227,7 +273,6 @@ class DatabaseSchemaIT {
             review(fixture, fixture.user(), 3);
             review(fixture, fixture.otherUser(), 5);
             reviewSubmission(fixture);
-            new DishRatingSummaryRefresher(jdbc, new TransactionTemplate(transactionManager)).refresh();
             assertThat(jdbc.queryForObject("select average_score from foodtime.dish_rating_summary where dish_id = ?",
                     BigDecimal.class, fixture.dish())).isEqualByComparingTo("4.00");
             assertThat(jdbc.queryForObject("select review_count from foodtime.dish_rating_summary where dish_id = ?",

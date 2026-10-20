@@ -11,11 +11,13 @@
 | 功能 | 方法与路径 | 接口文档 |
 | --- | --- | --- |
 | 用户注册 | `POST /api/v1/auth/register` | [注册接口](auth/register.md) |
+| 邀请码发放与管理 | `POST/GET /api/v1/admin/invitation-codes`、`PUT /api/v1/admin/invitation-codes/{id}` | [邀请码](auth/invitation-codes.md) |
 | 注册邮箱验证码 | `POST /api/v1/auth/register/email-code` | [邮箱验证码](auth/email-verification.md) |
 | 邮箱密码登录 | `POST /api/v1/auth/login` | [登录与会话](auth/login.md) |
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |
 | 当前登录用户 | `GET /api/v1/auth/me` | [登录与会话](auth/login.md) |
 | 当前用户个人资料与头像 | `GET /api/v1/users/me/profile` | [个人资料](user/profile.md) |
+| 修改当前用户昵称与头像 | `PUT /api/v1/users/me/profile` | [个人资料](user/profile.md) |
 | 退出登录 | `POST /api/v1/auth/logout` | [登录与会话](auth/login.md) |
 | 修改当前用户密码 | `PUT /api/v1/users/me/password` | [修改密码](user/password.md) |
 | 获取我的评论审核记录 | `GET /api/v1/users/me/review-submissions` | [我的评论审核记录](user/review-submissions.md) |
@@ -30,6 +32,7 @@
 | 独立图片投稿和个人记录 | POST/GET接口 | [图片投稿](dish/image-submissions.md) |
 | 已审核评论、评论提交、我的评论及评分快照 | 多个GET/POST/DELETE接口 | [评论与评分](dish/reviews.md) |
 | 管理审核队列、操作和日志 | GET/POST管理接口 | [管理审核](user/moderation.md) |
+| 社区动态、信息流与社区审核 | GET/POST社区及管理接口 | [社区动态](community.md) |
 | 管理基础数据与违规评论 | GET/POST/PUT/DELETE接口 | [数据管理](user/catalog-admin.md) |
 | 平台管理员查询用户与调整角色/状态 | GET/PUT接口 | [用户管理](user/user-admin.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
@@ -56,3 +59,5 @@
 从Backend目录启动服务，开发环境文档地址为 `http://localhost:8080/swagger-ui.html`，OpenAPI地址为 `http://localhost:8080/v3/api-docs`。生产环境默认关闭实时文档；文件接口文档仍保留在本目录。
 
 Java认证HTTP入口位于 `src/main/java/com/FoodtimeNeo/api/auth`；本目录维护接口文档与联调请求。发送邮件前须按 [邮箱验证码配置说明](auth/email-verification.md#邮箱配置) 填写正式SMTP配置并启用。未配置邮件时发送验证码返回503；缺少验证码的注册请求返回400，普通验证码在验证服务未启用时返回503，启用的 `000000` 测试通道可直接注册。应用的账号、登录和会话功能依赖可用的PostgreSQL与Redis。
+
+菜品点评点赞、回复、回复点赞与个人回复记录接口见 [点评互动](dish/review-interactions.md)。

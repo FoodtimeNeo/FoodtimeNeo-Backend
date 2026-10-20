@@ -11,8 +11,7 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ImageStorageIT extends IntegrationApiSupport {
     private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "images-test-" + UUID.randomUUID());
     @DynamicPropertySource static void imageDirectory(DynamicPropertyRegistry properties) {
@@ -61,6 +60,47 @@ class ImageStorageIT extends IntegrationApiSupport {
         var response=login(owner).upload(java.util.Arrays.copyOf(png(),16));
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(body(response).path("code").asString()).isEqualTo("IMAGE_INVALID");
+    }
+
+    @Test
+    void approvedImagesAreImmutableWhileStagingPreviewsAreNotStored() throws Exception {
+        Browser uploader = login(owner), viewer = login(other);
+        String reference = body(uploader.upload(png())).path("data").path("imageUrl").asString();
+        var staging = uploader.image(reference);
+        assertThat(staging.statusCode()).isEqualTo(200);
+        assertThat(staging.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+        UUID image = UUID.randomUUID();
+        jdbc.update("INSERT INTO foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status) VALUES (?, ?, ?, ?, 'approved')", image, dish, owner.id(), reference);
+        var published = viewer.image(reference);
+        assertThat(published.statusCode()).isEqualTo(200);
+        assertThat(published.headers().firstValue("Cache-Control").orElseThrow()).contains("immutable");
+        String etag = published.headers().firstValue("ETag").orElseThrow();
+        assertThat(viewer.imageIfNoneMatch(reference, etag).statusCode()).isEqualTo(304);
+    }
+
+    @Test
+    void thumbnailsServeScaledCopiesAndRejectUnknownSizes() throws Exception {
+        Browser uploader = login(owner), viewer = login(other);
+        var big = new BufferedImage(1000, 800, BufferedImage.TYPE_INT_RGB);
+        var fill = new java.util.Random(42);
+        for (int x = 0; x < 1000; x += 10) for (int y = 0; y < 800; y += 10) {
+            big.setRGB(x, y, fill.nextInt(0xFFFFFF));
+        }
+        var out = new ByteArrayOutputStream();
+        ImageIO.write(big, "png", out);
+        String reference = body(uploader.upload(out.toByteArray())).path("data").path("imageUrl").asString();
+        UUID image = UUID.randomUUID();
+        jdbc.update("INSERT INTO foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status) VALUES (?, ?, ?, ?, 'approved')", image, dish, owner.id(), reference);
+        var thumb = viewer.image(reference + "?size=thumb");
+        assertThat(thumb.statusCode()).isEqualTo(200);
+        assertThat(thumb.headers().firstValue("Cache-Control").orElseThrow()).contains("immutable");
+        var scaled = ImageIO.read(new java.io.ByteArrayInputStream(thumb.body()));
+        assertThat(scaled.getWidth()).isEqualTo(480);
+        assertThat(scaled.getHeight()).isEqualTo(384);
+        assertThat(thumb.body().length).isLessThan(out.size());
+        assertThat(viewer.image(reference + "?size=huge").statusCode()).isEqualTo(400);
+        String foreign = body(login(account("user")).upload(png())).path("data").path("imageUrl").asString();
+        assertThat(viewer.image(foreign + "?size=thumb").statusCode()).isEqualTo(404);
     }
 
     private byte[] png() throws Exception {

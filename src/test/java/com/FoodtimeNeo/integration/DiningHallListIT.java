@@ -23,8 +23,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import static org.assertj.core.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class DiningHallListIT {
     private static final String PREFIX = "foodtime:integration:halls:" + UUID.randomUUID();
     @Value("${local.server.port}") private int port;

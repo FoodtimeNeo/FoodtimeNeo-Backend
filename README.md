@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与评分快照、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。Android真实联调另行验收；正式邮箱投递暂按用户要求跳过。
+校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
 
 **测试专用**：默认开发环境注册时可直接填写验证码 `000000`，无需先发送邮件；生产环境禁用。使用方式、关闭开关和覆盖范围见[测试验证码说明](docs/testing-verification.md)。
 
@@ -32,10 +32,13 @@ Spring Boot 管理通用依赖版本，不单独覆盖 Spring、Jackson、数据
 ```powershell
 Copy-Item .env.example .env
 docker compose up -d --wait
+.\scripts\place-seed-images.ps1
 .\mvnw.cmd spring-boot:run
 ```
 
 已有 PostgreSQL / Redis 时，可以跳过 Compose，编辑 `.env` 指向对应服务。数据库需要事先创建，数据库账号需要有 `foodtime` schema 的创建权限及迁移所需的 DDL 权限。
+
+当前迁移到V15。种子目录和媒体引用由Flyway写入，图片还需单独铺入实际上传目录；脚本用途、自定义路径及容器说明见 [种子数据与图片部署](docs/seed-data.md)。
 
 `.env` 通过 Spring Config Import 加载，也由 Compose 读取；启动时工作目录必须为本 Backend 目录。文件使用 UTF-8 的 `KEY=value` 格式，不加 `export` 或引号。示例仅包含本地开发凭据，真实配置不会进入 Git。复杂密码和生产凭据建议由系统环境变量或部署平台注入。
 
@@ -68,7 +71,7 @@ docker compose up -d --wait
 java -jar target/foodtime-neo-backend.jar
 ```
 
-`InfrastructureIT` 使用当前配置指向的服务，执行 schema 迁移并读写带随机后缀、30 秒 TTL 的 Redis 测试键，结束后删除该键。数据库约束测试在事务中写入随机 ID 的样本并回滚；物化视图测试使用事务内刷新并回滚。请使用开发或专用测试数据库。普通 `verify` 不执行这组测试；显式开启 integration 时，连接失败会导致构建失败，不静默跳过。
+`InfrastructureIT` 使用当前配置指向的服务，执行 schema 迁移并读写带随机后缀、30 秒 TTL 的 Redis 测试键，结束后删除该键。数据库约束测试在事务中写入随机 ID 的样本并回滚；实时统计测试随正式点评变化验证并回滚。请使用开发或专用测试数据库。普通 `verify` 不执行这组测试；显式开启 integration 时，连接失败会导致构建失败，不静默跳过。
 
 `RegistrationIT` 通过真实 HTTP 请求检查注册、哈希存储、默认角色与昵称、重复邮箱和并发请求，并检查 OpenAPI 文档。它只创建随机数字邮箱的测试账号，测试结束后删除这些账号。
 
@@ -104,6 +107,7 @@ java -jar target/foodtime-neo-backend.jar
 | 档口下菜品、价格与父级状态规则 | [菜品列表接口](docs/api/dish/list.md) |
 | 菜品基础信息与所属关系 | [菜品基础详情](docs/api/dish/detail.md) |
 | 已审核图片及分页 | [菜品图册](docs/api/dish/images.md) |
+| 点评/回复点赞、游标回复与个人记录 | [点评互动接口](docs/api/dish/review-interactions.md) |
 | 当前用户的评论审核历史 | [我的评论审核记录](docs/api/user/review-submissions.md) |
 | 当前用户的菜品提交内容与状态 | [我的菜品提交](docs/api/user/dish-submissions.md) |
 | 个人记录联调请求 | [提交记录联调](docs/api/submissions.http) |

@@ -2,7 +2,7 @@
 
 文件上传、投稿、审核是三步：先 `POST /uploads/images` 得到本人私有图片引用，再提交到菜品，管理员通过后才进入公共图册。业务前缀均为 `/api/v1`，需要登录Cookie，写操作带CSRF。
 
-- `POST /dishes/{dishId}/image-submissions`：JSON `{ "imageUrl":"/api/v1/media/{id}" }`，返回201及本次投稿。本人图片、启用菜品和启用父级才可提交；上传者、状态、审核人等由服务端确定。
+- `POST /dishes/{dishId}/image-submissions`：JSON `{ "imageUrl":"/api/v1/media/{id}" }`，返回201及本次投稿。本人图片、启用菜品和启用父级才可提交；上传者、状态、审核人等由服务端确定。与点评、菜品/档口投稿共用提交限流，超限返回429 `SUBMISSION_RATE_LIMITED` 并带 `Retry-After`。
 - `GET /users/me/image-submissions?page=1&size=20`：只返回自己的投稿，也保留停用菜品的历史。字段为 `id,dishId,dishName,stallId,stallName,diningHallId,diningHallName,imageUrl,status,reviewedAt,reviewReason,createdAt`，所属名称通过真实关系查询。
 - `POST /admin/moderation/photo/{id}`：管理员用统一审核请求 `{ "action":"approve|reject", "reason":"说明" }`。驳回须填写原因；仅pending可审核，通过前重新检查父级启用状态。成功200，重复审核409。
 

@@ -24,8 +24,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import static org.assertj.core.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class StallDishListIT {
     private static final String PREFIX = "foodtime:integration:stall-dishes:" + UUID.randomUUID();
     @Value("${local.server.port}") private int port;
@@ -85,7 +84,9 @@ class StallDishListIT {
             ids.add(id);
             assertThat(item.path("stallId").asString()).isEqualTo(parent.toString());
             assertThat(item.path("name").asString()).isEqualTo("菜品测试-" + id);
-            assertThat(item.size()).isEqualTo(4);
+            assertThat(item.size()).isEqualTo(6);
+            assertThat(item.path("averageScore").isNull()).isTrue();
+            assertThat(item.path("reviewCount").asLong()).isZero();
             assertThat(item.path("price").isNumber()).isTrue();
             assertThat(new BigDecimal(item.path("price").asString())).isEqualByComparingTo(prices.get(id));
         }
@@ -185,7 +186,7 @@ class StallDishListIT {
         assertThat(get.path("security").get(0).has("sessionCookie")).isTrue();
         assertThat(get.path("parameters").get(0).path("schema").path("format").asString()).isEqualTo("uuid");
         var properties = document.path("components").path("schemas").path("DishListItemResponse").path("properties");
-        assertThat(properties.size()).isEqualTo(4);
+        assertThat(properties.size()).isEqualTo(6);
         assertThat(properties.has("stallId")).isTrue();
         assertThat(properties.path("price").path("type").asString()).isEqualTo("number");
     }

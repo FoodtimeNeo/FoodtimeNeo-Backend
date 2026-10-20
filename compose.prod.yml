@@ -1,0 +1,105 @@
+# 2核4G Debian 单机生产编排：应用 + PostgreSQL + Redis 同机。
+# 用法：docker compose -f compose.prod.yml --env-file .env.container up -d
+# 内存预算（合计约 3.1G，留 ~900M 给系统与峰值波动）：
+#   app  JVM堆1280M + 非堆约450M  → mem_limit 1600m
+#   postgres  shared_buffers 256M + 连接与后台进程  → mem_limit 1g
+#   redis  maxmemory 256M  → mem_limit 300m
+# 2核分配：压测显示读链路是CPU密集的JSON序列化，DB池仅用1-4连接；
+# 因此线程/连接从简，CPU留给应用：Tomcat 50 线程，PG max_connections 60。
+name: foodtime-neo-prod
+
+services:
+  app:
+    build: .
+    image: foodtime-neo-backend:prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-foodtime_neo}?currentSchema=foodtime
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME 必填}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 必填}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 必填}
+      REDIS_SSL_ENABLED: "false"
+      TOMCAT_MAX_THREADS: 50
+      DB_POOL_MAX_SIZE: 10
+      REDIS_POOL_MAX_ACTIVE: 8
+      JAVA_OPTS: -Xms768m -Xmx1280m -XX:+UseG1GC -XX:MaxGCPauseMillis=200
+      FORWARD_HEADERS_STRATEGY: framework
+    ports:
+      # 仅本机，公网流量走 Nginx（覆写 X-Forwarded-For，见 docs/deployment.md）
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    volumes:
+      - prod-uploads:/app/uploads
+    mem_limit: 1600m
+    cpus: 1.5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=60
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-foodtime_neo}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME 必填}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 必填}
+      TZ: UTC
+    volumes:
+      - prod-postgres-data:/var/lib/postgresql/data
+    mem_limit: 1g
+    cpus: 0.5
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:7.4-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 必填}
+      TZ: UTC
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 077
+        escaped=$$(printf '%s' "$$REDIS_PASSWORD" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        { printf 'appendonly yes\nrequirepass "%s"\n' "$$escaped";
+          printf 'maxmemory 256mb\nmaxmemory-policy volatile-lru\n'; } > /tmp/redis.conf
+        chown redis:redis /tmp/redis.conf
+        chmod 600 /tmp/redis.conf
+        exec /usr/local/bin/docker-entrypoint.sh redis-server /tmp/redis.conf
+    volumes:
+      - prod-redis-data:/data
+    mem_limit: 300m
+    cpus: 0.25
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  prod-postgres-data:
+  prod-redis-data:
+  prod-uploads:

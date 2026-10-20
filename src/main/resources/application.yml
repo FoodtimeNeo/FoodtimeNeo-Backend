@@ -117,7 +117,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: never
@@ -147,6 +147,26 @@ springdoc:
 app:
   test-verification:
     enabled: ${TEST_VERIFICATION_ENABLED:false}
+  ai:
+    triage:
+      enabled: ${AI_TRIAGE_ENABLED:false}
+      provider: ${AI_TRIAGE_PROVIDER:openai}
+      base-url: ${AI_TRIAGE_BASE_URL:}
+      api-key: ${AI_TRIAGE_API_KEY:}
+      primary-model: ${AI_TRIAGE_PRIMARY_MODEL:nvidia/nemotron-3-super-120b-a12b}
+      escalation-model: ${AI_TRIAGE_ESCALATION_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
+      fallback-model: ${AI_TRIAGE_FALLBACK_MODEL:z-ai/glm-5.3-flash}
+      escalation-below-confidence: ${AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE:0.9}
+      photo-model: ${AI_TRIAGE_PHOTO_MODEL:nvidia/nemotron-3.5-super-vl-120b-a12b}
+      auto-approve-above: ${AI_TRIAGE_AUTO_APPROVE_ABOVE:0.95}
+      auto-reject-above: ${AI_TRIAGE_AUTO_REJECT_ABOVE:0.9}
+      redis-namespace: ${AI_TRIAGE_REDIS_NAMESPACE:foodtime:ai:triage}
+      timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
+      batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
+      interval: ${AI_TRIAGE_INTERVAL:PT5M}
+      initial-delay: ${AI_TRIAGE_INITIAL_DELAY:PT1M}
+  invitation:
+    secret: ${INVITATION_SECRET:}
   email-verification:
     enabled: ${EMAIL_VERIFICATION_ENABLED:false}
     from: ${MAIL_FROM:}
@@ -161,17 +181,45 @@ app:
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     login-window: ${AUTH_LOGIN_WINDOW:PT15M}
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
-    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
+    login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:1000}
     redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
     password-change:
       window: ${PASSWORD_CHANGE_WINDOW:PT15M}
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
-      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:50}
+      ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:500}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
-  rating-summary:
-    refresh-enabled: ${RATING_SUMMARY_REFRESH_ENABLED:true}
-    refresh-interval: ${RATING_SUMMARY_REFRESH_INTERVAL:PT24H}
-    initial-delay: ${RATING_SUMMARY_INITIAL_DELAY:PT0S}
+  content:
+    submissions:
+      window: ${SUBMISSION_WINDOW:PT15M}
+      user-limit: ${SUBMISSION_USER_LIMIT:20}
+      ip-limit: ${SUBMISSION_IP_LIMIT:2000}
+      redis-namespace: ${SUBMISSION_REDIS_NAMESPACE:foodtime:content:submissions}
+    uploads:
+      window: ${UPLOAD_WINDOW:PT1H}
+      user-limit: ${UPLOAD_USER_LIMIT:10}
+      ip-limit: ${UPLOAD_IP_LIMIT:1000}
+      redis-namespace: ${UPLOAD_REDIS_NAMESPACE:foodtime:content:uploads}
+  review:
+    actions:
+      window: ${REVIEW_ACTION_WINDOW:PT1M}
+      user-limit: ${REVIEW_ACTION_USER_LIMIT:100}
+      ip-limit: ${REVIEW_ACTION_IP_LIMIT:1000}
+      redis-namespace: ${REVIEW_ACTION_REDIS_NAMESPACE:foodtime:review:actions}
+  community:
+    actions:
+      window: ${COMMUNITY_ACTION_WINDOW:PT1M}
+      user-limit: ${COMMUNITY_ACTION_USER_LIMIT:100}
+      ip-limit: ${COMMUNITY_ACTION_IP_LIMIT:1000}
+      redis-namespace: ${COMMUNITY_ACTION_REDIS_NAMESPACE:foodtime:community:actions}
+  storage:
+    cleanup-enabled: ${STORAGE_CLEANUP_ENABLED:true}
+    cleanup-interval: ${STORAGE_CLEANUP_INTERVAL:PT24H}
+    cleanup-initial-delay: ${STORAGE_CLEANUP_INITIAL_DELAY:PT5M}
+    cleanup-max-age: ${STORAGE_CLEANUP_MAX_AGE:P7D}
+    disk-warn-bytes: ${STORAGE_DISK_WARN_BYTES:1073741824}
+  monitoring:
+    scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
+    slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS

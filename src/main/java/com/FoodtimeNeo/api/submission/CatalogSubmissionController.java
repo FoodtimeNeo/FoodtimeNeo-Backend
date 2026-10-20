@@ -4,6 +4,7 @@ import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.*;
 import com.FoodtimeNeo.submission.dto.*;
 import com.FoodtimeNeo.submission.service.CatalogSubmissionService;
+import com.FoodtimeNeo.submission.service.SubmissionRateLimiter;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -18,14 +19,19 @@ import java.util.UUID;
 @SecurityRequirement(name = "sessionCookie")
 public class CatalogSubmissionController {
     private final CatalogSubmissionService submissions;
-    public CatalogSubmissionController(CatalogSubmissionService submissions) { this.submissions = submissions; }
+    private final SubmissionRateLimiter limiter;
+    public CatalogSubmissionController(CatalogSubmissionService submissions, SubmissionRateLimiter limiter) {
+        this.submissions = submissions; this.limiter = limiter;
+    }
 
     @PostMapping("/stalls/{stallId}/submissions")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(summary = "投稿菜品", description = "使用本人上传的图片，参考价格可空；pending不创建正式菜品")
     public ApiResponse<SubmissionCreatedResponse> dish(@PathVariable UUID stallId,
             @Valid @RequestBody SubmitDishRequest body, HttpServletRequest request) {
-        return ApiResponse.success(submissions.dish(stallId, current(request).id(), body));
+        UserProfile user = current(request);
+        limiter.check(user.id(), request.getRemoteAddr());
+        return ApiResponse.success(submissions.dish(stallId, user.id(), body));
     }
 
     @PostMapping("/dining-halls/{diningHallId}/submissions")
@@ -33,7 +39,9 @@ public class CatalogSubmissionController {
     @Operation(summary = "投稿档口", description = "使用本人上传的封面，pending不创建正式档口，不包含楼层字段")
     public ApiResponse<SubmissionCreatedResponse> stall(@PathVariable UUID diningHallId,
             @Valid @RequestBody SubmitStallRequest body, HttpServletRequest request) {
-        return ApiResponse.success(submissions.stall(diningHallId, current(request).id(), body));
+        UserProfile user = current(request);
+        limiter.check(user.id(), request.getRemoteAddr());
+        return ApiResponse.success(submissions.stall(diningHallId, user.id(), body));
     }
 
     @GetMapping("/users/me/stall-submissions")

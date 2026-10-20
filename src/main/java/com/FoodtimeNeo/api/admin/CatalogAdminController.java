@@ -35,8 +35,11 @@ public class CatalogAdminController {
     @PutMapping("/catalog/{type}/{id}") @Operation(summary = "编辑名称简介价格或启停状态",description = "已有所属关系保持不变，无楼层字段")
     public ApiResponse<AdminCatalogResponse> update(@PathVariable String type,@PathVariable UUID id,@Valid @RequestBody CatalogEditRequest body,HttpServletRequest request) { return ApiResponse.success(catalog.save(current(request),type,id,body)); }
     @GetMapping("/reviews") @Operation(summary = "管理员查看正式评论",description = "包括停用菜品历史，仅管理员可见")
-    public ApiResponse<PageResponse<PublishedReviewResponse>> reviews(@RequestParam(defaultValue = "1") int page,@RequestParam(defaultValue = "20") int size,HttpServletRequest request) { return ApiResponse.success(catalog.reviews(current(request),new PageRequest(page,size))); }
-    @DeleteMapping("/reviews/{reviewId}") @Operation(summary = "移除违规正式评论",description = "保留审核历史，不伪造审核日志中的delete动作；评分等待下一次刷新")
+    public ApiResponse<PageResponse<PublishedReviewResponse>> reviews(@RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "1") int page,@RequestParam(defaultValue = "20") int size,HttpServletRequest request) {
+        return ApiResponse.success(catalog.reviews(current(request),q,new PageRequest(page,size)));
+    }
+    @DeleteMapping("/reviews/{reviewId}") @Operation(summary = "移除违规正式评论",description = "软删除并保留审核历史；评分在同一事务内更新")
     public ApiResponse<Void> remove(@PathVariable UUID reviewId,@Valid @RequestBody RemoveReviewRequest body,HttpServletRequest request) {
         UserProfile actor = current(request);
         catalog.removeReview(actor,reviewId);

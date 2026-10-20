@@ -23,7 +23,7 @@ import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"app.rating-summary.refresh-enabled=false", "app.auth.password-change.user-limit=3",
+        properties = { "app.auth.password-change.user-limit=3",
                 "app.auth.password-change.ip-limit=6"})
 class PasswordChangeIT {
     private static final String PREFIX = "foodtime:integration:password:" + UUID.randomUUID();

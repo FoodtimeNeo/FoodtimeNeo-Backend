@@ -17,7 +17,7 @@ import java.util.UUID;
 @Service
 public class ImageStorageService {
     public record UploadedImage(UUID id, String imageUrl, int width, int height) { }
-    public record StoredImage(byte[] bytes, String contentType) { }
+    public record StoredImage(byte[] bytes, String contentType, boolean cacheable, long lastModified) { }
     private final Path directory;
     private final JdbcTemplate jdbc;
     public ImageStorageService(@Value("${app.storage.directory:uploads}") String directory, JdbcTemplate jdbc) {
@@ -61,12 +61,20 @@ public class ImageStorageService {
     }
 
     public StoredImage read(UUID id, UserProfile user) {
+        return read(id, user, false);
+    }
+
+    /** Thumbnails are generated on first request and cached next to the original. */
+    public StoredImage read(UUID id, UserProfile user, boolean thumbnail) {
         Properties metadata = metadata(id);
         boolean owner = user.id().toString().equals(metadata.getProperty("owner"));
         boolean administrator = user.role().equals("admin") || user.role().equals("superadmin");
-        if (!owner && !administrator && !published(reference(id))) throw missing();
+        boolean published = published(reference(id));
+        if (!owner && !administrator && !published) throw missing();
         try {
-            return new StoredImage(Files.readAllBytes(directory.resolve(id + ".img")), metadata.getProperty("contentType"));
+            Path file = thumbnail ? thumbnailPath(id, metadata.getProperty("contentType")) : directory.resolve(id + ".img");
+            return new StoredImage(Files.readAllBytes(file), metadata.getProperty("contentType"),
+                    published, Files.getLastModifiedTime(file).toMillis());
         } catch (IOException failure) { throw missing(); }
     }
 
@@ -103,6 +111,57 @@ public class ImageStorageService {
     }
 
     private String reference(UUID id) { return "/api/v1/media/" + id; }
+
+    public record StagedFile(byte[] bytes, String contentType) { }
+
+    /** Server-side access for moderation pipelines; never exposed without an authorization check. */
+    public StagedFile stagedThumbnail(UUID id) throws IOException {
+        Properties metadata = metadata(id);
+        Path thumb = thumbnailPath(id, metadata.getProperty("contentType"));
+        return new StagedFile(Files.readAllBytes(thumb), metadata.getProperty("contentType"));
+    }
+
+    /**
+     * Returns the cached thumbnail, generating a max-480px same-format copy on first use.
+     * Originals are never modified; concurrent first requests may generate twice with identical bytes.
+     */
+    private Path thumbnailPath(UUID id, String contentType) throws IOException {
+        Path thumb = directory.resolve(id + ".thumb");
+        if (Files.exists(thumb)) return thumb;
+        byte[] original = Files.readAllBytes(directory.resolve(id + ".img"));
+        try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
+            if (input == null) throw new IOException("unreadable image");
+            var readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) throw new IOException("unreadable image");
+            var reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                int width = reader.getWidth(0), height = reader.getHeight(0);
+                double scale = Math.min(1.0, 480.0 / Math.max(width, height));
+                int targetWidth = Math.max(1, (int) Math.round(width * scale));
+                int targetHeight = Math.max(1, (int) Math.round(height * scale));
+                var canvas = new java.awt.image.BufferedImage(targetWidth, targetHeight,
+                        contentType.equals("image/png") ? java.awt.image.BufferedImage.TYPE_INT_ARGB
+                                : java.awt.image.BufferedImage.TYPE_INT_RGB);
+                var graphics = canvas.createGraphics();
+                try {
+                    graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                            java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    graphics.drawImage(reader.read(0), 0, 0, targetWidth, targetHeight, null);
+                } finally {
+                    graphics.dispose();
+                }
+                try (var out = Files.newOutputStream(thumb, StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING)) {
+                    String format = contentType.equals("image/png") ? "png" : "jpeg";
+                    if (!ImageIO.write(canvas, format, out)) throw new IOException("thumbnail encode failed");
+                }
+                return thumb;
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
     private BusinessException missing() { return new BusinessException("IMAGE_NOT_FOUND", "图片不存在或不可访问", HttpStatus.NOT_FOUND); }
     private BusinessException bad(String message) { return new BusinessException("IMAGE_INVALID", message, HttpStatus.BAD_REQUEST); }
 }

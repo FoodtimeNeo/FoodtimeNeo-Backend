@@ -7,6 +7,8 @@ FoodtimeNeo-Backend/
 ├── config/                      外部邮件配置模板及被Git忽略的正式配置
 ├── docs/                        架构、配置、数据库与部署说明
 │   └── api/                     接口说明与HTTP联调请求
+├── seed-images/                 V5菜单图片与V6食堂封面源文件
+├── scripts/                     将种子图片及元数据铺入uploads的脚本
 ├── src/main/java/com/FoodtimeNeo/
 │   ├── FoodTimeNeoApplication.java
 │   ├── api/
@@ -14,7 +16,7 @@ FoodtimeNeo-Backend/
 │   │   ├── user/                当前用户密码及本人审核提交查询Controller
 │   │   ├── dining/              食堂与档口展示Controller
 │   │   ├── dish/                菜品列表、详情与图册Controller
-│   │   ├── review/              评论提交、正式评论与评分快照Controller
+│   │   ├── review/              评论提交、正式评论、实时评分与互动Controller
 │   │   ├── media/               文件及图片投稿Controller
 │   │   ├── submission/          菜品/档口投稿Controller
 │   │   ├── admin/               审核、目录、评论与用户管理Controller
@@ -28,8 +30,8 @@ FoodtimeNeo-Backend/
 │   │   ├── entity/              用户持久化输入及查询结果
 │   │   ├── mapper/              参数化数据库访问
 │   │   └── service/             用户默认昵称生成
-│   ├── dish/                    菜品查询DTO、实体、Mapper与Service及评分汇总刷新
-│   ├── review/                  评论提交、查询、删除及评分快照
+│   ├── dish/                    菜品查询DTO、实体、Mapper与Service及实时评分查询
+│   ├── review/                  评论提交、查询、软删除、互动及实时评分
 │   ├── media/                   私有文件存储、授权读取及图片投稿
 │   ├── submission/              菜品和档口待审核投稿
 │   ├── moderation/              审核队列、发布事务与审核日志

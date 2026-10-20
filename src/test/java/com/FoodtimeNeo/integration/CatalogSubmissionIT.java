@@ -11,8 +11,7 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CatalogSubmissionIT extends IntegrationApiSupport {
     private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "submissions-test-" + UUID.randomUUID());
     @DynamicPropertySource static void directory(DynamicPropertyRegistry properties) { properties.add("app.storage.directory", STORAGE::toString); }

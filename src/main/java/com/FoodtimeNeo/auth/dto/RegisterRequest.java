@@ -32,14 +32,23 @@ public record RegisterRequest(
         @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
         @Schema(description = "邮箱收到的6位数字验证码，15分钟内有效；开发环境默认支持测试码000000，仅用于测试",
                 accessMode = Schema.AccessMode.WRITE_ONLY, minLength = 6, maxLength = 6, example = "012345")
-        String verificationCode) {
+        String verificationCode,
+
+        @Size(max = 32, message = "邀请码过长")
+        @Pattern(regexp = "\\A[A-HJ-NP-Z2-9]{12}\\z", message = "邀请码须为12位发放字符")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        @Schema(description = "可选；平台发放的12位邀请码，大小写均可，用于记录邀请归因；不填不影响注册",
+                accessMode = Schema.AccessMode.WRITE_ONLY, nullable = true, example = "ABCD2345EFGH")
+        String invitationCode) {
 
     public RegisterRequest {
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
+        var code = invitationCode == null ? null : invitationCode.strip().toUpperCase(Locale.ROOT);
+        invitationCode = code == null || code.isEmpty() ? null : code;
     }
 
     @Override
     public String toString() {
-        return "RegisterRequest[email=<redacted>, password=<redacted>, verificationCode=<redacted>]";
+        return "RegisterRequest[email=<redacted>, password=<redacted>, verificationCode=<redacted>, invitationCode=<redacted>]";
     }
 }

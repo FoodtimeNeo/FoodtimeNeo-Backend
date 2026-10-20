@@ -5,8 +5,11 @@ import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.review.dto.*;
 import com.FoodtimeNeo.review.mapper.PublishedReviewMapper;
+import com.FoodtimeNeo.review.mapper.ReviewInteractionStore;
+import com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -18,12 +21,18 @@ import java.util.UUID;
 @Validated
 public class PublishedReviewService {
     private final PublishedReviewMapper reviews;
-    public PublishedReviewService(PublishedReviewMapper reviews) { this.reviews = reviews; }
+    private final ApplicationEventPublisher events;
+    private final ReviewInteractionStore interactions;
+    public PublishedReviewService(PublishedReviewMapper reviews, ApplicationEventPublisher events, ReviewInteractionStore interactions) {
+        this.reviews = reviews; this.events = events; this.interactions = interactions;
+    }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public PageResponse<PublishedReviewResponse> list(@NotNull UUID dishId, @NotNull PageRequest page) {
-        visible(dishId);
-        return PageResponse.of(reviews.visiblePage(dishId, page.size(), page.offset()), reviews.countForDish(dishId), page);
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
+    public PageResponse<InteractiveReviewResponse> list(@NotNull UUID dishId, @NotNull UUID viewer, @NotNull PageRequest page) {
+        readable(dishId);
+        var rows = reviews.visiblePage(dishId, page.size(), page.offset());
+        var counters = interactions.counters(rows.stream().map(PublishedReviewResponse::id).toList(), viewer);
+        return PageResponse.of(rows.stream().map(row -> new InteractiveReviewResponse(row, counters.get(row.id()))).toList(), reviews.countForDish(dishId), page);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
@@ -37,8 +46,9 @@ public class PublishedReviewService {
         visible(dishId);
         UUID id = UUID.randomUUID();
         if (reviews.submit(id, dishId, userId, request.rating(), request.content().strip()) == 0) {
-            throw new BusinessException("REVIEW_PENDING", "此菜品已有待审核评论", HttpStatus.CONFLICT);
+            throw new BusinessException("REVIEW_PENDING", "该菜品已有一条待审核点评，审核完成后可再评", HttpStatus.CONFLICT);
         }
+        events.publishEvent(new SubmissionDiagnoseEvent("review", id));
         return reviews.findSubmission(id);
     }
 
@@ -49,10 +59,16 @@ public class PublishedReviewService {
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public DishRatingResponse rating(@NotNull UUID dishId) {
-        visible(dishId);
+        readable(dishId);
         return reviews.rating(dishId);
+    }
+
+    private void readable(UUID id) {
+        if (reviews.visibleDish(id) == null) {
+            throw new BusinessException("DISH_NOT_FOUND", "菜品不存在或暂不可用", HttpStatus.NOT_FOUND);
+        }
     }
 
     private void visible(UUID id) {

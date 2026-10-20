@@ -26,7 +26,7 @@ public class MyPublishedReviewController {
     }
 
     @DeleteMapping("/{reviewId}")
-    @Operation(summary = "删除自己的评论", description = "只能删除本人正式评论；审核历史保留，评分快照等待刷新")
+    @Operation(summary = "删除自己的评论", description = "只能删除本人正式评论；审核历史保留，评分同步更新")
     public ApiResponse<Void> delete(@PathVariable UUID reviewId, HttpServletRequest request) {
         reviews.delete(reviewId, current(request).id());
         return ApiResponse.success(null);

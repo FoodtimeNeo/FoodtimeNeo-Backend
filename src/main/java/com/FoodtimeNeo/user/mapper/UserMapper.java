@@ -19,8 +19,8 @@ public interface UserMapper {
 
     /** Returns 0 for an email conflict, including races after the existence check. */
     @Insert("""
-            INSERT INTO foodtime.users (id, email, password_hash, display_name, role, status, email_verified_at)
-            VALUES (#{id,jdbcType=OTHER}, #{email}, #{passwordHash}, #{displayName}, 'user', 'active', #{emailVerifiedAt})
+            INSERT INTO foodtime.users (id, email, password_hash, display_name, role, status, email_verified_at, invited_by_code_id)
+            VALUES (#{id,jdbcType=OTHER}, #{email}, #{passwordHash}, #{displayName}, 'user', 'active', #{emailVerifiedAt}, #{invitedByCodeId,jdbcType=OTHER})
             ON CONFLICT (lower(btrim(email))) DO NOTHING
             """)
     int insertRegisteredUser(NewUser user);

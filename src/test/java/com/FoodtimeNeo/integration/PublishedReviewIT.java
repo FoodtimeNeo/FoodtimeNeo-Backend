@@ -7,8 +7,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.rating-summary.refresh-enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PublishedReviewIT extends IntegrationApiSupport {
     @Test
     void submissionUsesTheSessionOwnerAndDoesNotPublishBeforeApproval() throws Exception {
@@ -46,6 +45,7 @@ class PublishedReviewIT extends IntegrationApiSupport {
         var data = body(response).path("data");
         assertThat(data.path("total").asLong()).isEqualTo(1);
         assertThat(data.path("items").get(0).path("id").asString()).isEqualTo(id.toString());
+        assertThat(data.path("items").get(0).path("userDisplayName").asString()).isEqualTo("integration user");
         assertThat(data.path("items").get(0).path("diningHallName").asString()).isEqualTo("integration hall");
         assertThat(response.body()).doesNotContain("pending private", "avatar", "password");
     }
@@ -60,7 +60,7 @@ class PublishedReviewIT extends IntegrationApiSupport {
         assertThat(body(author.call("GET", "/api/v1/users/me/reviews", null)).path("data").path("total").asLong()).isEqualTo(1);
         assertThat(author.call("GET", dishPath("/reviews"), null).statusCode()).isEqualTo(404);
         assertThat(author.call("DELETE", "/api/v1/users/me/reviews/" + id, null).statusCode()).isEqualTo(200);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE id = ?", Long.class, id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dish_reviews WHERE id = ? AND deleted_at IS NULL", Long.class, id)).isZero();
     }
 
     @Test
@@ -77,16 +77,20 @@ class PublishedReviewIT extends IntegrationApiSupport {
     }
 
     @Test
-    void ratingUsesTheMaterializedSnapshotRatherThanRecountingCurrentReviews() throws Exception {
+    void ratingAndMenuReflectCommittedReviewsWithoutScheduledRefresh() throws Exception {
         Browser browser = login(owner);
         var empty = body(browser.call("GET", dishPath("/rating"), null)).path("data");
         assertThat(empty.path("averageScore").isNull()).isTrue();
         assertThat(empty.path("reviewCount").asLong()).isZero();
+        var menuBefore = body(browser.call("GET", "/api/v1/stalls/" + stall + "/dishes", null)).path("data").get(0);
+        assertThat(menuBefore.path("averageScore").isNull()).isTrue();
         formal(owner, 3);
-        jdbc.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY foodtime.dish_rating_summary");
         formal(other, 5);
         var snapshot = body(browser.call("GET", dishPath("/rating"), null)).path("data");
-        assertThat(snapshot.path("averageScore").asDouble()).isEqualTo(3.0);
-        assertThat(snapshot.path("reviewCount").asLong()).isEqualTo(1);
+        assertThat(snapshot.path("averageScore").asDouble()).isEqualTo(4.0);
+        assertThat(snapshot.path("reviewCount").asLong()).isEqualTo(2);
+        var menu = body(browser.call("GET", "/api/v1/stalls/" + stall + "/dishes", null)).path("data").get(0);
+        assertThat(menu.path("averageScore").asDouble()).isEqualTo(4.0);
+        assertThat(menu.path("reviewCount").asLong()).isEqualTo(2);
     }
 }
