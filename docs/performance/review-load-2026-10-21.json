@@ -1,0 +1,134 @@
+{
+  "started_at": "2026-10-21T02:54:48.822890+08:00",
+  "scope": "Isolated loopback; one hot dish/review/reply; no production data",
+  "review_count": 5001,
+  "reply_count": 100,
+  "phases": [
+    {
+      "name": "reads",
+      "concurrency": 150,
+      "seconds": 20.05,
+      "requests": 31240,
+      "rps": 1558.16,
+      "p95_ms": 159.65,
+      "errors": 0,
+      "error_examples": [],
+      "endpoints": {
+        "comments": {
+          "requests": 10412,
+          "statuses": {
+            "200": 10412
+          },
+          "p50_ms": 96.06,
+          "p95_ms": 163.91,
+          "p99_ms": 208.75
+        },
+        "rating": {
+          "requests": 10411,
+          "statuses": {
+            "200": 10411
+          },
+          "p50_ms": 82.77,
+          "p95_ms": 148.03,
+          "p99_ms": 193.96
+        },
+        "replies": {
+          "requests": 10417,
+          "statuses": {
+            "200": 10417
+          },
+          "p50_ms": 95.81,
+          "p95_ms": 163.38,
+          "p99_ms": 206.99
+        }
+      }
+    },
+    {
+      "name": "hot-writes",
+      "concurrency": 150,
+      "seconds": 20.06,
+      "requests": 42075,
+      "rps": 2097.69,
+      "p95_ms": 114.07,
+      "errors": 0,
+      "error_examples": [],
+      "endpoints": {
+        "reply-like": {
+          "requests": 21000,
+          "statuses": {
+            "200": 21000
+          },
+          "p50_ms": 67.01,
+          "p95_ms": 114.16,
+          "p99_ms": 139.4
+        },
+        "review-like": {
+          "requests": 21075,
+          "statuses": {
+            "200": 21075
+          },
+          "p50_ms": 66.79,
+          "p95_ms": 113.95,
+          "p99_ms": 138.44
+        }
+      }
+    },
+    {
+      "name": "mixed",
+      "concurrency": 150,
+      "seconds": 20.05,
+      "requests": 36732,
+      "rps": 1832.0,
+      "p95_ms": 132.75,
+      "errors": 0,
+      "error_examples": [],
+      "endpoints": {
+        "comments": {
+          "requests": 7383,
+          "statuses": {
+            "200": 7383
+          },
+          "p50_ms": 84.24,
+          "p95_ms": 142.36,
+          "p99_ms": 175.61
+        },
+        "rating": {
+          "requests": 7382,
+          "statuses": {
+            "200": 7382
+          },
+          "p50_ms": 71.57,
+          "p95_ms": 125.08,
+          "p99_ms": 153.05
+        },
+        "replies": {
+          "requests": 7372,
+          "statuses": {
+            "200": 7372
+          },
+          "p50_ms": 83.83,
+          "p95_ms": 141.53,
+          "p99_ms": 174.28
+        },
+        "reply-like": {
+          "requests": 7300,
+          "statuses": {
+            "200": 7300
+          },
+          "p50_ms": 71.86,
+          "p95_ms": 125.27,
+          "p99_ms": 150.32
+        },
+        "review-like": {
+          "requests": 7295,
+          "statuses": {
+            "200": 7295
+          },
+          "p50_ms": 71.64,
+          "p95_ms": 124.31,
+          "p99_ms": 153.48
+        }
+      }
+    }
+  ]
+}
