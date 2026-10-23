@@ -24,6 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.ai.triage.auto-approve-above=0.95", "app.ai.triage.auto-reject-above=0.9"})
 abstract class IntegrationApiSupport {
     private static final String PREFIX = "foodtime:integration:api:" + UUID.randomUUID();
+    // Never let destructive staging cleanup tests share a developer's configured upload directory.
+    private static final java.nio.file.Path STORAGE = java.nio.file.Path.of(
+            System.getProperty("java.io.tmpdir"), "foodtime-api-integration-" + UUID.randomUUID());
+    protected static java.nio.file.Path integrationStorageDirectory() { return STORAGE; }
     static final String PASSWORD = "Foodtime2026!";
     @Value("${local.server.port}") protected int port;
     @Autowired protected JdbcTemplate jdbc;
@@ -38,6 +42,7 @@ abstract class IntegrationApiSupport {
 
     @DynamicPropertySource
     static void namespaces(DynamicPropertyRegistry properties) {
+        properties.add("app.storage.directory", () -> STORAGE.toString());
         properties.add("spring.session.redis.namespace", () -> PREFIX + ":sessions");
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":limits");
         properties.add("app.review.actions.redis-namespace", () -> PREFIX + ":review-actions");

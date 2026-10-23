@@ -69,12 +69,13 @@ public class ImageStorageService {
         Properties metadata = metadata(id);
         boolean owner = user.id().toString().equals(metadata.getProperty("owner"));
         boolean administrator = user.role().equals("admin") || user.role().equals("superadmin");
-        boolean published = published(reference(id));
+        Publication publication = publication(reference(id));
+        boolean published = publication.catalog() || publication.community() || publication.avatar();
         if (!owner && !administrator && !published) throw missing();
         try {
             Path file = thumbnail ? thumbnailPath(id, metadata.getProperty("contentType")) : directory.resolve(id + ".img");
             return new StoredImage(Files.readAllBytes(file), metadata.getProperty("contentType"),
-                    published, Files.getLastModifiedTime(file).toMillis());
+                    publication.catalog(), Files.getLastModifiedTime(file).toMillis());
         } catch (IOException failure) { throw missing(); }
     }
 
@@ -109,8 +110,10 @@ public class ImageStorageService {
         } catch (IOException failure) { throw missing(); }
     }
 
-    private boolean published(String reference) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("""
+    private record Publication(boolean catalog,boolean community,boolean avatar) { }
+
+    private Publication publication(String reference) {
+        return jdbc.queryForObject("""
                 SELECT EXISTS (
                     SELECT 1 FROM foodtime.dish_images i
                     JOIN foodtime.dishes d ON d.id = i.dish_id AND d.status = 'active'
@@ -122,11 +125,12 @@ public class ImageStorageService {
                     JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
                     WHERE s.cover_image_url = ? AND s.status = 'active'
                     UNION ALL SELECT 1 FROM foodtime.dining_halls WHERE cover_image_url = ? AND status = 'active'
-                    UNION ALL SELECT 1 FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id=i.post_id
+                ) AS catalog,
+                EXISTS (SELECT 1 FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id=i.post_id
                         WHERE i.image_url=? AND p.status='approved' AND p.deleted_at IS NULL
-                    UNION ALL SELECT 1 FROM foodtime.users WHERE avatar_url=? AND status='active'
-                )
-                """, Boolean.class, reference, reference, reference, reference, reference));
+                ) AS community,
+                EXISTS (SELECT 1 FROM foodtime.users WHERE avatar_url=? AND status='active') AS avatar
+                """, (r,n)->new Publication(r.getBoolean("catalog"),r.getBoolean("community"),r.getBoolean("avatar")), reference, reference, reference, reference, reference);
     }
 
     private String reference(UUID id) { return "/api/v1/media/" + id; }

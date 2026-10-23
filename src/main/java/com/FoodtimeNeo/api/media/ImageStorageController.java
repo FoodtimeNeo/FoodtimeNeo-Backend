@@ -35,7 +35,7 @@ public class ImageStorageController {
     }
 
     @GetMapping("/media/{imageId}")
-    @Operation(summary = "读取授权图片", description = "作者/管理员可预览暂存图片，其他用户只能读取已审核且父级启用的公开图片；size=thumb 返回480px预览，公开图片可被浏览器长期缓存，暂存预览不缓存")
+    @Operation(summary = "读取授权图片", description = "作者/管理员可预览暂存图片，其他用户只能读取已审核且父级启用的公开图片；size=thumb 返回480px预览；菜品等公开目录图片长期缓存，社区图片和暂存预览不缓存，每次校验当前可见性")
     public ResponseEntity<byte[]> read(@PathVariable UUID imageId,
                                        @RequestParam(defaultValue = "full") String size,
                                        HttpServletRequest request) {
@@ -43,19 +43,17 @@ public class ImageStorageController {
             throw new BusinessException("VALIDATION_ERROR", "size只能为full或thumb", HttpStatus.BAD_REQUEST);
         }
         var image = images.read(imageId, current(request), size.equals("thumb"));
+        CacheControl cache = image.cacheable()
+                ? CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable()
+                : CacheControl.noStore();
         String etag = "\"" + imageId + (size.equals("thumb") ? "-thumb" : "") + "\"";
         if (etag.equals(request.getHeader(HttpHeaders.IF_NONE_MATCH))) {
-            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).cacheControl(cache).build();
         }
         var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
                 .eTag(etag).lastModified(image.lastModified())
                 .header("X-Content-Type-Options", "nosniff");
-        if (image.cacheable()) {
-            // UUID-addressed bytes never change: safe for year-long immutable caching.
-            response.cacheControl(CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable());
-        } else {
-            response.cacheControl(CacheControl.noStore());
-        }
+        response.cacheControl(cache);
         return response.body(image.bytes());
     }
 
