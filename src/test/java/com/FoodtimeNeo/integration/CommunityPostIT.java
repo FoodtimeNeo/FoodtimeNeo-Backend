@@ -26,11 +26,18 @@ class CommunityPostIT extends IntegrationApiSupport {
         properties.add("app.ai.triage.enabled", () -> "true");
     }
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    com.FoodtimeNeo.ai.service.FakeAiProvider provider;
+    @org.junit.jupiter.api.BeforeEach
+    void cleanImages() {
+        org.mockito.Mockito.doReturn(new com.FoodtimeNeo.ai.dto.AiVerdict("LOW",0.99,java.util.List.of(),"测试图片通过","fake"))
+            .when(provider).checkImage(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString());
+    }
+
     @Test
     void pendingPostIsInvisibleUntilHumanApproves() throws Exception {
         Browser author = login(owner), viewer = login(other);
-        var created = author.call("POST", "/api/v1/community/posts",
-                Map.of("content", "社区首贴-" + UUID.randomUUID()));
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"社区首贴-" + UUID.randomUUID()));
         assertThat(created.statusCode()).isEqualTo(202);
         UUID id = UUID.fromString(body(created).path("data").path("id").asString());
 
@@ -51,8 +58,7 @@ class CommunityPostIT extends IntegrationApiSupport {
     void confidentPostIsAutoApprovedAndLoggedAsAi() throws Exception {
         Browser author = login(owner);
         String content = "放心-" + UUID.randomUUID();
-        assertThat(author.call("POST", "/api/v1/community/posts",
-                Map.of("content", content)).statusCode()).isEqualTo(202);
+        assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author,content)).statusCode()).isEqualTo(202);
 
         String status = null;
         for (int i = 0; i < 30 && !"approved".equals(status); i++) {
@@ -71,8 +77,7 @@ class CommunityPostIT extends IntegrationApiSupport {
     void adminQueueCarriesAiVerdictAndMineShowsOwnStates() throws Exception {
         Browser author = login(owner);
         String content = "待审-" + UUID.randomUUID();
-        assertThat(author.call("POST", "/api/v1/community/posts",
-                Map.of("content", content)).statusCode()).isEqualTo(202);
+        assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author,content)).statusCode()).isEqualTo(202);
 
         Browser admin = login(account("admin"));
         var items = body(admin.call("GET", "/api/v1/admin/community/posts?status=pending&size=100", null))
@@ -102,8 +107,8 @@ class CommunityPostIT extends IntegrationApiSupport {
     @Test
     void emptyContentIsRejectedAndOthersCannotDelete() throws Exception {
         Browser author = login(owner);
-        assertThat(author.call("POST", "/api/v1/community/posts", Map.of("content", "  ")).statusCode()).isEqualTo(400);
-        var created = author.call("POST", "/api/v1/community/posts", Map.of("content", "删帖-" + UUID.randomUUID()));
+        assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author,"  ")).statusCode()).isEqualTo(400);
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"删帖-" + UUID.randomUUID()));
         UUID id = UUID.fromString(body(created).path("data").path("id").asString());
         assertThat(login(other).call("DELETE", "/api/v1/community/posts/" + id, null).statusCode()).isEqualTo(404);
         assertThat(author.call("DELETE", "/api/v1/community/posts/" + id, null).statusCode()).isEqualTo(200);

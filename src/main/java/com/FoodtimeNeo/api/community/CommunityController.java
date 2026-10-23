@@ -49,6 +49,12 @@ public class CommunityController {
         return ApiResponse.success(posts.feed(current(request).id(), new PageRequest(page, size)));
     }
 
+    @GetMapping("/feed/cursor")
+    public ApiResponse<CursorPageResponse<CommunityPostResponse>> feedCursor(HttpServletRequest request,
+            @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor) {
+        return ApiResponse.success(posts.feedCursor(current(request).id(),size,cursor));
+    }
+
     @GetMapping("/posts/{id}")
     @Operation(summary = "动态详情", description = "已通过对所有登录用户可见；pending仅本人可见")
     public ApiResponse<CommunityPostResponse> detail(@PathVariable UUID id, HttpServletRequest request) {

@@ -81,7 +81,7 @@ class CommunityInteractionIT extends IntegrationApiSupport {
     @Test
     void likeOnPendingPostIsNotFound() throws Exception {
         Browser author = login(owner);
-        var created = author.call("POST", "/api/v1/community/posts", Map.of("content", "待审被赞-" + UUID.randomUUID()));
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"待审被赞-" + UUID.randomUUID()));
         UUID pending = UUID.fromString(body(created).path("data").path("id").asString());
         assertThat(author.call("POST", "/api/v1/community/likes",
                 Map.of("targetType", "post", "targetId", pending.toString())).statusCode()).isEqualTo(200);
@@ -90,7 +90,7 @@ class CommunityInteractionIT extends IntegrationApiSupport {
     }
 
     private UUID approvedPost(Browser author, String content) throws Exception {
-        var created = author.call("POST", "/api/v1/community/posts", Map.of("content", content));
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,content));
         assertThat(created.statusCode()).isEqualTo(202);
         UUID post = UUID.fromString(body(created).path("data").path("id").asString());
         Browser admin = login(account("admin"));
