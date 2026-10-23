@@ -4,6 +4,8 @@ import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.community.mapper.CommunityStore;
+import com.FoodtimeNeo.community.mapper.CommunityThreadStore;
+import com.FoodtimeNeo.community.dto.*;
 import com.FoodtimeNeo.moderation.dto.ModerationItem;
 import com.FoodtimeNeo.moderation.dto.ModerationRequest;
 import com.FoodtimeNeo.moderation.dto.ModerationResult;
@@ -24,8 +26,9 @@ import java.util.UUID;
 public class CommunityModerationService {
     private final CommunityStore posts;
     private final ModerationService moderation;
-    public CommunityModerationService(CommunityStore posts, ModerationService moderation) {
-        this.posts = posts; this.moderation = moderation;
+    private final CommunityThreadStore threads;
+    public CommunityModerationService(CommunityStore posts, ModerationService moderation,CommunityThreadStore threads) {
+        this.posts = posts; this.moderation = moderation;this.threads=threads;
     }
 
     @Transactional(readOnly = true)
@@ -61,4 +64,23 @@ public class CommunityModerationService {
             throw new BusinessException("ACCESS_DENIED", "需要管理员权限", HttpStatus.FORBIDDEN);
         }
     }
+
+    @Transactional(readOnly=true)
+    public CommunityModerationDetail detail(UserProfile actor,String type,UUID id){
+        guard(actor);
+        var comment=type.equals("comments")?threads.find(id,actor.id()):null;
+        UUID postId=type.equals("posts")?id:comment==null?null:comment.postId();
+        var post=postId==null?null:posts.find(postId,actor.id());
+        if(post==null||(comment!=null&&comment.deleted()))throw missing();
+        return new CommunityModerationDetail(post,comment,comment!=null&&comment.rootCommentId()!=null?threads.find(comment.rootCommentId(),actor.id()):null,
+            comment!=null&&comment.replyToCommentId()!=null?threads.find(comment.replyToCommentId(),actor.id()):null);
+    }
+    @Transactional
+    public void remove(UserProfile actor,String type,UUID id,@Valid RemoveCommunityRequest request){
+        guard(actor);int changed;
+        if(type.equals("posts"))changed=posts.remove(id,actor.id(),request.reason().strip());
+        else {UUID post=threads.postOf(id);if(post==null||!threads.lockPost(post))throw missing();changed=threads.remove(id,actor.id(),request.reason().strip());}
+        if(changed==0)throw missing();
+    }
+    private BusinessException missing(){return new BusinessException("CONTENT_NOT_FOUND","社区内容不存在或已删除",HttpStatus.NOT_FOUND);}
 }

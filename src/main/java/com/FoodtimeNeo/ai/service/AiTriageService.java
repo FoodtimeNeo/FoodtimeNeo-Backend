@@ -80,16 +80,16 @@ public class AiTriageService {
             try {
                 checked += diagnosePendingCommunityPost(provider, item);
             } catch (RuntimeException exception) {
+                community.routeToManual("community-post",item.id(),"ai_unavailable");
                 LOG.error("AI community triage failed for {}", item.id(), exception);
-                break;
             }
         }
         for (var item : store.pendingCommunityComments(properties.batchSize())) {
             try {
                 checked += diagnosePendingCommunityComment(provider, item);
             } catch (RuntimeException exception) {
+                community.routeToManual("community-comment",item.id(),"ai_unavailable");
                 LOG.error("AI community comment triage failed for {}", item.id(), exception);
-                break;
             }
         }
         for (var item : store.pendingReviewReplies(properties.batchSize())) {

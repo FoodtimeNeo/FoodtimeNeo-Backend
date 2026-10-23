@@ -104,6 +104,9 @@ public class ModerationStore {
 
     /** Community comment lock for moderation and auto-decision. */
     public ModerationItem lockCommunityComment(UUID id) {
+        // Match creation/deletion/interaction lock order: post, then comment.
+        var parents=jdbc.query("SELECT p.id FROM foodtime.community_posts p JOIN foodtime.community_comments c ON c.post_id=p.id WHERE c.id=? AND p.status='approved' AND p.deleted_at IS NULL FOR UPDATE OF p",(r,n)->r.getObject(1,UUID.class),id);
+        if(parents.isEmpty())return null;
         var rows = jdbc.query("""
                 SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
                 u.display_name AS user_display_name,

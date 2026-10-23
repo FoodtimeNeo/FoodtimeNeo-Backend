@@ -69,6 +69,8 @@ public class CommunityThreadStore {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM foodtime.community_comments WHERE id=? AND post_id=? AND root_comment_id IS NULL AND (status='approved' OR user_id=?) AND (deleted_at IS NULL OR reply_count>0))",Boolean.class,root,post,viewer));
     }
     public UUID postOf(UUID id){return jdbc.query("SELECT post_id FROM foodtime.community_comments WHERE id=?",(r,n)->r.getObject(1,UUID.class),id).stream().findFirst().orElse(null);}
+    public CommunityCommentResponse find(UUID id,UUID viewer){return jdbc.query(SELECT+" WHERE c.id=?",(r,n)->row(r),viewer,id).stream().findFirst().orElse(null);}
+    public int remove(UUID id,UUID actor,String reason){return jdbc.update("UPDATE foodtime.community_comments SET deleted_at=now(),deleted_by_user_id=?,delete_reason=? WHERE id=? AND deleted_at IS NULL",actor,reason,id);}
     public long total(UUID post,UUID root,UUID viewer){
         String sql="SELECT count(*) FROM foodtime.community_comments c WHERE post_id=? AND ";
         if(root==null)return jdbc.queryForObject(sql+"root_comment_id IS NULL AND (status='approved' OR user_id=?) AND (deleted_at IS NULL OR (status='approved' AND reply_count>0))",Long.class,post,viewer);
