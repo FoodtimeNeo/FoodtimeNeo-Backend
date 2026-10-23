@@ -26,7 +26,7 @@ public class CommunityStore {
             a.reason AS ai_reason, a.checked_at AS ai_checked_at""";
     private static final String POST_JOINS = """
             FROM foodtime.community_posts p JOIN foodtime.users u ON u.id = p.user_id
-            LEFT JOIN foodtime.community_posts r ON r.id = p.repost_of_id
+            LEFT JOIN foodtime.community_posts r ON r.id = p.repost_of_id AND r.status='approved' AND r.deleted_at IS NULL
             LEFT JOIN foodtime.users ru ON ru.id = r.user_id
             LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-post' AND a.submission_id = p.id""";
 
@@ -69,7 +69,7 @@ public class CommunityStore {
 
     public List<CommunityPostResponse> feed(UUID viewerId, int size, long offset) {
         return jdbc.query("SELECT " + POST_COLUMNS
-                + ", EXISTS(SELECT 1 FROM foodtime.community_likes WHERE user_id = ? AND target_type = 'post' AND target_id = p.id) AS liked"
+                + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = ? AND post_id = p.id) AS liked"
                 + ", EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id = ? AND post_id = p.id) AS favorited "
                 + POST_JOINS + " WHERE p.status = 'approved' AND p.deleted_at IS NULL ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?",
                 (r, n) -> row(r, viewerId), viewerId, viewerId, size, offset);
@@ -81,7 +81,7 @@ public class CommunityStore {
 
     public CommunityPostResponse find(UUID id, UUID viewerId) {
         var rows = jdbc.query("SELECT " + POST_COLUMNS
-                + ", EXISTS(SELECT 1 FROM foodtime.community_likes WHERE user_id = ? AND target_type = 'post' AND target_id = p.id) AS liked"
+                + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = ? AND post_id = p.id) AS liked"
                 + ", EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id = ? AND post_id = p.id) AS favorited "
                 + POST_JOINS + " WHERE p.id = ? AND p.deleted_at IS NULL",
                 (r, n) -> row(r, viewerId), viewerId, viewerId, id);
@@ -90,7 +90,7 @@ public class CommunityStore {
 
     public List<CommunityPostResponse> mine(UUID userId, int size, long offset) {
         return jdbc.query("SELECT " + POST_COLUMNS
-                + ", EXISTS(SELECT 1 FROM foodtime.community_likes WHERE user_id = p.user_id AND target_type = 'post' AND target_id = p.id) AS liked"
+                + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = p.user_id AND post_id = p.id) AS liked"
                 + ", EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id = p.user_id AND post_id = p.id) AS favorited "
                 + POST_JOINS + " WHERE p.user_id = ? AND p.deleted_at IS NULL ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?",
                 (r, n) -> row(r, userId), userId, size, offset);
@@ -203,67 +203,41 @@ public class CommunityStore {
                 Long.class, postId);
     }
 
-    /** Toggle like: true when newly liked, false when unliked. Counters stay non-negative. */
-    public boolean toggleLike(UUID userId, String targetType, UUID targetId) {
-        int inserted = jdbc.update("""
-                INSERT INTO foodtime.community_likes(user_id,target_type,target_id)
-                VALUES (?, ?, ?) ON CONFLICT DO NOTHING""", userId, targetType, targetId);
-        String table = targetType.equals("post") ? "foodtime.community_posts" : "foodtime.community_comments";
-        if (inserted == 1) {
-            jdbc.update("UPDATE " + table + " SET like_count = like_count + 1 WHERE id = ?", targetId);
-            return true;
-        }
-        jdbc.update("DELETE FROM foodtime.community_likes WHERE user_id = ? AND target_type = ? AND target_id = ?",
-                userId, targetType, targetId);
-        jdbc.update("UPDATE " + table + " SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?", targetId);
-        return false;
+    private String likeTable(String type){return type.equals("post")?"community_post_likes":"community_comment_likes";}
+    private String targetColumn(String type){return type.equals("post")?"post_id":"comment_id";}
+    public boolean liked(UUID user,String type,UUID id){return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM foodtime."+likeTable(type)+" WHERE user_id=? AND "+targetColumn(type)+"=?)",Boolean.class,user,id));}
+    public boolean toggleLike(UUID user,String type,UUID id){boolean active=!liked(user,type,id);setLike(user,type,id,active);return active;}
+    public void setLike(UUID user,String type,UUID id,boolean active){
+        if(active)jdbc.update("INSERT INTO foodtime."+likeTable(type)+"(user_id,"+targetColumn(type)+") VALUES(?,?) ON CONFLICT DO NOTHING",user,id);
+        else jdbc.update("DELETE FROM foodtime."+likeTable(type)+" WHERE user_id=? AND "+targetColumn(type)+"=?",user,id);
     }
-
-    public int likeCount(String targetType, UUID targetId) {
-        String table = targetType.equals("post") ? "foodtime.community_posts" : "foodtime.community_comments";
-        Integer count = jdbc.queryForObject("SELECT like_count FROM " + table + " WHERE id = ?", Integer.class, targetId);
-        return count == null ? 0 : count;
+    public long likeCount(String type,UUID id){return jdbc.queryForObject("SELECT like_count FROM foodtime."+(type.equals("post")?"community_posts":"community_comments")+" WHERE id=?",Long.class,id);}
+    public boolean targetVisible(String type,UUID id,UUID viewer){
+        UUID post=id;
+        if(type.equals("comment"))post=jdbc.query("SELECT post_id FROM foodtime.community_comments WHERE id=?",(r,n)->r.getObject(1,UUID.class),id).stream().findFirst().orElse(null);
+        if(post==null||jdbc.query("SELECT id FROM foodtime.community_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE",(r,n)->r.getObject(1,UUID.class),post).isEmpty())return false;
+        return type.equals("post")||!jdbc.query("SELECT id FROM foodtime.community_comments WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE",(r,n)->r.getObject(1,UUID.class),id).isEmpty();
     }
-
-    public boolean targetVisible(String targetType, UUID targetId, UUID viewerId) {
-        if (targetType.equals("post")) {
-            var rows = jdbc.query("SELECT status = 'approved' OR user_id = ? AS visible"
-                    + " FROM foodtime.community_posts WHERE id = ?",
-                    (r, n) -> r.getBoolean("visible"), viewerId, targetId);
-            return !rows.isEmpty() && rows.get(0);
-        }
-        return !jdbc.query("SELECT id FROM foodtime.community_comments WHERE id = ? AND status = 'approved' AND deleted_at IS NULL",
-                (r, n) -> r.getObject(1, UUID.class), targetId).isEmpty();
+    public boolean favorited(UUID user,UUID id){return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id=? AND post_id=?)",Boolean.class,user,id));}
+    public boolean toggleFavorite(UUID user,UUID id){boolean active=!favorited(user,id);setFavorite(user,id,active);return active;}
+    public void setFavorite(UUID user,UUID id,boolean active){
+        if(active)jdbc.update("INSERT INTO foodtime.community_favorites(user_id,post_id) VALUES(?,?) ON CONFLICT DO NOTHING",user,id);
+        else jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id=? AND post_id=?",user,id);
     }
-
-    /** Toggle favorite: true when newly favorited. Only visible posts can be favorited. */
-    public boolean toggleFavorite(UUID userId, UUID postId) {
-        int inserted = jdbc.update("""
-                INSERT INTO foodtime.community_favorites(user_id,post_id)
-                VALUES (?, ?) ON CONFLICT DO NOTHING""", userId, postId);
-        if (inserted == 1) return true;
-        jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ? AND post_id = ?", userId, postId);
-        return false;
-    }
+    public long postFavoriteCount(UUID id){return jdbc.queryForObject("SELECT favorite_count FROM foodtime.community_posts WHERE id=?",Long.class,id);}
 
     public List<CommunityPostResponse> favorites(UUID userId, int size, long offset) {
         return jdbc.query("SELECT " + POST_COLUMNS
-                + ", EXISTS(SELECT 1 FROM foodtime.community_likes WHERE user_id = ? AND target_type = 'post' AND target_id = p.id) AS liked"
+                + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = ? AND post_id = p.id) AS liked"
                 + ", TRUE AS favorited "
                 + POST_JOINS
                 + " WHERE EXISTS(SELECT 1 FROM foodtime.community_favorites f WHERE f.user_id = ? AND f.post_id = p.id)"
-                + " AND p.deleted_at IS NULL AND (p.status = 'approved' OR p.user_id = ?) ORDER BY p.created_at DESC, p.id DESC LIMIT ? OFFSET ?",
+                + " AND p.deleted_at IS NULL AND p.status = 'approved' ORDER BY (SELECT created_at FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) DESC,p.id DESC LIMIT ? OFFSET ?",
                 (r, n) -> row(r, userId), userId, userId, userId, size, offset);
     }
 
     public long favoriteCount(UUID userId) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_favorites WHERE user_id = ?", Long.class, userId);
-    }
-
-    public int deleteCommentOwned(UUID id, UUID userId) {
-        jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'comment' AND target_id = ? AND user_id = ?",
-                id, userId);
-        return jdbc.update("DELETE FROM foodtime.community_comments WHERE id = ? AND user_id = ?", id, userId);
+        return jdbc.queryForObject("SELECT count(*) FROM foodtime.community_favorites f JOIN foodtime.community_posts p ON p.id=f.post_id WHERE f.user_id=? AND p.status='approved' AND p.deleted_at IS NULL",Long.class,userId);
     }
 
     public UUID lock(UUID id) {
@@ -306,7 +280,7 @@ public class CommunityStore {
         if(cursor!=null){ condition=" AND (p.created_at,p.id)<(?,?)";args.add(Timestamp.from(cursor.time()));args.add(cursor.id()); }
         args.add(size);
         return jdbc.query("SELECT "+POST_COLUMNS
-                +",EXISTS(SELECT 1 FROM foodtime.community_likes WHERE user_id=? AND target_type='post' AND target_id=p.id) AS liked"
+                +",EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id=? AND post_id=p.id) AS liked"
                 +",EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) AS favorited "
                 +POST_JOINS+" WHERE p.status='approved' AND p.deleted_at IS NULL"+condition+" ORDER BY p.created_at DESC,p.id DESC LIMIT ?",
                 (r,n)->row(r,viewerId),args.toArray());

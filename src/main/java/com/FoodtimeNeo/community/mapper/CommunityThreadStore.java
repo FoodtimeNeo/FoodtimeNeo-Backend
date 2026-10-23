@@ -15,7 +15,7 @@ public class CommunityThreadStore {
     public CommunityThreadStore(JdbcTemplate jdbc){this.jdbc=jdbc;}
     private static final String SELECT="""
         SELECT c.*,u.display_name,u.avatar_url,t.display_name AS target_name,
-          EXISTS(SELECT 1 FROM foodtime.community_likes l WHERE l.user_id=? AND l.target_type='comment' AND l.target_id=c.id) AS liked
+          EXISTS(SELECT 1 FROM foodtime.community_comment_likes l WHERE l.user_id=? AND l.comment_id=c.id) AS liked
         FROM foodtime.community_comments c JOIN foodtime.users u ON u.id=c.user_id
         LEFT JOIN foodtime.users t ON t.id=c.reply_to_user_id
         """;
