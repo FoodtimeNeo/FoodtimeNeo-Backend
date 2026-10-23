@@ -60,9 +60,7 @@ public class AiModerationStore {
     public java.util.List<PendingCommunityPost> pendingCommunityPosts(int limit) {
         return jdbc.query("""
                 SELECT p.id, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
-                WHERE p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending' AND NOT EXISTS (
-                    SELECT 1 FROM foodtime.ai_moderation_results a
-                    WHERE a.submission_type = 'community-post' AND a.submission_id = p.id)
+                WHERE p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending' 
                 ORDER BY p.created_at ASC, p.id ASC LIMIT ?
                 """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), limit);
     }
@@ -71,9 +69,7 @@ public class AiModerationStore {
     public java.util.Optional<PendingCommunityPost> pendingCommunityPost(java.util.UUID id) {
         var rows = jdbc.query("""
                 SELECT p.id, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
-                WHERE p.id = ? AND p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending' AND NOT EXISTS (
-                    SELECT 1 FROM foodtime.ai_moderation_results a
-                    WHERE a.submission_type = 'community-post' AND a.submission_id = p.id)
+                WHERE p.id = ? AND p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending' 
                 """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), id);
         return rows.stream().findFirst();
     }
@@ -83,9 +79,7 @@ public class AiModerationStore {
     public java.util.List<PendingCommunityComment> pendingCommunityComments(int limit) {
         return jdbc.query("""
                 SELECT c.id, c.content FROM foodtime.community_comments c
-                WHERE c.status = 'pending' AND c.deleted_at IS NULL AND c.review_stage='ai_pending' AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) AND NOT EXISTS (
-                    SELECT 1 FROM foodtime.ai_moderation_results a
-                    WHERE a.submission_type = 'community-comment' AND a.submission_id = c.id)
+                WHERE c.status = 'pending' AND c.deleted_at IS NULL AND c.review_stage='ai_pending' AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) 
                 ORDER BY c.created_at ASC, c.id ASC LIMIT ?
                 """, (r, n) -> new PendingCommunityComment(r.getObject("id", java.util.UUID.class), r.getString("content")), limit);
     }
@@ -94,9 +88,7 @@ public class AiModerationStore {
     public java.util.Optional<PendingCommunityComment> pendingCommunityComment(java.util.UUID id) {
         var rows = jdbc.query("""
                 SELECT c.id, c.content FROM foodtime.community_comments c
-                WHERE c.id = ? AND c.status = 'pending' AND c.deleted_at IS NULL AND c.review_stage='ai_pending' AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) AND NOT EXISTS (
-                    SELECT 1 FROM foodtime.ai_moderation_results a
-                    WHERE a.submission_type = 'community-comment' AND a.submission_id = c.id)
+                WHERE c.id = ? AND c.status = 'pending' AND c.deleted_at IS NULL AND c.review_stage='ai_pending' AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) 
                 """, (r, n) -> new PendingCommunityComment(r.getObject("id", java.util.UUID.class), r.getString("content")), id);
         return rows.stream().findFirst();
     }

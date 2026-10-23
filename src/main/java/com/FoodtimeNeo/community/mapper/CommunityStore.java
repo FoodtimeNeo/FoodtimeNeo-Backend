@@ -62,6 +62,11 @@ public class CommunityStore {
         jdbc.update("UPDATE foodtime."+table+" SET review_stage='manual_pending',manual_review_reason=? WHERE id=? AND status='pending' AND deleted_at IS NULL AND review_stage='ai_pending'",reason,id);
     }
 
+    public boolean aiPending(String type,UUID id){
+        String table=type.equals("community-post")?"community_posts":"community_comments";
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM foodtime."+table+" WHERE id=? AND status='pending' AND review_stage='ai_pending' AND deleted_at IS NULL)",Boolean.class,id));
+    }
+
     public boolean repostTargetVisible(UUID repostOfId) {
         return !jdbc.query("SELECT id FROM foodtime.community_posts WHERE id = ? AND status = 'approved' AND deleted_at IS NULL",
                 (r, n) -> r.getObject(1, UUID.class), repostOfId).isEmpty();
@@ -104,6 +109,8 @@ public class CommunityStore {
         return jdbc.update("UPDATE foodtime.community_posts SET deleted_at=now(),deleted_by_user_id=?,delete_reason='作者删除' WHERE id=? AND user_id=? AND deleted_at IS NULL",userId,id,userId);
     }
 
+    public int remove(UUID id,UUID actor,String reason){return jdbc.update("UPDATE foodtime.community_posts SET deleted_at=now(),deleted_by_user_id=?,delete_reason=? WHERE id=? AND deleted_at IS NULL",actor,reason,id);}
+
     public void bumpRepostOf(UUID postId) {
         jdbc.update("""
                 UPDATE foodtime.community_posts SET repost_count = repost_count + 1 WHERE id = (
@@ -121,7 +128,7 @@ public class CommunityStore {
     /** Admin queue items reuse the moderation item shape (target = the post itself). */
     public java.util.List<com.FoodtimeNeo.moderation.dto.ModerationItem> queue(String status, int size, long offset) {
         return jdbc.query("""
-                SELECT p.id, p.user_id, p.content, p.status, p.review_reason, p.created_at,
+                SELECT p.id, p.user_id, p.title, p.content, p.status, p.review_reason, p.created_at,
                 u.display_name AS user_display_name,
                 (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
@@ -133,7 +140,7 @@ public class CommunityStore {
                     java.sql.Array labels = r.getArray("ai_labels");
                     return new com.FoodtimeNeo.moderation.dto.ModerationItem(r.getObject("id", UUID.class), "community-post",
                         r.getObject("id", UUID.class), r.getObject("user_id", UUID.class), r.getString("user_display_name"),
-                        null, r.getString("content"), null, r.getString("image_url"), null, r.getString("status"),
+                        r.getString("title"), r.getString("content"), null, r.getString("image_url"), null, r.getString("status"),
                         r.getString("review_reason"), r.getTimestamp("created_at").toInstant(),
                         r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
                         labels == null ? null : List.of((String[]) labels.getArray()),
@@ -154,7 +161,7 @@ public class CommunityStore {
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
                 FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
                 LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-comment' AND a.submission_id = c.id
-                WHERE c.status = ? ORDER BY c.created_at DESC, c.id ASC LIMIT ? OFFSET ?""",
+                WHERE c.status = ? AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) ORDER BY c.created_at DESC, c.id ASC LIMIT ? OFFSET ?""",
                 (r, n) -> {
                     java.sql.Array labels = r.getArray("ai_labels");
                     return new com.FoodtimeNeo.moderation.dto.ModerationItem(r.getObject("id", UUID.class), "community-comment",
@@ -168,7 +175,7 @@ public class CommunityStore {
     }
 
     public long queueCommentCount(String status) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_comments WHERE status = ?", Long.class, status);
+        return jdbc.queryForObject("SELECT count(*) FROM foodtime.community_comments c WHERE c.status=? AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL)", Long.class, status);
     }
 
     public UUID createComment(UUID postId, UUID userId, String content) {

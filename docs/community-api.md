@@ -33,3 +33,12 @@ V20 在同一评论表增加根评论、实际回复对象、被回复用户、�
 - `GET /users/me/community-favorites`：按收藏时间降序，过滤已删除及不可见帖子，列表与总数使用同一条件。
 
 V21 将原通用点赞迁移为有外键的 `community_post_likes`、`community_comment_likes`，清除历史孤立目标明细。与 `community_posts`、`community_post_images`、`community_comments`、`community_favorites` 共六张主表。唯一键防止重复互动，数据库触发器按真实增删维护计数，事务锁串行化同目标操作；重复 PUT/DELETE 不反转状态。待审核、驳回或已删除内容不能互动。旧 POST 切换接口保留给旧客户端，新客户端使用显式幂等接口。
+
+## 完整人工审核与管理
+
+- `GET /admin/community/posts`、`GET /admin/community/comments`：按 `status,page,size` 查看队列。父帖子已删除的评论不再进入可处理队列。
+- `GET /admin/community/posts/{id}`、`GET /admin/community/comments/{id}`：仅管理员可读取完整帖子、全部配图及评论的根楼层／实际回复对象上下文。普通用户无法读取他人待审内容。
+- `POST /admin/community/posts/{id}`、`POST /admin/community/comments/{id}`：`action=approve/reject`，驳回必须说明原因；与 AI 同一终审事务，先完成的决定生效，重复处理返回 409。
+- `DELETE /admin/community/posts/{id}`、`DELETE /admin/community/comments/{id}`：`reason` 必填，1–500 字。软下架并保留操作者、原因、内容及既有审核日志。
+
+V22 禁止直接 UPDATE 点赞、收藏行，所有改变通过 INSERT/DELETE 维护计数。AI 即使在写入正文结论后中断，也可根据持久化的 `review_stage` 恢复处理；一旦转人工，AI 不再改判。评论审核、删除和互动统一按帖子→评论的顺序加锁。
