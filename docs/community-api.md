@@ -1,5 +1,7 @@
 # 社区接口与表结构
 
+未单独写出完整前缀的路径均相对于 `/api/v1`。
+
 开发分支按 `feature/community-posts`、`feature/community-replies`、`feature/community-interactions` 顺序集成。
 
 ## 图文发布
@@ -42,3 +44,5 @@ V21 将原通用点赞迁移为有外键的 `community_post_likes`、`community_
 - `DELETE /admin/community/posts/{id}`、`DELETE /admin/community/comments/{id}`：`reason` 必填，1–500 字。软下架并保留操作者、原因、内容及既有审核日志。
 
 V22 禁止直接 UPDATE 点赞、收藏行，所有改变通过 INSERT/DELETE 维护计数。AI 即使在写入正文结论后中断，也可根据持久化的 `review_stage` 恢复处理；一旦转人工，AI 不再改判。评论审核、删除和互动统一按帖子→评论的顺序加锁。
+
+V23 为图片引用反查与启用用户头像添加索引。社区图片及头像返回 `Cache-Control: no-store`，每次读取重新检查可见性；公开目录图片保留原有缓存策略。条件请求的 304 响应也携带相同缓存策略。
