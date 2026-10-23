@@ -66,7 +66,7 @@ class CommunityInteractionIT extends IntegrationApiSupport {
         UUID origin = approvedPost(author, "原贴-" + UUID.randomUUID());
 
         var created = reposter.call("POST", "/api/v1/community/posts/" + origin + "/reposts",
-                Map.of("content", "转评-" + UUID.randomUUID()));
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "转评-" + UUID.randomUUID()));
         assertThat(created.statusCode()).isEqualTo(202);
         UUID repost = UUID.fromString(body(created).path("data").path("id").asString());
 

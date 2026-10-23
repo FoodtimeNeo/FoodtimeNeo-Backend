@@ -7,6 +7,9 @@ import java.util.UUID;
 
 /** Community comment; admin queue and "mine" expose pending/rejected with AI verdicts. */
 public record CommunityCommentResponse(UUID id, UUID postId, UUID userId, String userDisplayName, String content,
-                                       int likeCount, String status, String reviewReason,
+                                       long likeCount, String status, String reviewReason,
                                        String aiRiskLevel, BigDecimal aiConfidence, List<String> aiLabels,
-                                       String aiReason, Instant aiCheckedAt, Instant createdAt) { }
+                                       String aiReason, Instant aiCheckedAt, Instant createdAt,
+                                       UUID rootCommentId, UUID replyToCommentId, UUID replyToUserId,
+                                       String replyToDisplayName, String userAvatarUrl, long replyCount,
+                                       boolean likedByMe, boolean deleted, String reviewStage) { }
