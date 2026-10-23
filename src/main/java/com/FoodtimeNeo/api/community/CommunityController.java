@@ -83,6 +83,18 @@ public class CommunityController {
         return ApiResponse.success(comments.list(postId, new PageRequest(page, size)));
     }
 
+    @GetMapping("/posts/{postId}/comments/cursor")
+    public ApiResponse<CursorPageResponse<CommunityCommentResponse>> roots(@PathVariable UUID postId,
+        @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor,HttpServletRequest request){
+        return ApiResponse.success(comments.thread(postId,null,current(request).id(),size,cursor));
+    }
+
+    @GetMapping("/posts/{postId}/comments/{rootId}/replies")
+    public ApiResponse<CursorPageResponse<CommunityCommentResponse>> replies(@PathVariable UUID postId,@PathVariable UUID rootId,
+        @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor,HttpServletRequest request){
+        return ApiResponse.success(comments.thread(postId,rootId,current(request).id(),size,cursor));
+    }
+
     @DeleteMapping("/comments/{id}")
     @Operation(summary = "删除自己的评论", description = "只能删除本人的评论；审核记录保留")
     public ApiResponse<Void> deleteComment(@PathVariable UUID id, HttpServletRequest request) {

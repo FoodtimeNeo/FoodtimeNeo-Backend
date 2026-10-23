@@ -32,7 +32,7 @@ class CommunityCommentIT extends IntegrationApiSupport {
         UUID post = approvedPost(author, "主贴-" + UUID.randomUUID());
 
         var created = author.call("POST", "/api/v1/community/posts/" + post + "/comments",
-                Map.of("content", "跟评-" + UUID.randomUUID()));
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "跟评-" + UUID.randomUUID()));
         assertThat(created.statusCode()).isEqualTo(202);
         UUID comment = UUID.fromString(body(created).path("data").path("id").asString());
 
@@ -63,7 +63,7 @@ class CommunityCommentIT extends IntegrationApiSupport {
         UUID post = approvedPost(author, "计数贴-" + UUID.randomUUID());
         String content = "放心跟评-" + UUID.randomUUID();
         assertThat(author.call("POST", "/api/v1/community/posts/" + post + "/comments",
-                Map.of("content", content)).statusCode()).isEqualTo(202);
+                Map.of("clientRequestId", UUID.randomUUID(), "content", content)).statusCode()).isEqualTo(202);
 
         String status = null;
         for (int i = 0; i < 30 && !"approved".equals(status); i++) {
@@ -85,11 +85,11 @@ class CommunityCommentIT extends IntegrationApiSupport {
         var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"未过审主贴-" + UUID.randomUUID()));
         UUID pending = UUID.fromString(body(created).path("data").path("id").asString());
         assertThat(author.call("POST", "/api/v1/community/posts/" + pending + "/comments",
-                Map.of("content", "x")).statusCode()).isEqualTo(404);
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "x")).statusCode()).isEqualTo(404);
 
         UUID post = approvedPost(author, "删评贴-" + UUID.randomUUID());
         var c2 = author.call("POST", "/api/v1/community/posts/" + post + "/comments",
-                Map.of("content", "待删-" + UUID.randomUUID()));
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "待删-" + UUID.randomUUID()));
         UUID comment = UUID.fromString(body(c2).path("data").path("id").asString());
         assertThat(login(other).call("DELETE", "/api/v1/community/comments/" + comment, null).statusCode()).isEqualTo(404);
         assertThat(author.call("DELETE", "/api/v1/community/comments/" + comment, null).statusCode()).isEqualTo(200);

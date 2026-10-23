@@ -94,7 +94,6 @@ public class ModerationService {
         String status = action.equals("approve") ? "approved" : "rejected";
         store.complete(item,moderatorId,aiModel,status,reason,approved,price);
         if (type.equals("community-post") && action.equals("approve")) community.bumpRepostOf(item.id());
-        if (type.equals("community-comment") && action.equals("approve")) community.bumpCommentCountByComment(item.id());
         store.log(item,moderatorId,actor,aiModel,action,reason);
         return new ModerationResult(item.id(),status,approved);
     }

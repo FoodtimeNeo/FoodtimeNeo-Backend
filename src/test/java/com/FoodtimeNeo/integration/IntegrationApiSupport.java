@@ -108,8 +108,12 @@ abstract class IntegrationApiSupport {
             jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'post' AND target_id IN"
                     + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_comments WHERE user_id = ?", user);
+
         }
+        do {
+            removed=0;
+            for(UUID user:users)removed+=jdbc.update("DELETE FROM foodtime.community_comments c WHERE c.user_id=? AND NOT EXISTS(SELECT 1 FROM foodtime.community_comments child WHERE child.reply_to_comment_id=c.id OR child.root_comment_id=c.id)",user);
+        }while(removed>0);
         // Reposts reference origin posts across users; drop all reposts before any origin.
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ? AND repost_of_id IS NOT NULL", user);

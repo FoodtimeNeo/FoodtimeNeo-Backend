@@ -195,16 +195,7 @@ public class CommunityStore {
     }
 
     public List<CommunityCommentResponse> comments(UUID postId, int size, long offset) {
-        return jdbc.query("""
-                SELECT c.id, c.post_id, c.user_id, c.content, c.like_count, c.status, c.review_reason, c.created_at,
-                u.display_name AS user_display_name
-                FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
-                WHERE c.post_id = ? AND c.status = 'approved' ORDER BY c.created_at DESC, c.id ASC LIMIT ? OFFSET ?""",
-                (r, n) -> new CommunityCommentResponse(r.getObject("id", UUID.class), r.getObject("post_id", UUID.class),
-                        r.getObject("user_id", UUID.class), r.getString("user_display_name"), r.getString("content"),
-                        r.getInt("like_count"), r.getString("status"), r.getString("review_reason"),
-                        null, null, null, null, null, r.getTimestamp("created_at").toInstant()),
-                postId, size, offset);
+        return new CommunityThreadStore(jdbc).legacy(postId,size,offset);
     }
 
     public long commentCount(UUID postId) {

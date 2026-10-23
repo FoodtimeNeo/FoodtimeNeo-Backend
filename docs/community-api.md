@@ -15,3 +15,12 @@
 V19 扩充 `community_posts`：标题、发布去重编号、收藏计数、审核阶段/转人工原因、更新时间、删除时间/操作者/原因；扩充 `community_post_images`：宽高及图片顺序唯一约束。帖子、评论内容禁止更新。
 
 `status=pending` 时，`reviewStage=ai_pending` 或 `manual_pending`。AI 无法判断、不可用、关闭时分别以 `uncertain`、`ai_unavailable`、`ai_disabled` 转人工；终审后为 `completed`。所有配图与标题正文都须完成审核才可自动通过。文件清理会保留仍被社区引用的图片；私有图片只允许作者及管理员访问，公开图片随帖子可见性变化。
+
+## 紧凑楼中楼
+
+- `POST /community/posts/{postId}/comments`：`content`（1–500）、`clientRequestId`；一级评论不传关系字段，回复同时传 `rootCommentId` 和 `replyToCommentId`。被回复用户由服务端推导。返回 202，审核通过前仅作者可见。
+- `GET /community/posts/{postId}/comments/cursor`：一级评论按时间降序，返回游标分页。含本人的待审/驳回评论及删除后仍有合法回复的根评论占位。
+- `GET /community/posts/{postId}/comments/{rootId}/replies`：回复按时间升序，同一楼内可互相回复，始终只缩进一层；支持 `size` 和 `cursor`。
+- `DELETE /community/comments/{id}`：作者软删除。已删除根评论只返回空正文、`deleted=true`，合法回复保留；禁止新增回复。
+
+V20 在同一评论表增加根评论、实际回复对象、被回复用户、发布去重编号和回复计数。数据库校验同帖同楼关系，评论通过/删除时同步帖子总评论数及根评论的回复数。所有评论和回复均不可编辑。
