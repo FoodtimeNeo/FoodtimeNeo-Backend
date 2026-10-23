@@ -131,6 +131,9 @@ public class AiTriageService {
                 store.pendingCommunityComment(event.submissionId()).ifPresent(item -> diagnosePendingCommunityComment(provider, item));
             }
         } catch (RuntimeException exception) {
+            if (event.type().startsWith("community-")) {
+                community.routeToManual(event.type(),event.submissionId(),"ai_unavailable");
+            }
             LOG.warn("AI instant triage deferred for {} {}, sweep will retry: {}",
                     event.type(), event.submissionId(), exception.toString());
         }
@@ -205,6 +208,10 @@ public class AiTriageService {
             int rows = store.insert(UUID.randomUUID(), "community-post", item.id(), text.riskLevel(),
                     BigDecimal.valueOf(text.confidence()), text.labels().toArray(new String[0]),
                     text.reason(), text.model());
+            if (text.riskLevel().equals("HIGH") && text.confidence() >= properties.autoRejectAbove()) {
+                maybeAutoDecide(text,"community-post",item.id());
+                return rows;
+            }
             boolean imagesClean = true;
             for (var image : community.postImages(item.id())) {
                 AiVerdict seen = diagnoseCommunityImage(provider, item.id(), image);
@@ -212,7 +219,8 @@ public class AiTriageService {
                         && seen.confidence() >= properties.autoRejectAbove()) {
                     maybeAutoDecide(new AiVerdict("HIGH", seen.confidence(), seen.labels(),
                             "配图" + seen.reason(), seen.model()), "community-post", item.id());
-                    return rows;
+                    community.routeToManual("community-post",item.id(),"uncertain");
+            return rows;
                 }
                 if (seen == null || !seen.riskLevel().equals("LOW")
                         || seen.confidence() < properties.autoApproveAbove()) {
@@ -223,8 +231,10 @@ public class AiTriageService {
             else if (text.riskLevel().equals("LOW") && text.confidence() >= properties.autoApproveAbove()) {
                 LOG.info("AI community post {} stays human: an image needs a human look", item.id());
             }
+            community.routeToManual("community-post",item.id(),"uncertain");
             return rows;
         } catch (AiUnavailableException exception) {
+            community.routeToManual("community-post",item.id(),"ai_unavailable");
             LOG.warn("AI community triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
         }
@@ -238,8 +248,10 @@ public class AiTriageService {
                     BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
                     verdict.reason(), verdict.model());
             maybeAutoDecide(verdict, "community-comment", item.id());
+            community.routeToManual("community-comment",item.id(),"uncertain");
             return rows;
         } catch (AiUnavailableException exception) {
+            community.routeToManual("community-comment",item.id(),"ai_unavailable");
             LOG.warn("AI community comment triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
         }

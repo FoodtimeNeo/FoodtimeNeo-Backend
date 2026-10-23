@@ -82,8 +82,7 @@ class CommunityCommentIT extends IntegrationApiSupport {
     @Test
     void commentOnUnapprovedPostIsRejectedAndOnlyOwnerDeletes() throws Exception {
         Browser author = login(owner);
-        var created = author.call("POST", "/api/v1/community/posts",
-                Map.of("content", "未过审主贴-" + UUID.randomUUID()));
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"未过审主贴-" + UUID.randomUUID()));
         UUID pending = UUID.fromString(body(created).path("data").path("id").asString());
         assertThat(author.call("POST", "/api/v1/community/posts/" + pending + "/comments",
                 Map.of("content", "x")).statusCode()).isEqualTo(404);
@@ -94,11 +93,11 @@ class CommunityCommentIT extends IntegrationApiSupport {
         UUID comment = UUID.fromString(body(c2).path("data").path("id").asString());
         assertThat(login(other).call("DELETE", "/api/v1/community/comments/" + comment, null).statusCode()).isEqualTo(404);
         assertThat(author.call("DELETE", "/api/v1/community/comments/" + comment, null).statusCode()).isEqualTo(200);
-        assertThat(author.call("POST", "/api/v1/community/posts", Map.of("content", "  ")).statusCode()).isEqualTo(400);
+        assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author,"  ")).statusCode()).isEqualTo(400);
     }
 
     private UUID approvedPost(Browser author, String content) throws Exception {
-        var created = author.call("POST", "/api/v1/community/posts", Map.of("content", content));
+        var created = author.call("POST", "/api/v1/community/posts", communityPost(author,content));
         assertThat(created.statusCode()).isEqualTo(202);
         UUID post = UUID.fromString(body(created).path("data").path("id").asString());
         Browser admin = login(account("admin"));

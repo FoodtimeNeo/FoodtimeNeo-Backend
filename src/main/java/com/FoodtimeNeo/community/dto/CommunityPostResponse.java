@@ -11,10 +11,13 @@ import java.util.UUID;
  * likedByMe/favoritedByMe are computed for the current user.
  */
 public record CommunityPostResponse(UUID id, UUID userId, String userDisplayName, String content,
-                                    List<String> imageUrls, int likeCount, int commentCount, int repostCount,
+                                    List<String> imageUrls, long likeCount, long commentCount, int repostCount,
                                     UUID repostOfId, RepostPreview repost, boolean likedByMe, boolean favoritedByMe,
                                     String status, String reviewReason,
                                     String aiRiskLevel, BigDecimal aiConfidence, List<String> aiLabels,
-                                    String aiReason, Instant aiCheckedAt, Instant createdAt) {
+                                    String aiReason, Instant aiCheckedAt, Instant createdAt,
+                                    String title, String userAvatarUrl, List<PostImage> images,
+                                    long favoriteCount, String reviewStage, String manualReviewReason) {
+    public record PostImage(UUID id,String url,Integer width,Integer height,int sortOrder) { }
     public record RepostPreview(UUID id, String userDisplayName, String content) { }
 }

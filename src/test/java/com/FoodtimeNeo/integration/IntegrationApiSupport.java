@@ -175,6 +175,14 @@ abstract class IntegrationApiSupport {
         }
     }
 
+    protected Map<String,Object> communityPost(Browser author,String content) throws Exception {
+        var image=new java.awt.image.BufferedImage(3,5,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);
+        var uploaded=author.upload(bytes.toByteArray());assertThat(uploaded.statusCode()).isEqualTo(201);
+        return Map.of("title","食记", "content",content,"clientRequestId",UUID.randomUUID(),
+                "imageUrls",List.of(body(uploaded).path("data").path("imageUrl").asString()));
+    }
+
     protected JsonNode body(HttpResponse<String> response) { return json.readTree(response.body()); }
     protected String dishPath(String suffix) { return "/api/v1/dishes/" + dish + suffix; }
     protected UUID formal(Account account, int rating) {
