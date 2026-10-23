@@ -102,6 +102,19 @@ public class CommunityController {
         return ApiResponse.success(null);
     }
 
+    @PutMapping("/posts/{id}/like")
+    public ApiResponse<Map<String,Object>> likePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"post",id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/posts/{id}/like")
+    public ApiResponse<Map<String,Object>> unlikePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"post",id,false,request.getRemoteAddr()));}
+    @PutMapping("/comments/{id}/like")
+    public ApiResponse<Map<String,Object>> likeComment(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"comment",id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/comments/{id}/like")
+    public ApiResponse<Map<String,Object>> unlikeComment(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"comment",id,false,request.getRemoteAddr()));}
+    @PutMapping("/posts/{id}/favorite")
+    public ApiResponse<Map<String,Object>> favoritePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setFavorite(current(request).id(),id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/posts/{id}/favorite")
+    public ApiResponse<Map<String,Object>> unfavoritePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setFavorite(current(request).id(),id,false,request.getRemoteAddr()));}
+
     @PostMapping("/likes")
     @Operation(summary = "点赞/取消赞", description = "目标可以是动态或评论；重复调用即取消，结果里返回最新状态与计数")
     public ApiResponse<Map<String, Object>> like(@Valid @RequestBody LikeRequest body, HttpServletRequest request) {

@@ -104,9 +104,8 @@ abstract class IntegrationApiSupport {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_review_submissions WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_likes WHERE user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'post' AND target_id IN"
-                    + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.community_post_likes WHERE user_id=? OR post_id IN(SELECT id FROM foodtime.community_posts WHERE user_id=?)",user,user);
+            jdbc.update("DELETE FROM foodtime.community_comment_likes WHERE user_id=? OR comment_id IN(SELECT id FROM foodtime.community_comments WHERE user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ?", user);
 
         }

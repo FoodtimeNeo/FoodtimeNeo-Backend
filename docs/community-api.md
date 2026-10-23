@@ -24,3 +24,12 @@ V19 扩充 `community_posts`：标题、发布去重编号、收藏计数、审�
 - `DELETE /community/comments/{id}`：作者软删除。已删除根评论只返回空正文、`deleted=true`，合法回复保留；禁止新增回复。
 
 V20 在同一评论表增加根评论、实际回复对象、被回复用户、发布去重编号和回复计数。数据库校验同帖同楼关系，评论通过/删除时同步帖子总评论数及根评论的回复数。所有评论和回复均不可编辑。
+
+## 点赞与收藏
+
+- `PUT/DELETE /community/posts/{id}/like`：设置帖子已赞／取消赞，返回 `liked,likeCount`。
+- `PUT/DELETE /community/comments/{id}/like`：设置一级评论或回复已赞／取消赞，返回 `liked,likeCount`。
+- `PUT/DELETE /community/posts/{id}/favorite`：设置收藏／取消收藏，返回 `favorited,favoriteCount`。
+- `GET /users/me/community-favorites`：按收藏时间降序，过滤已删除及不可见帖子，列表与总数使用同一条件。
+
+V21 将原通用点赞迁移为有外键的 `community_post_likes`、`community_comment_likes`，清除历史孤立目标明细。与 `community_posts`、`community_post_images`、`community_comments`、`community_favorites` 共六张主表。唯一键防止重复互动，数据库触发器按真实增删维护计数，事务锁串行化同目标操作；重复 PUT/DELETE 不反转状态。待审核、驳回或已删除内容不能互动。旧 POST 切换接口保留给旧客户端，新客户端使用显式幂等接口。

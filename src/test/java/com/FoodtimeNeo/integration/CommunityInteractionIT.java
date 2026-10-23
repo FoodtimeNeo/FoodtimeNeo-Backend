@@ -84,7 +84,7 @@ class CommunityInteractionIT extends IntegrationApiSupport {
         var created = author.call("POST", "/api/v1/community/posts", communityPost(author,"待审被赞-" + UUID.randomUUID()));
         UUID pending = UUID.fromString(body(created).path("data").path("id").asString());
         assertThat(author.call("POST", "/api/v1/community/likes",
-                Map.of("targetType", "post", "targetId", pending.toString())).statusCode()).isEqualTo(200);
+                Map.of("targetType", "post", "targetId", pending.toString())).statusCode()).isEqualTo(404);
         assertThat(login(other).call("POST", "/api/v1/community/likes",
                 Map.of("targetType", "post", "targetId", pending.toString())).statusCode()).isEqualTo(404);
     }
