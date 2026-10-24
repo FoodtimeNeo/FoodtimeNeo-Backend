@@ -51,7 +51,7 @@ public class ImageStorageService {
             }
             Files.createDirectories(directory);
             Files.write(image, bytes, StandardOpenOption.CREATE_NEW);
-            var data = new Properties(); data.setProperty("owner", user.id().toString()); data.setProperty("contentType", contentType);
+            var data = new Properties(); data.setProperty("owner", user.id().toString()); data.setProperty("contentType", contentType); data.setProperty("width",String.valueOf(width)); data.setProperty("height",String.valueOf(height));
             try (var out = Files.newOutputStream(metadata, StandardOpenOption.CREATE_NEW)) { data.store(out, "Image staging metadata"); }
             return new UploadedImage(id, reference(id), width, height);
         } catch (IOException failure) {
@@ -69,12 +69,13 @@ public class ImageStorageService {
         Properties metadata = metadata(id);
         boolean owner = user.id().toString().equals(metadata.getProperty("owner"));
         boolean administrator = user.role().equals("admin") || user.role().equals("superadmin");
-        boolean published = published(reference(id));
+        Publication publication = publication(reference(id));
+        boolean published = publication.catalog() || publication.community() || publication.avatar();
         if (!owner && !administrator && !published) throw missing();
         try {
             Path file = thumbnail ? thumbnailPath(id, metadata.getProperty("contentType")) : directory.resolve(id + ".img");
             return new StoredImage(Files.readAllBytes(file), metadata.getProperty("contentType"),
-                    published, Files.getLastModifiedTime(file).toMillis());
+                    publication.catalog(), Files.getLastModifiedTime(file).toMillis());
         } catch (IOException failure) { throw missing(); }
     }
 
@@ -86,6 +87,22 @@ public class ImageStorageService {
         } catch (IllegalArgumentException failure) { throw bad("图片引用不合法"); }
     }
 
+    public UploadedImage ownedImage(String reference,UUID userId) {
+        requireOwnedReference(reference,userId);
+        UUID id=UUID.fromString(reference.substring("/api/v1/media/".length()));
+        var data=metadata(id);
+        try {
+            int width,height;
+            if(data.containsKey("width")){width=Integer.parseInt(data.getProperty("width"));height=Integer.parseInt(data.getProperty("height"));}
+            else try(var input=ImageIO.createImageInputStream(directory.resolve(id+".img").toFile())) {
+                var readers=ImageIO.getImageReaders(input);if(!readers.hasNext()) throw missing();
+                var reader=readers.next();try{reader.setInput(input);width=reader.getWidth(0);height=reader.getHeight(0);}finally{reader.dispose();}
+            }
+            if(width<1||height<1||(long)width*height>20_000_000)throw bad("图片尺寸过大");
+            return new UploadedImage(id,reference,width,height);
+        }catch(IOException|NumberFormatException e){throw missing();}
+    }
+
     private Properties metadata(UUID id) {
         var result = new Properties();
         try (var in = Files.newInputStream(directory.resolve(id + ".properties"))) {
@@ -93,8 +110,10 @@ public class ImageStorageService {
         } catch (IOException failure) { throw missing(); }
     }
 
-    private boolean published(String reference) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("""
+    private record Publication(boolean catalog,boolean community,boolean avatar) { }
+
+    private Publication publication(String reference) {
+        return jdbc.queryForObject("""
                 SELECT EXISTS (
                     SELECT 1 FROM foodtime.dish_images i
                     JOIN foodtime.dishes d ON d.id = i.dish_id AND d.status = 'active'
@@ -106,8 +125,12 @@ public class ImageStorageService {
                     JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
                     WHERE s.cover_image_url = ? AND s.status = 'active'
                     UNION ALL SELECT 1 FROM foodtime.dining_halls WHERE cover_image_url = ? AND status = 'active'
-                )
-                """, Boolean.class, reference, reference, reference));
+                ) AS catalog,
+                EXISTS (SELECT 1 FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id=i.post_id
+                        WHERE i.image_url=? AND p.status='approved' AND p.deleted_at IS NULL
+                ) AS community,
+                EXISTS (SELECT 1 FROM foodtime.users WHERE avatar_url=? AND status='active') AS avatar
+                """, (r,n)->new Publication(r.getBoolean("catalog"),r.getBoolean("community"),r.getBoolean("avatar")), reference, reference, reference, reference, reference);
     }
 
     private String reference(UUID id) { return "/api/v1/media/" + id; }

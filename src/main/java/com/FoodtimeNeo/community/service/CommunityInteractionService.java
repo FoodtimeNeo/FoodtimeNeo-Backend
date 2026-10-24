@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Likes, favorites and reposts. Toggle endpoints are idempotent; counts are denormalized. */
+/** Explicit PUT/DELETE commands are idempotent; legacy POST toggles remain compatible. */
 @Service
 @Validated
 public class CommunityInteractionService {
@@ -49,7 +49,24 @@ public class CommunityInteractionService {
         if (!posts.targetVisible("post", postId, userId)) {
             throw new BusinessException("TARGET_NOT_FOUND", "动态不存在或暂不可见", HttpStatus.NOT_FOUND);
         }
-        return Map.of("favorited", posts.toggleFavorite(userId, postId));
+        boolean active=posts.toggleFavorite(userId,postId);
+        return Map.of("favorited",active,"favoriteCount",posts.postFavoriteCount(postId));
+    }
+
+    @Transactional
+    public Map<String,Object> setLike(UUID user,String type,UUID id,boolean active,String address){
+        limiter.check(user,address);
+        if(!Set.of("post","comment").contains(type))throw new BusinessException("VALIDATION_ERROR","点赞类型不合法",HttpStatus.BAD_REQUEST);
+        if(!posts.targetVisible(type,id,user))throw new BusinessException("TARGET_NOT_FOUND","点赞目标已不可见",HttpStatus.NOT_FOUND);
+        posts.setLike(user,type,id,active);
+        return Map.of("liked",active,"likeCount",posts.likeCount(type,id));
+    }
+    @Transactional
+    public Map<String,Object> setFavorite(UUID user,UUID id,boolean active,String address){
+        limiter.check(user,address);
+        if(!posts.targetVisible("post",id,user))throw new BusinessException("TARGET_NOT_FOUND","帖子已不可见",HttpStatus.NOT_FOUND);
+        posts.setFavorite(user,id,active);
+        return Map.of("favorited",active,"favoriteCount",posts.postFavoriteCount(id));
     }
 
     @Transactional(readOnly = true)

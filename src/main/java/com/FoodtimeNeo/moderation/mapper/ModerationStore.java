@@ -93,7 +93,7 @@ public class ModerationStore {
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
                 FROM foodtime.community_posts p JOIN foodtime.users u ON u.id = p.user_id
                 LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-post' AND a.submission_id = p.id
-                WHERE p.id = ? FOR UPDATE OF p
+                WHERE p.id = ? AND p.deleted_at IS NULL FOR UPDATE OF p
                 """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-post", r.getObject("id", UUID.class),
                 r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
                 r.getString("image_url"), null, r.getString("status"), r.getString("review_reason"),
@@ -104,6 +104,9 @@ public class ModerationStore {
 
     /** Community comment lock for moderation and auto-decision. */
     public ModerationItem lockCommunityComment(UUID id) {
+        // Match creation/deletion/interaction lock order: post, then comment.
+        var parents=jdbc.query("SELECT p.id FROM foodtime.community_posts p JOIN foodtime.community_comments c ON c.post_id=p.id WHERE c.id=? AND p.status='approved' AND p.deleted_at IS NULL FOR UPDATE OF p",(r,n)->r.getObject(1,UUID.class),id);
+        if(parents.isEmpty())return null;
         var rows = jdbc.query("""
                 SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
                 u.display_name AS user_display_name,
@@ -111,7 +114,7 @@ public class ModerationStore {
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
                 FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
                 LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-comment' AND a.submission_id = c.id
-                WHERE c.id = ? FOR UPDATE OF c
+                WHERE c.id = ? AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM foodtime.community_posts p WHERE p.id=c.post_id AND p.status='approved' AND p.deleted_at IS NULL) FOR UPDATE OF c
                 """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-comment", r.getObject("id", UUID.class),
                 r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
                 null, null, r.getString("status"), r.getString("review_reason"),

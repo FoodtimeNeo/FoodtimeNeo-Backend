@@ -24,6 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.ai.triage.auto-approve-above=0.95", "app.ai.triage.auto-reject-above=0.9"})
 abstract class IntegrationApiSupport {
     private static final String PREFIX = "foodtime:integration:api:" + UUID.randomUUID();
+    // Never let destructive staging cleanup tests share a developer's configured upload directory.
+    private static final java.nio.file.Path STORAGE = java.nio.file.Path.of(
+            System.getProperty("java.io.tmpdir"), "foodtime-api-integration-" + UUID.randomUUID());
+    protected static java.nio.file.Path integrationStorageDirectory() { return STORAGE; }
     static final String PASSWORD = "Foodtime2026!";
     @Value("${local.server.port}") protected int port;
     @Autowired protected JdbcTemplate jdbc;
@@ -38,6 +42,7 @@ abstract class IntegrationApiSupport {
 
     @DynamicPropertySource
     static void namespaces(DynamicPropertyRegistry properties) {
+        properties.add("app.storage.directory", () -> STORAGE.toString());
         properties.add("spring.session.redis.namespace", () -> PREFIX + ":sessions");
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":limits");
         properties.add("app.review.actions.redis-namespace", () -> PREFIX + ":review-actions");
@@ -104,12 +109,15 @@ abstract class IntegrationApiSupport {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_review_submissions WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_likes WHERE user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_likes WHERE target_type = 'post' AND target_id IN"
-                    + " (SELECT id FROM foodtime.community_posts WHERE user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.community_post_likes WHERE user_id=? OR post_id IN(SELECT id FROM foodtime.community_posts WHERE user_id=?)",user,user);
+            jdbc.update("DELETE FROM foodtime.community_comment_likes WHERE user_id=? OR comment_id IN(SELECT id FROM foodtime.community_comments WHERE user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.community_favorites WHERE user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.community_comments WHERE user_id = ?", user);
+
         }
+        do {
+            removed=0;
+            for(UUID user:users)removed+=jdbc.update("DELETE FROM foodtime.community_comments c WHERE c.user_id=? AND NOT EXISTS(SELECT 1 FROM foodtime.community_comments child WHERE child.reply_to_comment_id=c.id OR child.root_comment_id=c.id)",user);
+        }while(removed>0);
         // Reposts reference origin posts across users; drop all reposts before any origin.
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ? AND repost_of_id IS NOT NULL", user);
@@ -173,6 +181,14 @@ abstract class IntegrationApiSupport {
             if (token != null) { request.header("X-CSRF-TOKEN", token); }
             return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
         }
+    }
+
+    protected Map<String,Object> communityPost(Browser author,String content) throws Exception {
+        var image=new java.awt.image.BufferedImage(3,5,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);
+        var uploaded=author.upload(bytes.toByteArray());assertThat(uploaded.statusCode()).isEqualTo(201);
+        return Map.of("title","食记", "content",content,"clientRequestId",UUID.randomUUID(),
+                "imageUrls",List.of(body(uploaded).path("data").path("imageUrl").asString()));
     }
 
     protected JsonNode body(HttpResponse<String> response) { return json.readTree(response.body()); }

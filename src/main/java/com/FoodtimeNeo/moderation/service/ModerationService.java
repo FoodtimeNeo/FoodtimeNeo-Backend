@@ -64,6 +64,8 @@ public class ModerationService {
     public ModerationResult autoDecide(String type, UUID id, com.FoodtimeNeo.ai.dto.AiVerdict verdict, boolean approve) {
         if (!Set.of("review", "community-post", "community-comment", "dish-review-reply").contains(type)) throw bad("AI自动审核仅支持评论与社区动态");
         ModerationItem item = store.lock(type,id);
+        if(type.startsWith("community-") && !community.aiPending(type,id))
+            throw new BusinessException("ALREADY_REVIEWED","内容已转人工审核或已处理",HttpStatus.CONFLICT);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
         return decide(type, item, approve ? "approve" : "reject", verdict.reason(), null, null, "ai", verdict.model());
@@ -94,7 +96,6 @@ public class ModerationService {
         String status = action.equals("approve") ? "approved" : "rejected";
         store.complete(item,moderatorId,aiModel,status,reason,approved,price);
         if (type.equals("community-post") && action.equals("approve")) community.bumpRepostOf(item.id());
-        if (type.equals("community-comment") && action.equals("approve")) community.bumpCommentCountByComment(item.id());
         store.log(item,moderatorId,actor,aiModel,action,reason);
         return new ModerationResult(item.id(),status,approved);
     }

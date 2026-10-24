@@ -2,8 +2,6 @@ package com.FoodtimeNeo.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
@@ -13,10 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ImageStorageIT extends IntegrationApiSupport {
-    private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "images-test-" + UUID.randomUUID());
-    @DynamicPropertySource static void imageDirectory(DynamicPropertyRegistry properties) {
-        properties.add("app.storage.directory", () -> STORAGE.toString());
-    }
+    private static final Path STORAGE = integrationStorageDirectory();
 
     @Test
     void uploadIsPrivateUntilApprovedAndPublicAccessFollowsParentStatus() throws Exception {

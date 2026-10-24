@@ -49,6 +49,12 @@ public class CommunityController {
         return ApiResponse.success(posts.feed(current(request).id(), new PageRequest(page, size)));
     }
 
+    @GetMapping("/feed/cursor")
+    public ApiResponse<CursorPageResponse<CommunityPostResponse>> feedCursor(HttpServletRequest request,
+            @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor) {
+        return ApiResponse.success(posts.feedCursor(current(request).id(),size,cursor));
+    }
+
     @GetMapping("/posts/{id}")
     @Operation(summary = "动态详情", description = "已通过对所有登录用户可见；pending仅本人可见")
     public ApiResponse<CommunityPostResponse> detail(@PathVariable UUID id, HttpServletRequest request) {
@@ -77,12 +83,37 @@ public class CommunityController {
         return ApiResponse.success(comments.list(postId, new PageRequest(page, size)));
     }
 
+    @GetMapping("/posts/{postId}/comments/cursor")
+    public ApiResponse<CursorPageResponse<CommunityCommentResponse>> roots(@PathVariable UUID postId,
+        @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor,HttpServletRequest request){
+        return ApiResponse.success(comments.thread(postId,null,current(request).id(),size,cursor));
+    }
+
+    @GetMapping("/posts/{postId}/comments/{rootId}/replies")
+    public ApiResponse<CursorPageResponse<CommunityCommentResponse>> replies(@PathVariable UUID postId,@PathVariable UUID rootId,
+        @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor,HttpServletRequest request){
+        return ApiResponse.success(comments.thread(postId,rootId,current(request).id(),size,cursor));
+    }
+
     @DeleteMapping("/comments/{id}")
     @Operation(summary = "删除自己的评论", description = "只能删除本人的评论；审核记录保留")
     public ApiResponse<Void> deleteComment(@PathVariable UUID id, HttpServletRequest request) {
         comments.delete(id, current(request).id());
         return ApiResponse.success(null);
     }
+
+    @PutMapping("/posts/{id}/like")
+    public ApiResponse<Map<String,Object>> likePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"post",id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/posts/{id}/like")
+    public ApiResponse<Map<String,Object>> unlikePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"post",id,false,request.getRemoteAddr()));}
+    @PutMapping("/comments/{id}/like")
+    public ApiResponse<Map<String,Object>> likeComment(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"comment",id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/comments/{id}/like")
+    public ApiResponse<Map<String,Object>> unlikeComment(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setLike(current(request).id(),"comment",id,false,request.getRemoteAddr()));}
+    @PutMapping("/posts/{id}/favorite")
+    public ApiResponse<Map<String,Object>> favoritePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setFavorite(current(request).id(),id,true,request.getRemoteAddr()));}
+    @DeleteMapping("/posts/{id}/favorite")
+    public ApiResponse<Map<String,Object>> unfavoritePost(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(interactions.setFavorite(current(request).id(),id,false,request.getRemoteAddr()));}
 
     @PostMapping("/likes")
     @Operation(summary = "点赞/取消赞", description = "目标可以是动态或评论；重复调用即取消，结果里返回最新状态与计数")

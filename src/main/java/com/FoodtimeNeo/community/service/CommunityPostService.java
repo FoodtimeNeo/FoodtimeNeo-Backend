@@ -29,23 +29,44 @@ public class CommunityPostService {
     private final ImageStorageService images;
     private final SubmissionRateLimiter limiter;
     private final ApplicationEventPublisher events;
+    private final boolean aiEnabled;
     public CommunityPostService(CommunityStore posts, ImageStorageService images,
-                                SubmissionRateLimiter limiter, ApplicationEventPublisher events) {
-        this.posts = posts; this.images = images; this.limiter = limiter; this.events = events;
+                                SubmissionRateLimiter limiter, ApplicationEventPublisher events, @org.springframework.beans.factory.annotation.Value("${app.ai.triage.enabled:false}") boolean aiEnabled) {
+        this.posts = posts; this.images = images; this.limiter = limiter; this.events = events; this.aiEnabled=aiEnabled;
     }
 
     @Transactional
     public Map<String, UUID> submit(@NotNull UUID userId, @Valid CreatePostRequest body, String remoteAddress) {
+        UUID previous=posts.request(userId,body.clientRequestId());
+        if(previous!=null) return retry(previous,body);
+        if(body.repostOfId()==null && body.imageUrls().isEmpty())
+            throw new BusinessException("POST_IMAGES_REQUIRED","请添加1到9张图片",HttpStatus.BAD_REQUEST);
+        if(new java.util.HashSet<>(body.imageUrls()).size()!=body.imageUrls().size())
+            throw new BusinessException("IMAGE_DUPLICATED","请勿重复添加同一张图片",HttpStatus.BAD_REQUEST);
         limiter.check(userId, remoteAddress);
-        for (String url : body.imageUrls()) {
-            images.requireOwnedReference(url, userId);
-        }
+        var verified=body.imageUrls().stream().map(url->images.ownedImage(url,userId)).toList();
         if (body.repostOfId() != null && !posts.repostTargetVisible(body.repostOfId())) {
             throw new BusinessException("REPOST_TARGET_UNAVAILABLE", "转发的动态不存在或已不可见", HttpStatus.NOT_FOUND);
         }
-        UUID id = posts.create(userId, body.content(), body.repostOfId(), body.imageUrls());
-        events.publishEvent(new com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent("community-post", id));
+        UUID id = posts.create(userId,body,verified,aiEnabled);
+        if(id==null) return retry(posts.request(userId,body.clientRequestId()),body);
+        if(aiEnabled) events.publishEvent(new com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent("community-post", id));
         return Map.of("id", id);
+    }
+
+    private Map<String,UUID> retry(UUID id,CreatePostRequest body) {
+        if(!posts.sameRequest(id,body)) throw new BusinessException("REQUEST_CONFLICT","请求编号已用于另一篇帖子",HttpStatus.CONFLICT);
+        return Map.of("id",id);
+    }
+
+    @Transactional(readOnly=true)
+    public com.FoodtimeNeo.common.api.CursorPageResponse<CommunityPostResponse> feedCursor(UUID viewerId,int size,String cursor) {
+        size=Math.max(1,Math.min(100,size));
+        var rows=new java.util.ArrayList<>(posts.feedAfter(viewerId,size+1,CommunityCursor.parse(cursor,"feed")));
+        boolean more=rows.size()>size;if(more) rows.removeLast();
+        var last=rows.isEmpty()?null:rows.getLast();
+        return new com.FoodtimeNeo.common.api.CursorPageResponse<>(rows,posts.feedCount(),more,
+                more?new CommunityCursor(last.createdAt(),last.id()).encode("feed"):null);
     }
 
     @Transactional(readOnly = true)

@@ -7,10 +7,10 @@
 运行环境为 Ubuntu 24.04、Temurin Java 21、项目 Maven Wrapper、PostgreSQL 17 和 Redis 7.4。数据库和 Redis 是每次运行独立的测试服务，不使用部署凭据或现有业务数据库。CI 执行普通测试、Flyway、数据库约束及 HTTP 集成测试，成功后上传可运行 JAR；测试报告无论成功失败都会上传。
 
 ```sh
-bash ./mvnw -B -ntp -Pintegration '-Dit.test=*IT,!RegistrationIT' verify
+bash ./mvnw -B -ntp -Pintegration verify
 ```
 
-已有 `RegistrationIT` 的邮箱集成尚未接通，因此此组测试明确排除。普通测试仍覆盖注册和验证码逻辑；CI 成功不代表 SMTP 投递通过。邮件流程修复并验证后，应移除排除项。
+1.0.0 起，`RegistrationIT` 使用不依赖本机 DNS 的 loopback SMTP 夹具，已恢复到完整 CI。该测试验证真实邮件传输、注册及失败回滚；CI 成功不代表外部邮件供应商实际投递通过。完整本机回归见 [1.0.0 发布验收](release-1.0.0.md)。
 
 第三方 Actions 固定到官方发布对应的完整提交 SHA。CI 默认只拥有仓库读取权限，不使用生产 Secrets。语法可通过 `actionlint .github/workflows/*.yml` 检查。
 

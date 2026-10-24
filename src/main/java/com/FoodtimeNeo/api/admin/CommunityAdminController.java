@@ -7,6 +7,7 @@ import com.FoodtimeNeo.moderation.dto.ModerationItem;
 import com.FoodtimeNeo.moderation.dto.ModerationRequest;
 import com.FoodtimeNeo.moderation.dto.ModerationResult;
 import com.FoodtimeNeo.user.entity.UserProfile;
+import com.FoodtimeNeo.community.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,4 +55,13 @@ public class CommunityAdminController {
     private UserProfile current(HttpServletRequest request) {
         return (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
     }
+
+    @GetMapping("/posts/{id}")
+    public ApiResponse<CommunityModerationDetail> postDetail(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(moderation.detail(current(request),"posts",id));}
+    @GetMapping("/comments/{id}")
+    public ApiResponse<CommunityModerationDetail> commentDetail(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(moderation.detail(current(request),"comments",id));}
+    @DeleteMapping("/posts/{id}")
+    public ApiResponse<Void> removePost(@PathVariable UUID id,@Valid @RequestBody RemoveCommunityRequest body,HttpServletRequest request){moderation.remove(current(request),"posts",id,body);return ApiResponse.success(null);}
+    @DeleteMapping("/comments/{id}")
+    public ApiResponse<Void> removeComment(@PathVariable UUID id,@Valid @RequestBody RemoveCommunityRequest body,HttpServletRequest request){moderation.remove(current(request),"comments",id,body);return ApiResponse.success(null);}
 }

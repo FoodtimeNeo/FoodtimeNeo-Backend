@@ -11,7 +11,7 @@
   </parent>
   <groupId>com.foodtime</groupId>
   <artifactId>foodtime-neo-backend</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>FoodTimeNeo Backend</name>
   <description>校园食堂菜品展示与点评平台后端</description>
   <properties>
