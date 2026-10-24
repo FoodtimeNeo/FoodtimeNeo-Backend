@@ -55,6 +55,11 @@ class RegistrationIT {
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":login");
         properties.add("spring.mail.host", () -> "127.0.0.1");
         properties.add("spring.mail.port", SMTP::port);
+        // Make both EHLO and MIME Message-ID independent of workstation DNS.
+        // Message-ID is generated after connecting, while the fixture is waiting
+        // for MAIL FROM; reverse DNS can otherwise exhaust its read timeout.
+        properties.add("spring.mail.properties[mail.smtp.localhost]", () -> "localhost");
+        properties.add("spring.mail.properties[mail.from]", () -> "sender@example.test");
         properties.add("spring.mail.properties[mail.smtp.auth]", () -> false);
         properties.add("spring.mail.properties[mail.smtp.starttls.enable]", () -> false);
         properties.add("spring.mail.properties[mail.smtp.starttls.required]", () -> false);
