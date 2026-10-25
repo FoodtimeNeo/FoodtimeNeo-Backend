@@ -15,6 +15,7 @@
 | 数据库设计与实现的对应关系 | [设计核查](database-design-audit.md) |
 | 开发环境注册测试码 | [测试验证码](testing-verification.md) |
 | 生产容器、持久化与反向代理边界 | [部署](deployment.md) |
+| DDNS 临时域名快速上线（含 Nginx+证书） | [DDNS 上线](ddns-tls.md) |
 | 指标采集、慢请求与磁盘盯防 | [监控](monitoring.md) |
 | 并发压测结论与上线检查单 | [压测](load-test.md) |
 | AI预检分诊（只诊断、不自动审核） | [AI预检](ai-moderation.md) |

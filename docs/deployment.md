@@ -37,6 +37,13 @@ docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath
 （登录1000、投稿2000、上传1000，窗口不变），真正的单人滥用仍由每用户/每账号配额卡住。
 若出口IP更集中，继续调大 `*_IP_LIMIT` 即可，不动用户级配额。
 
+## DDNS 临时域名快速上线
+
+配服的人直接走 [DDNS 快速上线](ddns-tls.md)：`deploy/ddns-nginx/kfcvivo50.ddns.net.conf`
+是照抄即用的 Nginx 配置（含 443、HSTS/安全头、`X-Forwarded-For` 覆写、前端同源块），
+certbot 一条命令拿证书。Android release 包用
+`-PFOODTIME_API_BASE_URL=https://kfcvivo50.ddns.net/api/v1/` 构建（门禁会拦 http）。
+
 `.gitignore` 已覆盖 Maven 构建目录、IDE 状态、本地环境配置、日志、运行数据和私钥；保留 `.env.example`、Maven Wrapper 与版本化数据库迁移。`.dockerignore` 将本地凭据、Git 与构建缓存排除在镜像构建上下文之外。
 
 ## 2核4G Debian 单机调配
