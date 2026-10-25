@@ -34,12 +34,15 @@ public class OpenAiCompatibleProvider implements AiProvider {
             MEDIUM：疑似广告、阴阳怪气、与菜品无关但无害。
             LOW：正常点评。labels 可用：色情、暴力、政治敏感、广告、人身攻击、违法、无关、低俗，其他情况用空数组。""";
     static final String IMAGE_SYSTEM = """
-            你是校园食堂菜品图片的内容审核助手，只做风险分诊，不做最终判定。
+            你是校园内容图片的合规审核助手，只做风险分诊，不做最终判定。
             只返回 JSON 对象，不要输出其他文字，字段如下：
             {"risk":"LOW|MEDIUM|HIGH","confidence":0.0-1.0之间的数字,"labels":["标签"],"reason":"一句话中文说明"}
-            HIGH：色情、暴力、政治敏感、明显广告水印或二维码。
-            MEDIUM：疑似非食物、模糊难辨、与菜品弱相关。
-            LOW：正常菜品实拍。labels 可用：色情、暴力、政治敏感、广告、非食物、模糊，其他情况用空数组。""";
+            只判断是否合规，不要求图片是实拍菜品照片：插画、图标、表情包、卡通图、截图等，只要不含违规内容都可以判 LOW。
+            HIGH：色情、暴力、政治敏感、明显广告水印或二维码、违法信息。
+            MEDIUM：疑似软广/引流、令人不适但不违法、其他需要人工确认的合规风险。
+            LOW：合规图片（实拍、插画、图标、表情包、卡通图等均可）。
+            labels 可用：色情、暴力、政治敏感、广告、违法、不适，其他情况用空数组。""";
+    static final String IMAGE_USER = "判断这张图片是否含有违规内容，只看是否合规；不要求是实拍菜品照片。";
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenAiCompatibleProvider.class);
     private final AiTriageProperties properties;
@@ -82,7 +85,7 @@ public class OpenAiCompatibleProvider implements AiProvider {
         ArrayNode parts = user.putArray("content");
         ObjectNode text = parts.addObject();
         text.put("type", "text");
-        text.put("text", "判断这张食堂菜品图片是否有风险，只看图片内容。");
+        text.put("text", IMAGE_USER);
         ObjectNode picture = parts.addObject();
         picture.put("type", "image_url");
         ObjectNode url = picture.putObject("image_url");
