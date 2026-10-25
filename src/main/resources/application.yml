@@ -163,8 +163,11 @@ app:
       redis-namespace: ${AI_TRIAGE_REDIS_NAMESPACE:foodtime:ai:triage}
       timeout: ${AI_TRIAGE_TIMEOUT:PT30S}
       batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
-      interval: ${AI_TRIAGE_INTERVAL:PT5M}
-      initial-delay: ${AI_TRIAGE_INITIAL_DELAY:PT1M}
+      interval: ${AI_TRIAGE_INTERVAL:PT30S}
+      initial-delay: ${AI_TRIAGE_INITIAL_DELAY:PT5S}
+      pool-core: ${AI_TRIAGE_POOL_CORE:4}
+      pool-max: ${AI_TRIAGE_POOL_MAX:8}
+      pool-queue: ${AI_TRIAGE_POOL_QUEUE:500}
     single:
       enabled: ${AI_SINGLE_ENABLED:false}
       base-url: ${AI_SINGLE_BASE_URL:}

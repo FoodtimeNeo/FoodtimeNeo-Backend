@@ -48,7 +48,7 @@ public class SingleKeyModerationProvider implements AiProvider {
         ArrayNode parts = user.putArray("content");
         ObjectNode text = parts.addObject();
         text.put("type", "text");
-        text.put("text", "判断这张食堂菜品图片是否有风险，只看图片内容。");
+        text.put("text", OpenAiCompatibleProvider.IMAGE_USER);
         ObjectNode picture = parts.addObject();
         picture.put("type", "image_url");
         ObjectNode url = picture.putObject("image_url");
