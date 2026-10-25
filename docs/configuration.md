@@ -22,7 +22,8 @@
 | `AI_TRIAGE_AUTO_APPROVE_ABOVE` / `AI_TRIAGE_AUTO_REJECT_ABOVE` | `0.95` / `0.9` | 达到即 AI 自动通过/驳回评论；其余留给人工 |
 | `AI_TRIAGE_REDIS_NAMESPACE` | `foodtime:ai:triage` | 模型映射覆盖的 Redis 哈希；monitor/超管热切换写这里，删字段即回 env 默认 |
 | `AI_TRIAGE_TIMEOUT` / `AI_TRIAGE_BATCH_SIZE` | `PT30S` / `10` | 单次调用超时（1–120秒整秒）；每轮最多诊断条数（1–100） |
-| `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT5M` / `PT1M` | 调度周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
+| `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT30S` / `PT5S` | 兜底扫批周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
+| `AI_TRIAGE_POOL_CORE` / `AI_TRIAGE_POOL_MAX` / `AI_TRIAGE_POOL_QUEUE` | `4` / `8` / `500` | 即时审核线程池；新投稿先走即时路径，队列满时由扫批兜底 |
 | `AI_SINGLE_ENABLED` | `false` | 单 key 直判开关；开启后多 key 轮询、升级复核、兜底、Redis 模型映射与热切换不再进入。密钥用 systemd 加密凭据注入，见[密钥安全存储](secrets.md) |
 | `AI_SINGLE_BASE_URL` / `AI_SINGLE_MODEL` | `.env.example` 为 `https://api.deepseek.com` / `deepseek-flash`（应用内默认空） | 单 key 提供方与模型；`AI_SINGLE_API_KEY` 不写 `.env`，由加密凭据注入 |
 | `AI_SINGLE_TIMEOUT` | `PT30S` | 单 key 单次调用超时（1–120 秒整秒） |

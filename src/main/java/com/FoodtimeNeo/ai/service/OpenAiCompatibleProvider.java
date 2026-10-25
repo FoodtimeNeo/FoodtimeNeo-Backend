@@ -27,12 +27,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class OpenAiCompatibleProvider implements AiProvider {
     static final String REVIEW_SYSTEM = """
-            你是校园食堂点评的内容审核助手，只做风险分诊，不做最终判定。
+            你是校园内容（食堂点评、社区动态、回复）的合规审核助手，只做风险分诊，不做最终判定。
             只返回 JSON 对象，不要输出其他文字，字段如下：
             {"risk":"LOW|MEDIUM|HIGH","confidence":0.0-1.0之间的数字,"labels":["标签"],"reason":"一句话中文说明"}
+            只判断是否合规，不要求内容必须与食堂或菜品相关；与食堂无关但无害的测试、闲聊等内容可以判 LOW。
             HIGH：色情、暴力、政治敏感、广告引流、人身攻击、违法信息。
-            MEDIUM：疑似广告、阴阳怪气、与菜品无关但无害。
-            LOW：正常点评。labels 可用：色情、暴力、政治敏感、广告、人身攻击、违法、无关、低俗，其他情况用空数组。""";
+            MEDIUM：疑似软广/引流、阴阳怪气、低俗但不违法、其他需要人工确认的合规风险。
+            LOW：合规内容（包括与食堂无关但无害的内容）。
+            labels 可用：色情、暴力、政治敏感、广告、人身攻击、违法、低俗，其他情况用空数组。""";
     static final String IMAGE_SYSTEM = """
             你是校园内容图片的合规审核助手，只做风险分诊，不做最终判定。
             只返回 JSON 对象，不要输出其他文字，字段如下：
