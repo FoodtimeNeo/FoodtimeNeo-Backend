@@ -165,6 +165,12 @@ app:
       batch-size: ${AI_TRIAGE_BATCH_SIZE:10}
       interval: ${AI_TRIAGE_INTERVAL:PT5M}
       initial-delay: ${AI_TRIAGE_INITIAL_DELAY:PT1M}
+    single:
+      enabled: ${AI_SINGLE_ENABLED:false}
+      base-url: ${AI_SINGLE_BASE_URL:}
+      api-key: ${AI_SINGLE_API_KEY:}
+      model: ${AI_SINGLE_MODEL:}
+      timeout: ${AI_SINGLE_TIMEOUT:PT30S}
   invitation:
     secret: ${INVITATION_SECRET:}
   email-verification:

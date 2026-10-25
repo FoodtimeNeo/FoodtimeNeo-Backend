@@ -5,6 +5,7 @@ import com.FoodtimeNeo.ai.mapper.AiModerationStore;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.community.mapper.CommunityStore;
 import com.FoodtimeNeo.config.properties.AiTriageProperties;
+import com.FoodtimeNeo.config.properties.SingleModerationProperties;
 import com.FoodtimeNeo.media.service.ImageStorageService;
 import com.FoodtimeNeo.moderation.service.ModerationService;
 import org.slf4j.Logger;
@@ -39,15 +40,30 @@ public class AiTriageService {
     private final java.util.concurrent.Executor triageExecutor;
     private final AiModelRouter models;
     private final AiTriageProperties properties;
+    private final SingleModerationProperties single;
+    private final SingleKeyModerationProvider singleKey;
 
     public AiTriageService(AiModerationStore store, OpenAiCompatibleProvider openai, FakeAiProvider fake,
                            ImageStorageService images, ModerationService moderation, CommunityStore community,
                            @org.springframework.beans.factory.annotation.Qualifier("aiTriageExecutor")
                            java.util.concurrent.Executor triageExecutor,
-                           AiModelRouter models, AiTriageProperties properties) {
+                           AiModelRouter models, AiTriageProperties properties,
+                           SingleModerationProperties single, SingleKeyModerationProvider singleKey) {
         this.store = store; this.openai = openai; this.fake = fake;
         this.images = images; this.moderation = moderation; this.community = community;
         this.triageExecutor = triageExecutor; this.models = models; this.properties = properties;
+        this.single = single; this.singleKey = singleKey;
+    }
+
+    /** 单 key 模式启动确认：明确当前生效的是直判还是旧链路。 */
+    @jakarta.annotation.PostConstruct
+    void logMode() {
+        if (single.enabled()) {
+            LOG.info("AI single-key mode ACTIVE model={}: rotation, escalation, fallback and Redis model map disabled",
+                    single.model());
+        } else {
+            LOG.info("AI chain mode active provider={}", properties.provider());
+        }
     }
 
     @Scheduled(fixedDelayString = "${app.ai.triage.interval:PT5M}",
@@ -140,7 +156,13 @@ public class AiTriageService {
     }
 
     private AiProvider pick() {
+        if (single.enabled()) return singleKey;
         return "fake".equals(properties.provider()) ? fake : openai;
+    }
+
+    /** 单 key 模式下旧链路（升级、兜底、Redis 模型映射）一律不进入。 */
+    private boolean singleMode() {
+        return single.enabled();
     }
 
     /** Returns 1 when a verdict was recorded, 0 when deferred to the sweep. */
@@ -268,6 +290,7 @@ public class AiTriageService {
     }
 
     private AiVerdict diagnoseCommunityText(AiProvider provider, String content) throws AiUnavailableException {
+        if (singleMode()) return provider.checkText(single.model(), content);
         AiVerdict first;
         try {
             first = provider.checkText(models.primary(), content);
@@ -323,6 +346,7 @@ public class AiTriageService {
     }
 
     private AiVerdict diagnoseReview(AiProvider provider, int rating, String content) throws AiUnavailableException {
+        if (singleMode()) return provider.checkReview(single.model(), rating, content);
         AiVerdict first;
         try {
             first = provider.checkReview(models.primary(), rating, content);
@@ -363,6 +387,7 @@ public class AiTriageService {
     }
 
     private AiVerdict diagnosePhoto(AiProvider provider, byte[] image, String contentType) throws AiUnavailableException {
+        if (singleMode()) return provider.checkImage(single.model(), image, contentType);
         try {
             return provider.checkImage(models.photo(), image, contentType);
         } catch (AiUnavailableException primaryFailed) {
