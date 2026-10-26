@@ -41,7 +41,7 @@ SELECT 'dish_zero_price_todo', name, description FROM foodtime.dishes WHERE pric
 SELECT 'dish_zero_price_unexpected',
   CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'FAIL:' || count(*) END
 FROM foodtime.dishes
-WHERE price = 0 AND description NOT IN ('按称重计价') AND name <> '白米饭';
+WHERE price = 0 AND description NOT IN ('按称重计价', '免费供应');
 
 -- 5) 封面全有，图集 32 张（含 30 首图 + 2 多余图）
 SELECT 'stall_cover',

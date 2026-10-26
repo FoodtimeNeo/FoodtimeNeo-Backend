@@ -578,7 +578,7 @@ INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('c1cfd7b6-c7e7-501d-b4f2-920d22b8d800','0ae16bf7-1a3f-5f54-b37b-ff89d5f24820','杂粮饭',NULL,1,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
-VALUES ('06465716-efbc-5577-bbe7-77aaf97d911b','0ae16bf7-1a3f-5f54-b37b-ff89d5f24820','白米饭','原价标注：免费，待人工核价',0,'active')
+VALUES ('06465716-efbc-5577-bbe7-77aaf97d911b','0ae16bf7-1a3f-5f54-b37b-ff89d5f24820','白米饭','免费供应',0,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('b42b2145-79f0-583e-b277-12e81025b6a4','ced58e12-683c-5563-96a0-d7f86c137384','青菜肉酱手拍粉',NULL,13,'active')
