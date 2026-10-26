@@ -35,4 +35,16 @@ class StagedImageCleanupIT extends IntegrationApiSupport {
                 "png", out);
         return out.toByteArray();
     }
+
+    @Test
+    void additionalStallAlbumFilesAreKeptEvenWhenNotUsedAsCover() throws Exception {
+        Browser browser=login(owner),viewer=login(other);
+        String reference=body(browser.upload(png())).path("data").path("imageUrl").asString();
+        UUID album=UUID.randomUUID();
+        try {
+            jdbc.update("INSERT INTO foodtime.stall_images(id,stall_id,image_url) VALUES(?,?,?)",album,stall,reference);
+            cleanup.clean();
+            assertThat(viewer.image(reference).statusCode()).isEqualTo(200);
+        } finally {jdbc.update("DELETE FROM foodtime.stall_images WHERE id=?",album);}
+    }
 }
