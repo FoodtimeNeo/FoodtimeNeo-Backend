@@ -51,8 +51,10 @@ public class ImageStorageController {
         String etag = "\"" + imageId + (size.equals("thumb") ? "-thumb" : "") + "\"";
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl(cache);
-        headers.setETag(etag);
-        headers.setLastModified(image.lastModified());
+        if (image.policy() != ImageStorageService.CachePolicy.NO_STORE) {
+            headers.setETag(etag);
+            headers.setLastModified(image.lastModified());
+        }
         headers.set("X-Content-Type-Options", "nosniff");
         if (image.policy() == ImageStorageService.CachePolicy.PRIVATE_REVALIDATE) headers.setVary(java.util.List.of("Cookie"));
         String condition = request.getHeader(HttpHeaders.IF_NONE_MATCH);

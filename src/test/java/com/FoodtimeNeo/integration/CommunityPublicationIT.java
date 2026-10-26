@@ -43,6 +43,7 @@ class CommunityPublicationIT extends IntegrationApiSupport {
   assertThat(viewer.image(image).statusCode()).isEqualTo(404);
   assertThat(viewer.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow()).statusCode()).isEqualTo(404);
   assertThat(author.image(image).headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+  assertThat(author.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow()).statusCode()).isEqualTo(200);
   assertThat(jdbc.queryForObject("SELECT deleted_at IS NOT NULL FROM foodtime.community_posts WHERE id=?",Boolean.class,id)).isTrue();
   assertThat(jdbc.queryForObject("SELECT count(*) FROM foodtime.content_moderation_logs WHERE community_post_id=?",Long.class,id)).isEqualTo(1);
  }

@@ -35,5 +35,6 @@ class ImageCachePolicyTest {
         var response = new ImageStorageController(images, mock(UploadRateLimiter.class)).read(id, "full", request);
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
+        assertThat(response.getHeaders().getETag()).isNull();
     }
 }
