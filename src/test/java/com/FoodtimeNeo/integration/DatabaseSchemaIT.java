@@ -35,7 +35,8 @@ class DatabaseSchemaIT {
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
                 "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
                 "community_posts", "community_post_images", "community_comments",
-                "community_post_likes", "community_comment_likes", "community_favorites", "dish_stats", "dish_review_stats", "dish_review_likes", "dish_review_replies", "dish_review_reply_stats", "dish_review_reply_likes");
+                "community_post_likes", "community_comment_likes", "community_favorites", "dish_stats", "dish_review_stats", "dish_review_likes", "dish_review_replies", "dish_review_reply_stats", "dish_review_reply_likes",
+                "stall_images");
         assertThat(jdbc.queryForObject("""
                 select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();

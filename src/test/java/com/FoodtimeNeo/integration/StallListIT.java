@@ -76,7 +76,9 @@ class StallListIT {
             UUID id = UUID.fromString(item.path("id").asString());
             ids.add(id);
             assertThat(item.path("diningHallId").asString()).isEqualTo(parent.toString());
-            assertThat(item.size()).isEqualTo(5);
+            assertThat(item.size()).isEqualTo(6);
+            assertThat(item.path("images").isArray()).isTrue();
+            assertThat(item.path("images").size()).isZero();
             assertThat(item.has("floor")).isFalse();
             assertThat(item.has("status")).isFalse();
             assertThat(item.has("sortOrder")).isFalse();
