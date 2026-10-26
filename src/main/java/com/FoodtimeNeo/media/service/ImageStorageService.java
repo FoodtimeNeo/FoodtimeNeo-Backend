@@ -18,6 +18,8 @@ import java.util.UUID;
 public class ImageStorageService {
     public record UploadedImage(UUID id, String imageUrl, int width, int height) { }
     public record StoredImage(byte[] bytes, String contentType, boolean cacheable, long lastModified) { }
+    public enum CachePolicy { PUBLIC_IMMUTABLE, PRIVATE_REVALIDATE, NO_STORE }
+    public record ImageInfo(UUID id, String contentType, CachePolicy policy, long lastModified) { }
     private final Path directory;
     private final JdbcTemplate jdbc;
     public ImageStorageService(@Value("${app.storage.directory:uploads}") String directory, JdbcTemplate jdbc) {
@@ -66,16 +68,34 @@ public class ImageStorageService {
 
     /** Thumbnails are generated on first request and cached next to the original. */
     public StoredImage read(UUID id, UserProfile user, boolean thumbnail) {
+        ImageInfo info = inspect(id, user);
+        return new StoredImage(readBytes(info, thumbnail), info.contentType(),
+                info.policy() == CachePolicy.PUBLIC_IMMUTABLE, info.lastModified());
+    }
+
+    /** Authorize before evaluating validators, without reading/decoding the image body. */
+    public ImageInfo inspect(UUID id, UserProfile user) {
         Properties metadata = metadata(id);
+        if (user == null) throw missing();
         boolean owner = user.id().toString().equals(metadata.getProperty("owner"));
         boolean administrator = user.role().equals("admin") || user.role().equals("superadmin");
         Publication publication = publication(reference(id));
         boolean published = publication.catalog() || publication.community() || publication.avatar();
         if (!owner && !administrator && !published) throw missing();
         try {
-            Path file = thumbnail ? thumbnailPath(id, metadata.getProperty("contentType")) : directory.resolve(id + ".img");
-            return new StoredImage(Files.readAllBytes(file), metadata.getProperty("contentType"),
-                    publication.catalog(), Files.getLastModifiedTime(file).toMillis());
+            Path file = directory.resolve(id + ".img");
+            if (!Files.isRegularFile(file)) throw missing();
+            CachePolicy policy = publication.catalog() ? CachePolicy.PUBLIC_IMMUTABLE
+                    : published ? CachePolicy.PRIVATE_REVALIDATE : CachePolicy.NO_STORE;
+            return new ImageInfo(id, metadata.getProperty("contentType"), policy,
+                    Files.getLastModifiedTime(file).toMillis());
+        } catch (IOException failure) { throw missing(); }
+    }
+
+    public byte[] readBytes(ImageInfo info, boolean thumbnail) {
+        try {
+            return Files.readAllBytes(thumbnail ? thumbnailPath(info.id(), info.contentType())
+                    : directory.resolve(info.id() + ".img"));
         } catch (IOException failure) { throw missing(); }
     }
 
@@ -124,13 +144,18 @@ public class ImageStorageService {
                     SELECT 1 FROM foodtime.stalls s
                     JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
                     WHERE s.cover_image_url = ? AND s.status = 'active'
+                    UNION ALL
+                    SELECT 1 FROM foodtime.stall_images i
+                    JOIN foodtime.stalls s ON s.id = i.stall_id AND s.status = 'active'
+                    JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
+                    WHERE i.image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.dining_halls WHERE cover_image_url = ? AND status = 'active'
                 ) AS catalog,
                 EXISTS (SELECT 1 FROM foodtime.community_post_images i JOIN foodtime.community_posts p ON p.id=i.post_id
                         WHERE i.image_url=? AND p.status='approved' AND p.deleted_at IS NULL
                 ) AS community,
                 EXISTS (SELECT 1 FROM foodtime.users WHERE avatar_url=? AND status='active') AS avatar
-                """, (r,n)->new Publication(r.getBoolean("catalog"),r.getBoolean("community"),r.getBoolean("avatar")), reference, reference, reference, reference, reference);
+                """, (r,n)->new Publication(r.getBoolean("catalog"),r.getBoolean("community"),r.getBoolean("avatar")), reference, reference, reference, reference, reference, reference);
     }
 
     private String reference(UUID id) { return "/api/v1/media/" + id; }
@@ -174,10 +199,18 @@ public class ImageStorageService {
                 } finally {
                     graphics.dispose();
                 }
-                try (var out = Files.newOutputStream(thumb, StandardOpenOption.CREATE,
-                        StandardOpenOption.TRUNCATE_EXISTING)) {
-                    String format = contentType.equals("image/png") ? "png" : "jpeg";
-                    if (!ImageIO.write(canvas, format, out)) throw new IOException("thumbnail encode failed");
+                Path temporary = Files.createTempFile(directory, id + "-", ".thumb-tmp");
+                try {
+                    try (var out = Files.newOutputStream(temporary)) {
+                        String format = contentType.equals("image/png") ? "png" : "jpeg";
+                        if (!ImageIO.write(canvas, format, out)) throw new IOException("thumbnail encode failed");
+                    }
+                    try { Files.move(temporary, thumb, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+                    catch (AtomicMoveNotSupportedException unsupported) {
+                        Files.move(temporary, thumb, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } finally {
+                    Files.deleteIfExists(temporary);
                 }
                 return thumb;
             } finally {

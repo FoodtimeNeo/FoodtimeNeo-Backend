@@ -35,26 +35,35 @@ public class ImageStorageController {
     }
 
     @GetMapping("/media/{imageId}")
-    @Operation(summary = "读取授权图片", description = "作者/管理员可预览暂存图片，其他用户只能读取已审核且父级启用的公开图片；size=thumb 返回480px预览；菜品等公开目录图片长期缓存，社区图片和暂存预览不缓存，每次校验当前可见性")
+    @Operation(summary = "读取授权图片", description = "size=thumb返回480px预览；目录图片长期缓存，公开社区图片和头像采用private,no-cache，每次复用先校验权限；暂存及待审预览no-store")
     public ResponseEntity<byte[]> read(@PathVariable UUID imageId,
                                        @RequestParam(defaultValue = "full") String size,
                                        HttpServletRequest request) {
         if (!size.equals("full") && !size.equals("thumb")) {
             throw new BusinessException("VALIDATION_ERROR", "size只能为full或thumb", HttpStatus.BAD_REQUEST);
         }
-        var image = images.read(imageId, current(request), size.equals("thumb"));
-        CacheControl cache = image.cacheable()
-                ? CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable()
-                : CacheControl.noStore();
+        var image = images.inspect(imageId, current(request));
+        CacheControl cache = switch (image.policy()) {
+            case PUBLIC_IMMUTABLE -> CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable();
+            case PRIVATE_REVALIDATE -> CacheControl.noCache().cachePrivate();
+            case NO_STORE -> CacheControl.noStore();
+        };
         String etag = "\"" + imageId + (size.equals("thumb") ? "-thumb" : "") + "\"";
-        if (etag.equals(request.getHeader(HttpHeaders.IF_NONE_MATCH))) {
-            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).cacheControl(cache).build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(cache);
+        headers.setETag(etag);
+        headers.setLastModified(image.lastModified());
+        headers.set("X-Content-Type-Options", "nosniff");
+        if (image.policy() == ImageStorageService.CachePolicy.PRIVATE_REVALIDATE) headers.setVary(java.util.List.of("Cookie"));
+        String condition = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+        boolean unchanged = condition != null && java.util.Arrays.stream(condition.split(","))
+                .map(String::trim).map(value -> value.startsWith("W/") ? value.substring(2) : value)
+                .anyMatch(value -> value.equals("*") || value.equals(etag));
+        if (image.policy() != ImageStorageService.CachePolicy.NO_STORE && unchanged) {
+            return new ResponseEntity<>(null, headers, HttpStatus.NOT_MODIFIED);
         }
-        var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
-                .eTag(etag).lastModified(image.lastModified())
-                .header("X-Content-Type-Options", "nosniff");
-        response.cacheControl(cache);
-        return response.body(image.bytes());
+        headers.setContentType(MediaType.parseMediaType(image.contentType()));
+        return new ResponseEntity<>(images.readBytes(image, size.equals("thumb")), headers, HttpStatus.OK);
     }
 
     private UserProfile current(HttpServletRequest request) {

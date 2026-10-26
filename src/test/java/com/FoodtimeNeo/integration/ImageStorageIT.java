@@ -103,4 +103,22 @@ class ImageStorageIT extends IntegrationApiSupport {
         ImageIO.write(new BufferedImage(20, 10, BufferedImage.TYPE_INT_RGB), "png", out);
         return out.toByteArray();
     }
+
+    @Test
+    void additionalStallAlbumImagesFollowActiveParentsAndSeparateVariants() throws Exception {
+        Browser uploader=login(owner),viewer=login(other);
+        String reference=body(uploader.upload(png())).path("data").path("imageUrl").asString();
+        UUID album=UUID.randomUUID();
+        try {
+            jdbc.update("INSERT INTO foodtime.stall_images(id,stall_id,image_url) VALUES (?,?,?)",album,stall,reference);
+            var image=viewer.image(reference);
+            assertThat(image.statusCode()).isEqualTo(200);
+            assertThat(image.headers().firstValue("Cache-Control").orElseThrow()).contains("immutable");
+            String etag=image.headers().firstValue("ETag").orElseThrow();
+            assertThat(viewer.imageIfNoneMatch(reference+"?size=thumb",etag).statusCode()).isEqualTo(200);
+            jdbc.update("UPDATE foodtime.stalls SET status='inactive' WHERE id=?",stall);
+            assertThat(viewer.imageIfNoneMatch(reference,etag).statusCode()).isEqualTo(404);
+            assertThat(uploader.image(reference).headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+        } finally {jdbc.update("DELETE FROM foodtime.stall_images WHERE id=?",album);}
+    }
 }
