@@ -1,16 +1,14 @@
--- 删除旧目录：明湖旧厅 + 东区厅名下全部档口及级联依赖（备份后执行，见 backup-canteen.sh）。
+-- 删除旧目录：明湖旧厅名下全部档口及级联依赖（备份后执行，见 backup-canteen.sh）。
+-- 东区本轮不上，不动（厅与旧档口原样保留）。
 -- 用法：psql "$DB_URL" -v ON_ERROR_STOP=1 -f delete-old-catalog.sql
 -- 原则：逐层删，删不干净就报错回滚（单事务），绝不静默跳过。
--- 覆盖的外键（以 V2/V4/V10/V15-V18/V24 为准）：
---   明湖旧厅 '74ed9519-f3e3-5ce8-a89c-a353e2892edd'
---   东区学生餐厅 '955c1f92-3671-5d13-8566-81911b5a5a7b'
+-- 目标厅：明湖旧厅 '74ed9519-f3e3-5ce8-a89c-a353e2892edd'
 BEGIN;
 
 -- 0) 目标集合
 CREATE TEMP TABLE target_stalls AS
 SELECT id FROM foodtime.stalls
-WHERE dining_hall_id IN ('74ed9519-f3e3-5ce8-a89c-a353e2892edd',
-                         '955c1f92-3671-5d13-8566-81911b5a5a7b');
+WHERE dining_hall_id = '74ed9519-f3e3-5ce8-a89c-a353e2892edd';
 CREATE TEMP TABLE target_dishes AS
 SELECT d.id FROM foodtime.dishes d JOIN target_stalls s ON s.id = d.stall_id;
 SELECT '待删档口', count(*) FROM target_stalls;
@@ -27,8 +25,7 @@ WHERE (s.stall_id IN (SELECT id FROM target_stalls)
   AND l.dish_submission_id = s.id;
 DELETE FROM foodtime.content_moderation_logs l
 USING foodtime.stall_submissions s
-WHERE (s.dining_hall_id IN ('74ed9519-f3e3-5ce8-a89c-a353e2892edd',
-                            '955c1f92-3671-5d13-8566-81911b5a5a7b')
+WHERE (s.dining_hall_id = '74ed9519-f3e3-5ce8-a89c-a353e2892edd'
     OR s.approved_stall_id IN (SELECT id FROM target_stalls))
   AND l.stall_submission_id = s.id;
 DELETE FROM foodtime.content_moderation_logs l
@@ -49,7 +46,7 @@ USING foodtime.dish_reviews v JOIN target_dishes d ON d.id = v.dish_id
 WHERE r.review_id = v.id;
 DELETE FROM foodtime.dish_reviews v USING target_dishes d WHERE v.dish_id = d.id;
 
--- 3) 点评投稿（V10 那张 SET NULL 的表自动置空，无需手动处理）
+-- 3) 点评投稿
 DELETE FROM foodtime.dish_review_submissions r USING target_dishes d WHERE r.dish_id = d.id;
 
 -- 4) 菜品图片
@@ -57,8 +54,7 @@ DELETE FROM foodtime.dish_images i USING target_dishes d WHERE i.dish_id = d.id;
 
 -- 5) 投稿（档口投稿按厅+已批准档口双条件；菜品投稿按档口+已批准菜品双条件）
 DELETE FROM foodtime.stall_submissions s
-WHERE s.dining_hall_id IN ('74ed9519-f3e3-5ce8-a89c-a353e2892edd',
-                           '955c1f92-3671-5d13-8566-81911b5a5a7b')
+WHERE s.dining_hall_id = '74ed9519-f3e3-5ce8-a89c-a353e2892edd'
    OR s.approved_stall_id IN (SELECT id FROM target_stalls);
 DELETE FROM foodtime.dish_submissions s
 WHERE s.stall_id IN (SELECT id FROM target_stalls)
@@ -73,7 +69,7 @@ DELETE FROM foodtime.stall_images i USING target_stalls s WHERE i.stall_id = s.i
 -- 8) 档口
 DELETE FROM foodtime.stalls s USING target_stalls t WHERE s.id = t.id;
 
--- 9) 明湖旧厅行（东区厅行保留，只换档口）
+-- 9) 明湖旧厅行
 DELETE FROM foodtime.dining_halls
 WHERE id = '74ed9519-f3e3-5ce8-a89c-a353e2892edd';
 
@@ -84,8 +80,7 @@ DECLARE
 BEGIN
   SELECT string_agg(detail, '; ') INTO leftovers FROM (
     SELECT 'stalls=' || count(*) AS detail FROM foodtime.stalls
-      WHERE dining_hall_id IN ('74ed9519-f3e3-5ce8-a89c-a353e2892edd',
-                               '955c1f92-3671-5d13-8566-81911b5a5a7b')
+      WHERE dining_hall_id = '74ed9519-f3e3-5ce8-a89c-a353e2892edd'
     UNION ALL SELECT 'dishes_of_target=' || count(*) FROM foodtime.dishes d
       WHERE EXISTS (SELECT 1 FROM target_stalls s WHERE s.id = d.stall_id)
     UNION ALL SELECT 'hall_minghu_old=' || count(*) FROM foodtime.dining_halls
