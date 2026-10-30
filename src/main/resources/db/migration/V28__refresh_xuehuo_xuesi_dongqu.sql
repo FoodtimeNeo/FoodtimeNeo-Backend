@@ -5,7 +5,9 @@
 --   foodtimeNeo:dish:<厅名>:<档口名>:<菜品名>[#n] / foodtimeNeo:media:<厅名>:<档口名>:<0起序号>。
 -- 同档口重名菜品第 2 次起 key 后缀 #n（共 11 组）。
 -- 价格规则v2：冒号后取数；“个/num元”取num；“N 个 M 元”取M；段内首个“数字+元”；
--- 无数字的 4 条以 0 入库：免费供应/原价待核价见简介。
+-- 无数字的 3 条以 0 入库：米饭/汤按免费供应；麻辣香锅改名（待核价）；
+-- 酸汤水饺改名（+2元，基础价待核）；其余原价待核价见简介。
+-- 重庆小面/牛肉面（汤拌）疑似下架，已整行删除（见 docs/canteen-refresh-batch2.md）。
 -- 档口 cover 取该档口第 0 张图（无图则 NULL）；图集表含全部 43 张图。
 -- 图片字节：seed-images/v28/<media-uuid>.jpg。
 -- Use schema-qualified names so this migration is independent of search_path.
@@ -661,9 +663,6 @@ VALUES ('56b491e7-32f1-5b46-ab01-01aba3e52aca','43643b96-1419-59dc-9dff-6e9605f6
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('cd696302-99a0-5ff6-939a-9e06ba733ff9','43643b96-1419-59dc-9dff-6e9605f6bb09','鸡块面（汤拌）',NULL,13,'active')
-ON CONFLICT (id) DO NOTHING;
-INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
-VALUES ('3a40ecbb-7c1a-521d-a1eb-74a214584f36','43643b96-1419-59dc-9dff-6e9605f6bb09','牛肉面（汤拌）','原价标注：价格遮挡，待人工核价',0,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('97b4e5cf-200f-561a-88aa-b30ea92fbee0','43643b96-1419-59dc-9dff-6e9605f6bb09','炸酱面（拌）',NULL,14,'active')
@@ -1527,7 +1526,7 @@ INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('7a50f316-ef52-5147-bc63-7133c4c1d5a0','872d34f7-3d76-5199-8618-cc17eb5370de','羊肉泡馍',NULL,18.8,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
-VALUES ('ec628636-04ae-572f-9421-cecc8ad18b9d','82b5557f-7d9b-5276-881a-9ddb8c4a12b8','麻辣香锅','原价标注：麻辣香锅，待人工核价',0,'active')
+VALUES ('4c973818-4c94-5c14-895f-5b0752471f81','82b5557f-7d9b-5276-881a-9ddb8c4a12b8','麻辣香锅（待核价）','原价标注：麻辣香锅，待人工核价',0,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('df0f510e-ebb1-5f2f-b3ae-ec8f79642a23','82b5557f-7d9b-5276-881a-9ddb8c4a12b8','招牌香辣鸡腿冒菜',NULL,16.8,'active')
@@ -1869,7 +1868,7 @@ INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('40b00c5d-42a5-561c-93f5-5b6b6d15611b','cdf98f90-9fca-56e5-8a0b-393265d055c7','西葫芦鸡蛋水饺 小份15 个/',NULL,15,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
-VALUES ('4bafabe2-1c83-58d6-9b46-002846b89bb4','cdf98f90-9fca-56e5-8a0b-393265d055c7','酸汤水饺','原价标注：酸汤水饺 基础价+2 元，待人工核价',0,'active')
+VALUES ('e21cdd3a-10c5-5ba1-afc6-a862842446ca','cdf98f90-9fca-56e5-8a0b-393265d055c7','酸汤水饺（+2元）','对应水饺加酸汤需+2元，水饺基础价待核',0,'active')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status)
 VALUES ('e731968e-b5fd-5fdc-917e-c8a5c205e6b5','cdf98f90-9fca-56e5-8a0b-393265d055c7','猪肉三鲜',NULL,16,'active')

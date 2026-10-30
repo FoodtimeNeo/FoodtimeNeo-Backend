@@ -28,9 +28,9 @@ SELECT 'stall_dup_name',
 FROM (SELECT dining_hall_id, name, count(*)
       FROM foodtime.stalls GROUP BY 1, 2 HAVING count(*) > 1) t;
 
--- 4) 菜品 889 个，价格无 NULL；0 元只允许以下 4 个（其余一律 FAIL）
+-- 4) 菜品 888 个（牛肉面汤拌已删），价格无 NULL；0 元只允许以下 3 个
 SELECT 'dish_count',
-  CASE WHEN count(*) = 889 THEN 'PASS' ELSE 'FAIL:' || count(*) END
+  CASE WHEN count(*) = 888 THEN 'PASS' ELSE 'FAIL:' || count(*) END
 FROM foodtime.dishes d JOIN foodtime.stalls s ON s.id = d.stall_id
 JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
 WHERE h.name IN ('学活一楼', '学活二楼', '学四食堂', '东区学生餐厅');
@@ -41,8 +41,8 @@ SELECT 'dish_zero_price_todo', name, description FROM foodtime.dishes WHERE pric
 SELECT 'dish_zero_price_unexpected',
   CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'FAIL:' || count(*) END
 FROM foodtime.dishes
-WHERE price = 0 AND description NOT IN ('免费供应')
-  AND name NOT IN ('牛肉面（汤拌）', '麻辣香锅', '酸汤水饺');
+WHERE price = 0 AND description NOT IN ('免费供应', '对应水饺加酸汤需+2元，水饺基础价待核')
+  AND name NOT IN ('麻辣香锅（待核价）', '酸汤水饺（+2元）');
 
 -- 5) 封面全有（新档口），图集 43 张
 SELECT 'stall_cover',
