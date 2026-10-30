@@ -120,7 +120,7 @@ Redis通过Lua原子计数，默认每个规范化账号15分钟最多10次登�
 | --- | --- | --- |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话固定期限，正整数秒，最多30天 |
 | `AUTH_COOKIE_SECURE` | prod为true；dev为false | Cookie仅HTTPS传输；生产禁止false |
-| `SESSION_REDIS_NAMESPACE` | `foodtime:session` | 会话Redis命名空间 |
+| `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（Boot 4 的 `spring.session.data.redis.namespace`） |
 | `AUTH_REDIS_NAMESPACE` | `foodtime:auth:login` | 登录限流Redis命名空间 |
 | `AUTH_LOGIN_WINDOW` | `PT15M` | 限流窗口，正整数秒，最多30天 |
 | `AUTH_LOGIN_ACCOUNT_LIMIT` | `10` | 每个账号在窗口内的登录次数 |

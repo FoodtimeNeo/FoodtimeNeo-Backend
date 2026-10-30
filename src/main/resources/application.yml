@@ -27,10 +27,12 @@ spring:
     timeout-per-shutdown-phase: 30s
   session:
     timeout: 15m
-    redis:
-      namespace: ${SESSION_REDIS_NAMESPACE:foodtime:session}
-      repository-type: default
-      flush-mode: immediate
+    data:
+      redis:
+        # Spring Boot 4：原 spring.session.redis.* 已废弃，必须走 data.redis
+        namespace: ${SESSION_REDIS_NAMESPACE:spring:session}
+        repository-type: default
+        flush-mode: immediate
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
