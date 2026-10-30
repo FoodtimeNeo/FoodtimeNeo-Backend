@@ -74,4 +74,27 @@ class LoginNoticeIT extends IntegrationApiSupport {
         Browser superadmin=login(account("superadmin"));
         assertThat(superadmin.call("POST","/api/v1/admin/notices",Map.of("title","t","body","b")).statusCode()).isEqualTo(201);
     }
+
+    @Test
+    void managementSeparatesCreationFromActivationAndSupportsTitleSearch() throws Exception {
+        Browser admin=login(account("superadmin"));
+        String root="/api/v1/admin/notices";
+        assertThat(admin.call("POST",root+"/markdown",Map.of("content","no heading")).statusCode()).isEqualTo(400);
+        var created=body(admin.call("POST",root+"/markdown",Map.of("content","## 次级\n\n# **唯一标题**\n\n正文搜索词"))).path("data");
+        String id=created.path("id").asString();
+        assertThat(created.path("title").asString()).isEqualTo("唯一标题");
+        assertThat(body(admin.call("GET",root+"/settings",null)).path("data").path("noticeId").isNull()).isTrue();
+        assertThat(body(admin.call("GET",root+"/search?q="+java.net.URLEncoder.encode("唯一标题",java.nio.charset.StandardCharsets.UTF_8),null)).path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(body(admin.call("GET",root+"/search?q="+java.net.URLEncoder.encode("正文搜索词",java.nio.charset.StandardCharsets.UTF_8),null)).path("data").path("total").asLong()).isZero();
+        assertThat(admin.call("PUT",root+"/settings",Map.of("noticeId",id)).statusCode()).isEqualTo(200);
+        assertThat(body(login(owner).call("GET","/api/v1/users/me/notices/current",null)).path("data").path("id").asString()).isEqualTo(id);
+        assertThat(admin.call("PUT",root+"/settings",Map.of("noticeId",UUID.randomUUID())).statusCode()).isEqualTo(404);
+        assertThat(admin.call("PUT",root+"/"+id+"/markdown",Map.of("content","# 修改后\n\n正文")).statusCode()).isEqualTo(200);
+        java.util.Map<String,Object> off=new java.util.HashMap<>();off.put("noticeId",null);
+        assertThat(admin.call("PUT",root+"/settings",off).statusCode()).isEqualTo(200);
+        Browser ordinary=login(account("admin"));
+        assertThat(ordinary.call("GET",root+"/settings",null).statusCode()).isEqualTo(403);
+        assertThat(ordinary.call("PUT",root+"/settings",Map.of("noticeId",id)).statusCode()).isEqualTo(403);
+        assertThat(ordinary.call("POST",root+"/markdown",Map.of("content","# 拒绝")).statusCode()).isEqualTo(403);
+    }
 }

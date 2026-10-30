@@ -21,8 +21,37 @@ public class NoticeStore {
             title = end < 0 ? content.substring(2) : content.substring(2, end);
             body = end < 0 ? "" : content.substring(end).stripLeading();
         }
+        title = NoticeHeading.title(content);
+        if(title.isBlank()) title="系统公告";
         return new NoticeDtos.NoticeResponse(r.getObject("notice_id", UUID.class), title, body,
                 r.getTimestamp("created_time").toInstant(), content);
+    }
+    public UUID createContent(UUID actorId, String content) {
+        UUID id=UUID.randomUUID();
+        jdbc.update("INSERT INTO foodtime.notices(notice_id,content,created_by) VALUES (?,?,?)",id,content,actorId);return id;
+    }
+    public int updateContent(UUID id,String content) {
+        return jdbc.update("UPDATE foodtime.notices SET content=? WHERE notice_id=?",content,id);
+    }
+    public UUID configured() { return jdbc.queryForObject("SELECT notice_id FROM foodtime.config WHERE id=1",UUID.class); }
+    public void configure(UUID id) { jdbc.update("UPDATE foodtime.config SET notice_id=? WHERE id=1",id); }
+    public com.FoodtimeNeo.common.api.PageResponse<NoticeDtos.NoticeResponse> search(
+            String query, com.FoodtimeNeo.common.api.PageRequest page) {
+        String needle=query.toLowerCase(java.util.Locale.ROOT);
+        // Titles are derived, never persisted. Stream rows so a large archive does not retain every body.
+        return jdbc.query(connection -> {
+            var statement=connection.prepareStatement("SELECT notice_id,content,created_time FROM foodtime.notices ORDER BY seq DESC");
+            statement.setFetchSize(128);return statement;
+        }, (org.springframework.jdbc.core.ResultSetExtractor<com.FoodtimeNeo.common.api.PageResponse<NoticeDtos.NoticeResponse>>) result -> {
+            var items=new java.util.ArrayList<NoticeDtos.NoticeResponse>();long total=0;
+            while(result.next()) {
+                var item=row(result,0);
+                if(!item.title().toLowerCase(java.util.Locale.ROOT).contains(needle)) continue;
+                if(total>=page.offset()&&items.size()<page.size()) items.add(item);
+                total++;
+            }
+            return com.FoodtimeNeo.common.api.PageResponse.of(items,total,page);
+        });
     }
     public UUID create(UUID actorId, String title, String body) {
         UUID id = UUID.randomUUID();

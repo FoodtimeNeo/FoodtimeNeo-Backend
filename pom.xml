@@ -23,6 +23,7 @@
     <test.jvm.args>-javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar" -Djava.io.tmpdir="${project.build.directory}"</test.jvm.args>
   </properties>
   <dependencies>
+    <dependency><groupId>org.commonmark</groupId><artifactId>commonmark</artifactId><version>0.31.0</version></dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-mail</artifactId>
