@@ -19,6 +19,9 @@ public final class NoticeDtos {
     public record ConfirmNoticeRequest(@NotNull Boolean dontShowAgain) { }
 
     public record ConfirmNoticeResponse(boolean isRead, boolean dontShowAgain) { }
+    public record MarkdownRequest(@NotBlank @Size(max=20000) String content) { }
+    public record SettingsRequest(UUID noticeId) { }
+    public record SettingsResponse(UUID noticeId) { }
     public record UnreadCountResponse(long unreadCount) { }
 
     @Schema(description = "公告条目；seq 仅作轮询游标，不对外当身份，故不在此暴露")

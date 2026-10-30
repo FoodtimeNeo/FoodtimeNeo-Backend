@@ -29,6 +29,26 @@ public class AdminNoticeController {
         return ApiResponse.success(notices.adminList(current(request), new PageRequest(page, size)));
     }
 
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<NoticeDtos.NoticeResponse>> search(HttpServletRequest request,
+            @RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="20") int size,
+            @RequestParam(defaultValue="") @jakarta.validation.constraints.Size(max=200) String q) {
+        return ApiResponse.success(notices.search(current(request),new PageRequest(page,size),q));
+    }
+    @GetMapping("/settings")
+    public ApiResponse<NoticeDtos.SettingsResponse> settings(HttpServletRequest request) { return ApiResponse.success(notices.settings(current(request))); }
+    @PutMapping("/settings")
+    public ApiResponse<NoticeDtos.SettingsResponse> settings(@Valid @RequestBody NoticeDtos.SettingsRequest body,HttpServletRequest request) {
+        return ApiResponse.success(notices.settings(current(request),body));
+    }
+    @PostMapping("/markdown") @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<NoticeDtos.NoticeResponse> markdown(@Valid @RequestBody NoticeDtos.MarkdownRequest body,HttpServletRequest request) {
+        return ApiResponse.success(notices.saveMarkdown(current(request),null,body));
+    }
+    @PutMapping("/{id}/markdown")
+    public ApiResponse<NoticeDtos.NoticeResponse> markdown(@PathVariable UUID id,@Valid @RequestBody NoticeDtos.MarkdownRequest body,HttpServletRequest request) {
+        return ApiResponse.success(notices.saveMarkdown(current(request),id,body));
+    }
     @GetMapping("/{id}")
     @Operation(summary = "公告详情", description = "管理端查看单条公告")
     public ApiResponse<NoticeDtos.NoticeResponse> get(@PathVariable UUID id, HttpServletRequest request) {
@@ -37,7 +57,7 @@ public class AdminNoticeController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "发布公告", description = "全员可见；seq由数据库递增，客户端用feed轮询增量")
+    @Operation(summary = "发布公告", description = "兼容旧客户端；保存后需另行设置为当前公告")
     public ApiResponse<NoticeDtos.NoticeResponse> create(@Valid @RequestBody NoticeDtos.CreateNoticeRequest body,
                                                          HttpServletRequest request) {
         return ApiResponse.success(notices.create(current(request), body));

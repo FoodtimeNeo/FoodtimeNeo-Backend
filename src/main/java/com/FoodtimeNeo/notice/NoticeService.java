@@ -91,5 +91,26 @@ public class NoticeService {
         if (store.delete(id) == 0) throw new BusinessException("NOTICE_NOT_FOUND", "公告不存在", HttpStatus.NOT_FOUND);
     }
 
+    @Transactional(readOnly=true)
+    public NoticeDtos.SettingsResponse settings(UserProfile actor) { guard(actor);return new NoticeDtos.SettingsResponse(store.configured()); }
+    @Transactional
+    public NoticeDtos.SettingsResponse settings(UserProfile actor,NoticeDtos.SettingsRequest body) {
+        guard(actor);
+        if(body.noticeId()!=null&&!store.exists(body.noticeId())) throw new BusinessException("NOTICE_NOT_FOUND","公告不存在",HttpStatus.NOT_FOUND);
+        store.configure(body.noticeId());return new NoticeDtos.SettingsResponse(body.noticeId());
+    }
+    @Transactional(readOnly=true)
+    public PageResponse<NoticeDtos.NoticeResponse> search(UserProfile actor,PageRequest page,String query) {
+        guard(actor);if(query.isBlank()) return adminList(actor,page);
+        return store.search(query.strip(),page);
+    }
+    @Transactional
+    public NoticeDtos.NoticeResponse saveMarkdown(UserProfile actor,UUID id,@Valid NoticeDtos.MarkdownRequest body) {
+        guard(actor);
+        if(NoticeHeading.title(body.content()).isBlank()) throw new BusinessException("VALIDATION_ERROR","请在 Markdown 中添加非空标题",HttpStatus.BAD_REQUEST);
+        if(id==null) id=store.createContent(actor.id(),body.content());
+        else if(store.updateContent(id,body.content())==0) throw new BusinessException("NOTICE_NOT_FOUND","公告不存在",HttpStatus.NOT_FOUND);
+        return store.find(id);
+    }
     private void guard(UserProfile actor) { if (!actor.status().equals("active") || !actor.role().equals("superadmin")) throw new BusinessException("ACCESS_DENIED","需要平台管理员权限",HttpStatus.FORBIDDEN); }
 }
