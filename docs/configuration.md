@@ -45,7 +45,7 @@
 | `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
-| `SESSION_REDIS_NAMESPACE` | `foodtime:session` | 会话Redis命名空间；专用联调环境应与其他环境隔离 |
+| `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |

@@ -37,7 +37,7 @@ public class DashboardService {
     private final String sessionNamespace;
 
     public DashboardService(DashboardStore store, StringRedisTemplate redis,
-            @Value("${spring.session.redis.namespace:spring:session}") String sessionNamespace) {
+            @Value("${spring.session.data.redis.namespace:spring:session}") String sessionNamespace) {
         this.store = store;
         this.redis = redis;
         this.sessionNamespace = sessionNamespace;

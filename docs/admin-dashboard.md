@@ -7,7 +7,7 @@
 - 业务时区：`Asia/Shanghai`。趋势按自然日切分，含当日（截至请求时刻）。
 - `days`：1 到 31 的整数，默认 7；超出范围返回 400 `VALIDATION_ERROR`。
 - `registeredUsers`：`users.status = 'active'` 的累计数。
-- `onlineUsers`：Redis 中未过期的 Spring Session 会话键数（`spring.session.redis.namespace` 下 `sessions:*`，排除 `:expires:` 标记键）。
+- `onlineUsers`：Redis 中未过期的 Spring Session 会话键数（`spring.session.data.redis.namespace` 下 `sessions:*`，排除 `:expires:` 标记键）。
   一个登录态对应一个会话；同一账号多端登录计多次。
 - `reviews` / `replies`：正式表全量（`dish_reviews` / `dish_review_replies`，只收录已审核内容）。
 - `posts`：已发布社区动态数（`status='approved' AND deleted_at IS NULL`）。
