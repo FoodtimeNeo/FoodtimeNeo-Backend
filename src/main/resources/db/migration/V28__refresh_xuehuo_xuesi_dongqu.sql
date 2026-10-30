@@ -1,5 +1,9 @@
--- 学活按楼拆厅 + 学四/东区换新目录：只 INSERT 与食堂排序 UPDATE，绝不 DELETE。
+-- 学活按楼拆厅 + 学四/东区换新目录：只 INSERT 与食堂排序 UPDATE。
 -- 老学活厅行不碰，由后续删除脚本处理；本迁移幂等，可重放。
+-- 例外（幂等预清理，见“三”之前）：学四 3 个同名旧档口（V5 种子）会被下面同 (hall, name)
+-- 重新插入。配服流程先跑 delete-old-catalog-2.sql，旧行已删，预清理全是 no-op；
+-- CI/全新库不跑删除脚本，旧行仍在，不清掉 INSERT 会撞 uq_stalls_hall_name。
+-- 预清理只删这 3 个被替换的旧档口及其级联行，其余旧数据不动（仍由删除脚本负责）。
 -- UUID 确定性复现：uuid v5(NAMESPACE_URL)，key 形如
 --   foodtimeNeo:hall:<厅名> / foodtimeNeo:stall:<厅名>:<档口名> /
 --   foodtimeNeo:dish:<厅名>:<档口名>:<菜品名>[#n] / foodtimeNeo:media:<厅名>:<档口名>:<0起序号>。
@@ -24,6 +28,63 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO foodtime.dining_halls(id,name,description,status,cover_image_url,sort_order)
 VALUES ('9bc79377-bb58-54ff-8b51-4cfb67411d37','学活二楼','原学活食堂按楼层拆分','active','/api/v1/media/bfb6d4cc-85e6-5687-a3f8-233d7ffe7cde1',5)
 ON CONFLICT (id) DO NOTHING;
+
+-- 三、39 个档口之前：幂等预清理（见文件头说明）。
+-- 被替换的 3 个学四旧档口（V5 种子 ID）：热卤拼饭 / 减脂餐 / 主食早餐。
+DROP TABLE IF EXISTS v28_replace_stalls;
+CREATE TEMP TABLE v28_replace_stalls(id UUID PRIMARY KEY) ON COMMIT DROP;
+INSERT INTO v28_replace_stalls(id) VALUES
+  ('2afd7806-9d5a-5a1f-a76e-5ad4a2bc1d6f'),
+  ('e364decd-3653-55e8-a31c-242e72e83e60'),
+  ('0e06ea0b-a557-520b-9ae6-99468d2561a8')
+ON CONFLICT (id) DO NOTHING;
+DROP TABLE IF EXISTS v28_replace_dishes;
+CREATE TEMP TABLE v28_replace_dishes(id UUID PRIMARY KEY) ON COMMIT DROP;
+INSERT INTO v28_replace_dishes(id)
+SELECT d.id FROM foodtime.dishes d JOIN v28_replace_stalls s ON s.id = d.stall_id
+ON CONFLICT (id) DO NOTHING;
+-- 审核日志（RESTRICT，先清；只清与待删行相关的）。
+DELETE FROM foodtime.content_moderation_logs l
+USING foodtime.dish_review_submissions r JOIN v28_replace_dishes d ON d.id = r.dish_id
+WHERE l.review_submission_id = r.id;
+DELETE FROM foodtime.content_moderation_logs l
+USING foodtime.dish_submissions s
+WHERE (s.stall_id IN (SELECT id FROM v28_replace_stalls)
+    OR s.approved_dish_id IN (SELECT id FROM v28_replace_dishes))
+  AND l.dish_submission_id = s.id;
+DELETE FROM foodtime.content_moderation_logs l
+USING foodtime.stall_submissions s
+WHERE s.approved_stall_id IN (SELECT id FROM v28_replace_stalls)
+  AND l.stall_submission_id = s.id;
+DELETE FROM foodtime.content_moderation_logs l
+USING foodtime.dish_images i JOIN v28_replace_dishes d ON d.id = i.dish_id
+WHERE l.dish_image_id = i.id;
+-- 点评互动（RESTRICT，先清）。
+DELETE FROM foodtime.dish_review_likes l
+USING foodtime.dish_reviews r JOIN v28_replace_dishes d ON d.id = r.dish_id
+WHERE l.review_id = r.id;
+DELETE FROM foodtime.dish_review_reply_likes l
+USING foodtime.dish_review_replies r
+JOIN foodtime.dish_reviews v ON v.id = r.review_id
+JOIN v28_replace_dishes d ON d.id = v.dish_id
+WHERE l.reply_id = r.id;
+DELETE FROM foodtime.dish_review_replies r
+USING foodtime.dish_reviews v JOIN v28_replace_dishes d ON d.id = v.dish_id
+WHERE r.review_id = v.id;
+DELETE FROM foodtime.dish_reviews v USING v28_replace_dishes d WHERE v.dish_id = d.id;
+-- 点评投稿、菜品图片。
+DELETE FROM foodtime.dish_review_submissions r USING v28_replace_dishes d WHERE r.dish_id = d.id;
+DELETE FROM foodtime.dish_images i USING v28_replace_dishes d WHERE i.dish_id = d.id;
+-- 投稿（只清与待删行相关的；其余由删除脚本负责）。
+DELETE FROM foodtime.stall_submissions s
+WHERE s.approved_stall_id IN (SELECT id FROM v28_replace_stalls);
+DELETE FROM foodtime.dish_submissions s
+WHERE s.stall_id IN (SELECT id FROM v28_replace_stalls)
+   OR s.approved_dish_id IN (SELECT id FROM v28_replace_dishes);
+-- 菜品（dish_stats 等 CASCADE 自动跟随）、图集、档口。
+DELETE FROM foodtime.dishes d USING v28_replace_stalls s WHERE d.stall_id = s.id;
+DELETE FROM foodtime.stall_images i USING v28_replace_stalls s WHERE i.stall_id = s.id;
+DELETE FROM foodtime.stalls s USING v28_replace_stalls t WHERE s.id = t.id;
 
 -- 三、39 个档口：cover 为该档口第 0 张图，无图则 NULL。
 INSERT INTO foodtime.stalls(id,dining_hall_id,name,description,cover_image_url,status,sort_order)
