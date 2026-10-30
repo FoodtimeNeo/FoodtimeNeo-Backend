@@ -5,6 +5,7 @@ import com.FoodtimeNeo.config.properties.MonitoringProperties;
 import com.FoodtimeNeo.auth.security.SecurityErrorWriter;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.security.SessionValidationFilter;
+import com.FoodtimeNeo.dashboard.OnlinePresence;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,7 +53,7 @@ public class SecurityConfig {
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contexts,
                                                    SessionAuthenticationService sessions, SecurityErrorWriter errors,
-                                                   MonitoringProperties monitoring)
+                                                   OnlinePresence presence, MonitoringProperties monitoring)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -86,7 +87,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").access(prometheusScrape(monitoring))
                         .anyRequest().authenticated())
-                .addFilterBefore(new SessionValidationFilter(sessions, errors), CsrfFilter.class);
+                .addFilterBefore(new SessionValidationFilter(sessions, errors, presence), CsrfFilter.class);
         return http.build();
     }
 

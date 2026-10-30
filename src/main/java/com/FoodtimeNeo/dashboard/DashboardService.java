@@ -4,16 +4,10 @@ import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.Cursor;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.ScanOptions;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -24,7 +18,8 @@ import java.util.Map;
 /**
  * 平台数据看板：仅 superadmin 可读，读多写少，全走一次性聚合。
  * 在线口径（与前后端契约一致，见 docs/admin-dashboard.md）：
- * onlineUsers = Redis 中未过期的会话数；onlinePeak(day) = 当日去重活跃用户数。
+ * onlineUsers = 最近 presence TTL 内有过已认证请求的去重用户数（默认 5 分钟）；
+ * onlinePeak(day) = 当日去重活跃用户数。
  */
 @Service
 public class DashboardService {
@@ -33,14 +28,11 @@ public class DashboardService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DashboardService.class);
     private final DashboardStore store;
-    private final StringRedisTemplate redis;
-    private final String sessionNamespace;
+    private final OnlinePresence presence;
 
-    public DashboardService(DashboardStore store, StringRedisTemplate redis,
-            @Value("${spring.session.data.redis.namespace:spring:session}") String sessionNamespace) {
+    public DashboardService(DashboardStore store, OnlinePresence presence) {
         this.store = store;
-        this.redis = redis;
-        this.sessionNamespace = sessionNamespace;
+        this.presence = presence;
     }
 
     @Transactional(readOnly = true)
@@ -88,29 +80,9 @@ public class DashboardService {
         }
     }
 
-    /** 有效会话数：会话命名空间下除过期标记外的会话键数（兼容自定义命名空间）。 */
+    /** 最近 presence TTL 内有过请求的去重用户数；异常由 OnlinePresence 转为 503。 */
     long onlineUsers() {
-        try {
-            String match = sessionNamespace + ":*";
-            Long count = redis.execute((RedisCallback<Long>) connection -> {
-                long found = 0;
-                try (Cursor<byte[]> cursor = connection.scan(
-                        ScanOptions.scanOptions().match(match).count(1000).build())) {
-                    while (cursor.hasNext()) {
-                        String key = new String(cursor.next(), StandardCharsets.UTF_8);
-                        if (key.contains(":sessions:") && !key.contains(":expires:")) {
-                            found++;
-                        }
-                    }
-                }
-                return found;
-            });
-            return count == null ? 0 : count;
-        } catch (DataAccessException exception) {
-            LOG.error("Dashboard session scan failed: {}", exception.getClass().getSimpleName());
-            throw new BusinessException("DASHBOARD_UNAVAILABLE", "数据看板服务暂时不可用",
-                    HttpStatus.SERVICE_UNAVAILABLE);
-        }
+        return presence.count();
     }
 
 }

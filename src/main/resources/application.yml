@@ -231,6 +231,9 @@ app:
   monitoring:
     scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
+  dashboard:
+    presence-namespace: ${DASHBOARD_PRESENCE_NAMESPACE:foodtime:presence}
+    presence-ttl: ${DASHBOARD_PRESENCE_TTL:PT5M}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS

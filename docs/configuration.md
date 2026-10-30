@@ -28,6 +28,7 @@
 | `AI_SINGLE_BASE_URL` / `AI_SINGLE_MODEL` | `.env.example` 为 `https://api.deepseek.com` / `deepseek-flash`（应用内默认空） | 单 key 提供方与模型；`AI_SINGLE_API_KEY` 不写 `.env`，由加密凭据注入 |
 | `AI_SINGLE_TIMEOUT` | `PT30S` | 单 key 单次调用超时（1–120 秒整秒） |
 | `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |
+| `DASHBOARD_PRESENCE_TTL` / `DASHBOARD_PRESENCE_NAMESPACE` | `PT5M` / `foodtime:presence` | 在线用户 presence 窗口与 Redis 前缀；TTL 内有已认证请求的去重用户计为在线 |
 | `STORAGE_DISK_WARN_BYTES` | `1073741824` | 暂存目录字节数告警线，超限记warn |
 | `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime` | JDBC URL；生产必须显式提供，保留 `currentSchema=foodtime` |
