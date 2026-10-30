@@ -39,7 +39,7 @@ WHERE l.dish_image_id = i.id;
 
 -- 2) 点评互动（点赞/回复/回复赞，RESTRICT；先清）
 DELETE FROM foodtime.dish_review_likes l
-USING foodtime.dishes r JOIN target_dishes d ON d.id = r.dish_id
+USING foodtime.dish_reviews r JOIN target_dishes d ON d.id = r.dish_id
 WHERE l.review_id = r.id;
 DELETE FROM foodtime.dish_review_reply_likes l
 USING foodtime.dish_review_replies r
@@ -70,8 +70,13 @@ WHERE s.stall_id IN (SELECT id FROM target_stalls)
 -- 6) 菜品（实时评分表 CASCADE 自动跟随，无需手动删）
 DELETE FROM foodtime.dishes d USING target_stalls s WHERE d.stall_id = s.id;
 
--- 7) 图集（V24，RESTRICT；先清）
-DELETE FROM foodtime.stall_images i USING target_stalls s WHERE i.stall_id = s.id;
+-- 7) 图集（V24，RESTRICT；V23 旧库尚未建表时跳过）
+DO $$
+BEGIN
+  IF to_regclass('foodtime.stall_images') IS NOT NULL THEN
+    DELETE FROM foodtime.stall_images i USING target_stalls s WHERE i.stall_id = s.id;
+  END IF;
+END $$;
 
 -- 8) 档口
 DELETE FROM foodtime.stalls s USING target_stalls t WHERE s.id = t.id;
