@@ -63,8 +63,13 @@ WHERE s.stall_id IN (SELECT id FROM target_stalls)
 -- 6) 菜品（实时评分表是 CASCADE，会自动跟随，无需手动删）
 DELETE FROM foodtime.dishes d USING target_stalls s WHERE d.stall_id = s.id;
 
--- 7) 图集（V24，RESTRICT；先清）
-DELETE FROM foodtime.stall_images i USING target_stalls s WHERE i.stall_id = s.id;
+-- 7) 图集（V24，RESTRICT；V23 旧库尚未建表时跳过）
+DO $$
+BEGIN
+  IF to_regclass('foodtime.stall_images') IS NOT NULL THEN
+    DELETE FROM foodtime.stall_images i USING target_stalls s WHERE i.stall_id = s.id;
+  END IF;
+END $$;
 
 -- 8) 档口
 DELETE FROM foodtime.stalls s USING target_stalls t WHERE s.id = t.id;
