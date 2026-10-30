@@ -72,7 +72,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
 
     @Test
     void publishFeedReadCycleEndsWithZeroUnread() throws Exception {
-        Browser admin = login(account("admin"));
+        Browser admin = login(account("superadmin"));
         Browser user = login(owner);
         UUID id = publish(admin, "开学通知", "欢迎返校");
 
@@ -100,7 +100,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
 
     @Test
     void sinceSeqOnlyReturnsNewerNoticesInAscendingOrder() throws Exception {
-        Browser admin = login(account("admin"));
+        Browser admin = login(account("superadmin"));
         Browser user = login(owner);
         UUID first = publish(admin, "第一条", "one");
         UUID second = publish(admin, "第二条", "two");
@@ -110,7 +110,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
         assertThat(ids(all.path("data").path("items")))
                 .containsExactly(first.toString(), second.toString(), third.toString());
 
-        long seqOfFirst = jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE id = ?", Long.class, first);
+        long seqOfFirst = jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE notice_id = ?", Long.class, first);
         var incremental = body(user.call(
                 "GET", "/api/v1/users/me/notices/feed?since_seq=" + seqOfFirst + "&limit=100", null));
         assertThat(ids(incremental.path("data").path("items")))
@@ -137,7 +137,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
             assertThat(response.statusCode()).as(path).isEqualTo(400);
             assertThat(body(response).path("code").asString()).as(path).isEqualTo("VALIDATION_ERROR");
         }
-        Browser admin = login(account("admin"));
+        Browser admin = login(account("superadmin"));
         assertThat(admin.call("POST", "/api/v1/admin/notices", Map.of("title", " ", "body", "x")).statusCode())
                 .isEqualTo(400);
         assertThat(admin.call("POST", "/api/v1/admin/notices", Map.of("title", "t")).statusCode()).isEqualTo(400);
@@ -187,7 +187,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
 
     @Test
     void deletedNoticeDisappearsFromFeed() throws Exception {
-        Browser admin = login(account("admin"));
+        Browser admin = login(account("superadmin"));
         Browser user = login(owner);
         UUID id = publish(admin, "临时通知", "稍后删除");
         assertThat(ids(body(user.call("GET", "/api/v1/users/me/notices/feed?since_seq=0&limit=20", null))
@@ -203,10 +203,10 @@ class NoticeInboxIT extends IntegrationApiSupport {
 
     @Test
     void editingNoticeKeepsSeqAndReadState() throws Exception {
-        Browser admin = login(account("admin"));
+        Browser admin = login(account("superadmin"));
         Browser user = login(owner);
         UUID id = publish(admin, "旧标题", "旧正文");
-        long seqBefore = jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE id = ?", Long.class, id);
+        long seqBefore = jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE notice_id = ?", Long.class, id);
         assertThat(user.call("POST", "/api/v1/users/me/notices/" + id + "/read", Map.of()).statusCode())
                 .isEqualTo(200);
 
@@ -214,7 +214,7 @@ class NoticeInboxIT extends IntegrationApiSupport {
         assertThat(updated.statusCode()).isEqualTo(200);
         assertThat(body(updated).path("data").path("title").asString()).isEqualTo("新标题");
 
-        assertThat(jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE id = ?", Long.class, id))
+        assertThat(jdbc.queryForObject("SELECT seq FROM foodtime.notices WHERE notice_id = ?", Long.class, id))
                 .isEqualTo(seqBefore);
         var feed = body(user.call("GET", "/api/v1/users/me/notices/feed?since_seq=0&limit=20", null));
         assertThat(feed.path("data").path("unreadCount").asLong()).isZero();

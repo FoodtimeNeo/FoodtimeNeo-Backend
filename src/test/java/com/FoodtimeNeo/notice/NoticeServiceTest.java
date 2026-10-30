@@ -29,6 +29,16 @@ class NoticeServiceTest {
         return new UserProfile(UUID.randomUUID(), "a@bjtu.edu.cn", "测试", role, status, Instant.EPOCH);
     }
 
+    @Test
+    void ordinaryAdminCannotPublishAndMissingConfirmationCannotWrite() {
+        assertThatThrownBy(() -> service.create(actor("admin","active"),
+                new NoticeDtos.CreateNoticeRequest("t","b"))).isInstanceOf(BusinessException.class);
+        UUID id=UUID.randomUUID();
+        assertThatThrownBy(() -> service.confirm(userId,id,new NoticeDtos.ConfirmNoticeRequest(true)))
+                .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getCode()).isEqualTo("NOTICE_NOT_FOUND"));
+        verify(store,never()).confirm(any(),any(),org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, -1, 101})
     void feedRejectsOutOfRangeLimit(int limit) {

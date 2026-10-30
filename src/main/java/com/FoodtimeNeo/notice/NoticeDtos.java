@@ -3,6 +3,7 @@ package com.FoodtimeNeo.notice;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
@@ -12,12 +13,25 @@ import java.util.UUID;
 public final class NoticeDtos {
     private NoticeDtos() { }
 
+    public record CurrentNoticeResponse(UUID id, String content, Instant createdTime,
+                                        boolean isRead, boolean dontShowAgain) { }
+
+    public record ConfirmNoticeRequest(@NotNull Boolean dontShowAgain) { }
+
+    public record ConfirmNoticeResponse(boolean isRead, boolean dontShowAgain) { }
+    public record UnreadCountResponse(long unreadCount) { }
+
     @Schema(description = "公告条目；seq 仅作轮询游标，不对外当身份，故不在此暴露")
     public record NoticeResponse(
             UUID id,
             String title,
             String body,
-            Instant publishedAt) { }
+            Instant publishedAt,
+            String content) {
+        public NoticeResponse(UUID id, String title, String body, Instant publishedAt) {
+            this(id, title, body, publishedAt, "# " + title + "\n\n" + body);
+        }
+    }
 
     @Schema(description = "增量轮询结果；items 为 seq 大于 sinceSeq 的正序，unreadCount 为该用户未读公告数")
     public record NoticeFeedResponse(
