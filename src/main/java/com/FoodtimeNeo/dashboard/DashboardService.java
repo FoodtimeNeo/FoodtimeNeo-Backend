@@ -94,12 +94,13 @@ public class DashboardService {
             String match = sessionNamespace + ":*";
             Long count = redis.execute((RedisCallback<Long>) connection -> {
                 long found = 0;
-                Cursor<byte[]> cursor = connection.scan(
-                        ScanOptions.scanOptions().match(match).count(1000).build());
-                while (cursor.hasNext()) {
-                    String key = new String(cursor.next(), StandardCharsets.UTF_8);
-                    if (key.contains(":sessions:") && !key.contains(":expires:")) {
-                        found++;
+                try (Cursor<byte[]> cursor = connection.scan(
+                        ScanOptions.scanOptions().match(match).count(1000).build())) {
+                    while (cursor.hasNext()) {
+                        String key = new String(cursor.next(), StandardCharsets.UTF_8);
+                        if (key.contains(":sessions:") && !key.contains(":expires:")) {
+                            found++;
+                        }
                     }
                 }
                 return found;
