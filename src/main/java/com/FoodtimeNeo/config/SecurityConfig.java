@@ -81,7 +81,8 @@ public class SecurityConfig {
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
                                 "/api/v1/auth/register/email-code").permitAll()
-                        .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**").hasRole("superadmin")
+                        .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**",
+                                "/api/v1/admin/notices", "/api/v1/admin/notices/**").hasRole("superadmin")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").access(prometheusScrape(monitoring))
                         .anyRequest().authenticated())
