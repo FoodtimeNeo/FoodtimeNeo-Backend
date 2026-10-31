@@ -31,7 +31,7 @@
 | `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |
 | `DASHBOARD_PRESENCE_TTL` / `DASHBOARD_PRESENCE_NAMESPACE` | `PT5M` / `foodtime:presence` | 在线用户 presence 窗口与 Redis 前缀；TTL 内有已认证请求的去重用户计为在线 |
 | `STORAGE_DISK_WARN_BYTES` | `1073741824` | 暂存目录字节数告警线，超限记warn |
-| `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口 |
+| `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口；Nginx 同机部署建议设为 `127.0.0.1`，只允许本机反代访问 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime` | JDBC URL；生产必须显式提供，保留 `currentSchema=foodtime` |
 | `DB_USERNAME` / `DB_PASSWORD` | `.env.example` 中的本地账号 | 生产必填，不允许为空 |
 | `DB_POOL_MIN_IDLE` / `DB_POOL_MAX_SIZE` | `2` / `10` | Hikari 连接池 |
