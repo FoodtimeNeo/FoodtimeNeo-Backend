@@ -26,13 +26,13 @@ class EmailVerificationServiceTest {
         when(provider.getIfAvailable()).thenReturn(sender);
         return new EmailVerificationService(store, new EmailVerificationProperties(enabled, "sender@example.test",
                 "test-only-secret-at-least-32-characters", "test:email", Duration.ofSeconds(60),
-                Duration.ofMinutes(15), 5, 20), mailboxes, provider, Clock.systemUTC());
+                Duration.ofMinutes(15), 5, 5, 20), mailboxes, provider, Clock.systemUTC());
     }
 
     @Test
     void missingMailboxIsSilentlyAcceptedWithoutSendOrQuota() {
         when(mailboxes.verify("123@bjtu.edu.cn")).thenReturn(MailboxVerifier.Result.NOT_FOUND);
-        var response = service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1");
+        var response = service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1", "device-test");
         assertThat(response).isNotNull();
         verifyNoInteractions(store, sender);
     }
@@ -59,22 +59,22 @@ class EmailVerificationServiceTest {
     @Test
     void disabledFeatureCannotSendOrBypassRegistrationVerification() {
         var service = service(false);
-        assertUnavailable(() -> service.send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1"));
+        assertUnavailable(() -> service.send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1", "device-test"));
         assertUnavailable(() -> service.claim("123@bjtu.edu.cn", "012345"));
         verifyNoInteractions(users, store, sender);
     }
 
     @Test
     void redisFailureCannotSendMailWithoutAbuseProtection() {
-        when(store.reserveSend(anyString(), anyString(), anyString())).thenThrow(new RedisConnectionFailureException("private Redis data"));
-        assertUnavailable(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1"));
+        when(store.reserveSend(anyString(), anyString(), anyString(), anyString())).thenThrow(new RedisConnectionFailureException("private Redis data"));
+        assertUnavailable(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1", "device-test"));
         verifyNoInteractions(sender);
     }
 
     @Test
     void smtpFailureIsSafeAndNeverPublishesTheGeneratedCode() {
         doThrow(new MailAuthenticationException("private SMTP password")).when(sender).send(any(SimpleMailMessage.class));
-        assertUnavailable(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1"));
+        assertUnavailable(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1", "device-test"));
         verify(store, never()).publish(anyString(), anyString(), anyString());
         verify(store).cancelSend(eq("123@bjtu.edu.cn"), anyString());
     }

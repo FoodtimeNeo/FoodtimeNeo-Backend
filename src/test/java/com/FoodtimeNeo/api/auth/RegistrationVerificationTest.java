@@ -4,6 +4,7 @@ import com.FoodtimeNeo.auth.service.RegistrationService;
 import com.FoodtimeNeo.auth.verification.EmailVerificationService;
 import com.FoodtimeNeo.auth.verification.EmailVerificationStore;
 import com.FoodtimeNeo.auth.verification.MailboxVerifier;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.common.exception.GlobalExceptionHandler;
 import com.FoodtimeNeo.config.PasswordConfig;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
@@ -32,17 +33,19 @@ class RegistrationVerificationTest {
     private final UserMapper users = mock(UserMapper.class);
     private final EmailVerificationStore store = mock(EmailVerificationStore.class);
     private final MailboxVerifier mailboxes = mock(MailboxVerifier.class);
+    private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private final ObjectProvider<JavaMailSender> mail = mock(ObjectProvider.class);
     private final org.springframework.security.crypto.password.PasswordEncoder passwords = new PasswordConfig().passwordEncoder();
 
     private MockMvc mvc(boolean enabled) {
         var verification = new EmailVerificationService(store,
                 new EmailVerificationProperties(enabled, "sender@example.test", "test-only-secret-at-least-32-characters",
-                        "test:email", Duration.ofSeconds(60), Duration.ofMinutes(15), 5, 20),
+                        "test:email", Duration.ofSeconds(60), Duration.ofMinutes(15), 5, 5, 20),
                 mailboxes, mail, Clock.systemUTC());
         var registration = new RegistrationService(users, passwords, new DefaultDisplayNameGenerator(), verification,
                 mock(InvitationService.class), Clock.systemUTC());
-        return MockMvcBuilders.standaloneSetup(new RegistrationController(registration, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
+        return MockMvcBuilders.standaloneSetup(new RegistrationController(registration,
+                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

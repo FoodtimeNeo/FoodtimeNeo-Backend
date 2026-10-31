@@ -23,11 +23,38 @@ public final class RedisAttemptLimiter {
             end
             return 0
             """, Long.class);
+
+    private static final DefaultRedisScript<Long> LIMIT_WITH_DEVICE = new DefaultRedisScript<>("""
+            local a = tonumber(redis.call('GET', KEYS[1]) or '0')
+            local d = tonumber(redis.call('GET', KEYS[2]) or '0')
+            local b = tonumber(redis.call('GET', KEYS[3]) or '0')
+            local retry = 0
+            if a >= tonumber(ARGV[1]) then retry = math.max(retry, redis.call('TTL', KEYS[1])) end
+            if d >= tonumber(ARGV[2]) then retry = math.max(retry, redis.call('TTL', KEYS[2])) end
+            if b >= tonumber(ARGV[3]) then retry = math.max(retry, redis.call('TTL', KEYS[3])) end
+            if a >= tonumber(ARGV[1]) or d >= tonumber(ARGV[2]) or b >= tonumber(ARGV[3]) then
+              return math.max(1, retry)
+            end
+            for i = 1, 3 do
+              if redis.call('INCR', KEYS[i]) == 1 then redis.call('EXPIRE', KEYS[i], ARGV[4]) end
+            end
+            return 0
+            """, Long.class);
     private RedisAttemptLimiter() { }
     public static Long check(StringRedisTemplate redis, String namespace, String dimension, String identity,
                              String ip, int identityLimit, int ipLimit, Duration window) {
         return redis.execute(LIMIT, List.of(key(namespace, dimension, identity), key(namespace, "ip", ip)),
                 Integer.toString(identityLimit), Integer.toString(ipLimit), Long.toString(window.toSeconds()));
+    }
+
+    public static Long check(StringRedisTemplate redis, String namespace, String dimension, String identity,
+                             String device, String ip, int identityLimit, int deviceLimit, int ipLimit,
+                             Duration window) {
+        String deviceIdentity = device == null || device.isBlank() ? "unidentified" : device;
+        return redis.execute(LIMIT_WITH_DEVICE, List.of(key(namespace, dimension, identity),
+                        key(namespace, "device", deviceIdentity), key(namespace, "ip", ip)),
+                Integer.toString(identityLimit), Integer.toString(deviceLimit), Integer.toString(ipLimit),
+                Long.toString(window.toSeconds()));
     }
     public static String key(String namespace, String dimension, String value) {
         try {

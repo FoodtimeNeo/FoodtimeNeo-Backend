@@ -73,7 +73,7 @@
 | 400 | `INVITATION_CODE_INVALID` | 邀请码无效、过期、停用或次数用尽，不创建账号 |
 | 409 | `EMAIL_ALREADY_REGISTERED` | 持有有效邮箱验证码后发现该邮箱已注册；未通过验证码不返回此信息 |
 | 409 | `REGISTRATION_IN_PROGRESS` | 同一邮箱的有效验证码正在被另一注册请求使用，稍后重试 |
-| 429 | `REGISTRATION_RATE_LIMITED` | 发码与注册请求共用邮箱/IP限流，响应含Retry-After |
+| 429 | `REGISTRATION_RATE_LIMITED` | 发码与注册请求共用邮箱/设备/IP限流，响应含Retry-After |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | `不支持的内容类型`；必须提交JSON |
 | 503 | `REGISTRATION_UNAVAILABLE` | `注册服务暂时不可用，请稍后重试`；数据库读写失败 |
 | 503 | `EMAIL_VERIFICATION_UNAVAILABLE` | 普通验证码的验证服务未配置/未启用，或Redis无法完成校验 |

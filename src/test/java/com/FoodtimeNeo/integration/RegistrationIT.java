@@ -317,6 +317,26 @@ class RegistrationIT {
     }
 
     @Test
+    void deviceCookieSeparatesCampusUsersSharingOneIpAndIpStaysACeiling() throws Exception {
+        var first = browser();
+        String firstToken = csrf(first);
+        for (int i = 0; i < 5; i++) {
+            assertThat(send(first, firstToken, newEmail()).statusCode()).isEqualTo(202);
+        }
+        var deviceLimited = send(first, firstToken, newEmail());
+        assertThat(deviceLimited.statusCode()).isEqualTo(429);
+        assertThat(json.readTree(deviceLimited.body()).path("code").asString()).isEqualTo("EMAIL_SEND_RATE_LIMITED");
+
+        var second = browser();
+        assertThat(send(second, csrf(second), newEmail()).statusCode()).isEqualTo(202);
+
+        var third = browser();
+        var ipLimited = send(third, csrf(third), newEmail());
+        assertThat(ipLimited.statusCode()).isEqualTo(429);
+        assertThat(json.readTree(ipLimited.body()).path("code").asString()).isEqualTo("EMAIL_SEND_RATE_LIMITED");
+    }
+
+    @Test
     void mailboxAndIpSendQuotasCannotBeBypassedByClearingCooldownOrChangingEmail() throws Exception {
         String email = newEmail();
         for (int i = 0; i < 5; i++) {
@@ -388,11 +408,24 @@ class RegistrationIT {
     }
 
     private HttpResponse<String> send(String email) throws Exception {
+        var browser = browser();
+        return send(browser, csrf(browser), email);
+    }
+
+    private HttpClient browser() {
         var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
-        var browser = HttpClient.newBuilder().cookieHandler(cookies).build();
+        return HttpClient.newBuilder().cookieHandler(cookies).build();
+    }
+
+    private String csrf(HttpClient browser) throws Exception {
         String base = "http://127.0.0.1:" + port + "/api/v1/auth";
-        var csrf = browser.send(HttpRequest.newBuilder(URI.create(base + "/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString());
-        String token = json.readTree(csrf.body()).path("data").path("token").asString();
+        var csrf = browser.send(HttpRequest.newBuilder(URI.create(base + "/csrf")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        return json.readTree(csrf.body()).path("data").path("token").asString();
+    }
+
+    private HttpResponse<String> send(HttpClient browser, String token, String email) throws Exception {
+        String base = "http://127.0.0.1:" + port + "/api/v1/auth";
         return browser.send(HttpRequest.newBuilder(URI.create(base + "/register/email-code"))
                 .header("Content-Type", "application/json").header("X-CSRF-TOKEN", token)
                 .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("email", email)), StandardCharsets.UTF_8)).build(),

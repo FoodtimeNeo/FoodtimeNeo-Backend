@@ -41,7 +41,7 @@ public class EmailVerificationService {
         this.clock = clock;
     }
 
-    public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress) {
+    public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress, String deviceId) {
         requireEnabled();
         JavaMailSender sender = mail.getIfAvailable();
         if (sender == null) { throw unavailable(); }
@@ -56,7 +56,7 @@ public class EmailVerificationService {
         boolean reserved = false;
         boolean published = false;
         try {
-            long retry = store.reserveSend(request.email(), remoteAddress, token);
+            long retry = store.reserveSend(request.email(), remoteAddress, deviceId, token);
             if (retry > 0) { throw new EmailRateLimitException(retry); }
             reserved = true;
             String code = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));

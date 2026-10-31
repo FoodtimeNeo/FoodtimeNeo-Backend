@@ -189,7 +189,8 @@ app:
     resend-interval: ${EMAIL_RESEND_INTERVAL:PT60S}
     send-window: ${EMAIL_SEND_WINDOW:PT15M}
     send-account-limit: ${EMAIL_SEND_ACCOUNT_LIMIT:5}
-    send-ip-limit: ${EMAIL_SEND_IP_LIMIT:20}
+    send-device-limit: ${EMAIL_SEND_DEVICE_LIMIT:5}
+    send-ip-limit: ${EMAIL_SEND_IP_LIMIT:200}
     mailbox:
       enabled: ${EMAIL_MAILBOX_VERIFY_ENABLED:false}
       host: ${EMAIL_MAILBOX_VERIFY_HOST:smg.bjtu.edu.cn}
@@ -207,8 +208,14 @@ app:
     registration:
       window: ${REGISTRATION_WINDOW:PT15M}
       account-limit: ${REGISTRATION_ACCOUNT_LIMIT:10}
+      device-limit: ${REGISTRATION_DEVICE_LIMIT:10}
       ip-limit: ${REGISTRATION_IP_LIMIT:1000}
       redis-namespace: ${REGISTRATION_REDIS_NAMESPACE:foodtime:auth:registration}
+    device:
+      # 默认复用邮箱验证密钥；也可用 AUTH_DEVICE_SECRET 单独设置。更换会使旧设备 Cookie 失效。
+      secret: ${AUTH_DEVICE_SECRET:${EMAIL_VERIFICATION_SECRET:}}
+      cookie-name: ${AUTH_DEVICE_COOKIE_NAME:foodtime_device}
+      max-age: ${AUTH_DEVICE_COOKIE_MAX_AGE:P365D}
     password-change:
       window: ${PASSWORD_CHANGE_WINDOW:PT15M}
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}

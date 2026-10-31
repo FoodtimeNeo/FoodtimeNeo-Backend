@@ -1,6 +1,6 @@
 # 配置说明
 
-修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
+修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；注册与发码额外使用签名匿名设备 Cookie，按邮箱/设备/IP三层计数，见[邮箱验证码](api/auth/email-verification.md)。反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
 
 `application.yml` 保存共享配置；`application-dev.yml` 保存本地默认值；`application-prod.yml` 要求显式提供连接信息并关闭 API 文档。默认启用 `dev`；可通过环境变量 `SPRING_PROFILES_ACTIVE=prod` 或启动参数切换。系统环境变量可覆盖 `.env` 值。
 
@@ -47,6 +47,9 @@
 | `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
+| `AUTH_DEVICE_SECRET` / `AUTH_DEVICE_COOKIE_NAME` / `AUTH_DEVICE_COOKIE_MAX_AGE` | 复用`EMAIL_VERIFICATION_SECRET` / `foodtime_device` / `P365D` | 注册与发码的签名匿名设备Cookie；不采集指纹，仅用于限流。更换密钥会使旧Cookie失效 |
+| `EMAIL_SEND_DEVICE_LIMIT` / `EMAIL_SEND_IP_LIMIT` | `5` / `200` | 每浏览器设备 / 每来源IP发码配额；IP只做高上限兜底，避免校园NAT下正常用户互相挤占 |
+| `REGISTRATION_ACCOUNT_LIMIT` / `REGISTRATION_DEVICE_LIMIT` / `REGISTRATION_IP_LIMIT` | `10` / `10` / `1000` | 发码与注册共用的邮箱 / 设备 / IP尝试配额 |
 | `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
@@ -66,7 +69,7 @@
 
 ## 注册与图片容量保护
 
-注册和发码请求共同按邮箱/IP计数，默认15分钟每邮箱10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。参数见`.env.example`中的`REGISTRATION_*`。
+注册和发码请求共同按邮箱/设备/IP计数，默认15分钟每邮箱10次、每设备10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。发码另按邮箱5次、每设备5次、每IP200次计数。参数见`.env.example`中的`REGISTRATION_*`和`EMAIL_SEND_*`。
 
 上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。处理后仍不超过10MB；并发上传/首次缩略图解码默认最多2项，繁忙返回429。
 
