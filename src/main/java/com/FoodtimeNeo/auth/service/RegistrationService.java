@@ -47,20 +47,11 @@ public class RegistrationService {
     @Transactional
     public RegisterResponse register(@NotNull @Valid RegisterRequest request) {
         try {
-            if (users.existsByEmail(request.email())) {
-                throw duplicateEmail();
-            }
-            VerificationClaim claim;
-            try {
-                claim = verification.claim(request.email(), request.verificationCode());
-            } catch (BusinessException exception) {
-                // Another request may have inserted the account and consumed the code since the initial check.
-                if (("EMAIL_CODE_INVALID".equals(exception.getCode()) || "REGISTRATION_IN_PROGRESS".equals(exception.getCode()))
-                        && users.existsByEmail(request.email())) { throw duplicateEmail(); }
-                throw exception;
-            }
+            // Reveal account existence only after proving control of its email address.
+            VerificationClaim claim = verification.claim(request.email(), request.verificationCode());
             boolean registered = false;
             try {
+                if (users.existsByEmail(request.email())) { throw duplicateEmail(); }
                 UUID invitationCodeId = null;
                 if (request.invitationCode() != null) {
                     invitationCodeId = invitations.consume(request.invitationCode());

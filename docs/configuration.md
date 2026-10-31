@@ -7,7 +7,6 @@
 | 环境变量 | 开发默认值 | 说明 |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `dev` | 环境选择：dev / prod |
-| `TEST_VERIFICATION_ENABLED` | `true` | 仅用于测试：允许验证码 `000000` 模拟邮箱验证；生产默认false且拒绝启用。测试真实验证码时设false，详见[测试验证码说明](testing-verification.md) |
 | `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](api/auth/invitation-codes.md) |
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `2000` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `1000` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |
@@ -62,3 +61,13 @@
 数据库迁移不会创建图片字节。V5菜单图片、V6食堂封面及 `.properties` 元数据的铺放方式见 [种子数据与图片部署](seed-data.md)。容器挂载见 [部署说明](deployment.md)。
 
 点评轻量动作使用 REVIEW_ACTION_WINDOW / REVIEW_ACTION_USER_LIMIT / REVIEW_ACTION_IP_LIMIT / REVIEW_ACTION_REDIS_NAMESPACE，默认 PT1M / 100 / 1000 / foodtime:review:actions；与内容投稿及社区互动独立。
+
+## 注册与图片容量保护
+
+注册和发码请求共同按邮箱/IP计数，默认15分钟每邮箱10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。参数见`.env.example`中的`REGISTRATION_*`。
+
+上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。处理后仍不超过10MB；并发上传/首次缩略图解码默认最多2项，繁忙返回429。
+
+磁盘文件实时计入配额，默认每用户100MiB、上传目录总计10GiB、磁盘预留1GiB。包含原图、缩略图及元数据；全局还计入孤儿文件。超用户配额返回413，全局容量或磁盘余量不足返回503。可用`STORAGE_USER_BYTES`、`STORAGE_TOTAL_BYTES`、`STORAGE_MIN_FREE_BYTES`调整；不会删除已有图片。现有旧图片的元数据不追溯改写，新增上传才进行清理。
+
+单机本地文件系统通过文件锁串行核对配额并写入，跨进程配额不依赖内存计数。当前为平面目录核对；大规模媒体库应迁移至数据库索引/对象存储配额，不应将此实现用于缺少一致文件锁的网络文件系统。

@@ -51,7 +51,7 @@ class RegistrationServiceTest {
     }
 
     @Test
-    void existingEmailIsRejectedBeforePasswordHashing() {
+    void verifiedExistingEmailIsRejectedBeforePasswordHashing() {
         UserMapper users = mock(UserMapper.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(users.existsByEmail("123@bjtu.edu.cn")).thenReturn(true);
@@ -114,14 +114,15 @@ class RegistrationServiceTest {
     }
 
     @Test
-    void aCompletedConcurrentRegistrationIs409EvenIfItAlreadyConsumedTheCode() {
+    void invalidCodeDoesNotDiscloseWhetherAnEmailExists() {
         UserMapper users = mock(UserMapper.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(users.existsByEmail("123@bjtu.edu.cn")).thenReturn(false, true);
         var service = service(users, encoder);
         when(verification.claim(anyString(), anyString())).thenThrow(new BusinessException("EMAIL_CODE_INVALID", "验证码已失效", org.springframework.http.HttpStatus.BAD_REQUEST));
         assertThatThrownBy(() -> service.register(new RegisterRequest("123@bjtu.edu.cn", "Abc12345", "012345", null)))
-                .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getCode()).isEqualTo("EMAIL_ALREADY_REGISTERED"));
+                .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getCode()).isEqualTo("EMAIL_CODE_INVALID"));
+        verify(users, never()).existsByEmail(anyString());
         verifyNoInteractions(encoder);
     }
 

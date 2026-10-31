@@ -13,6 +13,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ImageStorageIT extends IntegrationApiSupport {
     private static final Path STORAGE = integrationStorageDirectory();
 
+    private void assertSamePixels(byte[] actual, byte[] expected) throws Exception {
+        var a=ImageIO.read(new java.io.ByteArrayInputStream(actual));
+        var b=ImageIO.read(new java.io.ByteArrayInputStream(expected));
+        assertThat(a.getWidth()).isEqualTo(b.getWidth());
+        assertThat(a.getHeight()).isEqualTo(b.getHeight());
+        assertThat(a.getRGB(0,0,a.getWidth(),a.getHeight(),null,0,a.getWidth()))
+                .isEqualTo(b.getRGB(0,0,b.getWidth(),b.getHeight(),null,0,b.getWidth()));
+    }
+
     @Test
     void uploadIsPrivateUntilApprovedAndPublicAccessFollowsParentStatus() throws Exception {
         byte[] bytes = png();
@@ -23,14 +32,14 @@ class ImageStorageIT extends IntegrationApiSupport {
         String reference = data.path("imageUrl").asString();
         assertThat(data.path("width").asInt()).isEqualTo(20);
         assertThat(data.path("height").asInt()).isEqualTo(10);
-        assertThat(uploader.image(reference).body()).isEqualTo(bytes);
+        assertSamePixels(uploader.image(reference).body(), bytes);
         assertThat(viewer.image(reference).statusCode()).isEqualTo(404);
         UUID image = UUID.randomUUID();
         jdbc.update("INSERT INTO foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status) VALUES (?, ?, ?, ?, 'pending')", image, dish, owner.id(), reference);
         assertThat(viewer.image(reference).statusCode()).isEqualTo(404);
         jdbc.update("UPDATE foodtime.dish_images SET status = 'approved' WHERE id = ?", image);
         assertThat(viewer.image(reference).statusCode()).isEqualTo(200);
-        assertThat(viewer.image(reference).body()).isEqualTo(bytes);
+        assertSamePixels(viewer.image(reference).body(), bytes);
         jdbc.update("UPDATE foodtime.dining_halls SET status = 'inactive' WHERE id = ?", hall);
         assertThat(viewer.image(reference).statusCode()).isEqualTo(404);
         assertThat(uploader.image(reference).statusCode()).isEqualTo(200);

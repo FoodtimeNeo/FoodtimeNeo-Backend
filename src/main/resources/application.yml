@@ -147,8 +147,6 @@ springdoc:
   paths-to-match: /api/**
 
 app:
-  test-verification:
-    enabled: ${TEST_VERIFICATION_ENABLED:false}
   ai:
     triage:
       enabled: ${AI_TRIAGE_ENABLED:false}
@@ -194,6 +192,11 @@ app:
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
     login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:1000}
     redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
+    registration:
+      window: ${REGISTRATION_WINDOW:PT15M}
+      account-limit: ${REGISTRATION_ACCOUNT_LIMIT:10}
+      ip-limit: ${REGISTRATION_IP_LIMIT:1000}
+      redis-namespace: ${REGISTRATION_REDIS_NAMESPACE:foodtime:auth:registration}
     password-change:
       window: ${PASSWORD_CHANGE_WINDOW:PT15M}
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
@@ -223,6 +226,11 @@ app:
       ip-limit: ${COMMUNITY_ACTION_IP_LIMIT:1000}
       redis-namespace: ${COMMUNITY_ACTION_REDIS_NAMESPACE:foodtime:community:actions}
   storage:
+    quota:
+      user-bytes: ${STORAGE_USER_BYTES:104857600}
+      total-bytes: ${STORAGE_TOTAL_BYTES:10737418240}
+      min-free-bytes: ${STORAGE_MIN_FREE_BYTES:1073741824}
+      concurrent-uploads: ${STORAGE_CONCURRENT_UPLOADS:2}
     cleanup-enabled: ${STORAGE_CLEANUP_ENABLED:true}
     cleanup-interval: ${STORAGE_CLEANUP_INTERVAL:PT24H}
     cleanup-initial-delay: ${STORAGE_CLEANUP_INITIAL_DELAY:PT5M}

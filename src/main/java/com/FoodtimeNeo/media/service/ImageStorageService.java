@@ -22,44 +22,42 @@ public class ImageStorageService {
     public record ImageInfo(UUID id, String contentType, CachePolicy policy, long lastModified) { }
     private final Path directory;
     private final JdbcTemplate jdbc;
-    public ImageStorageService(@Value("${app.storage.directory:uploads}") String directory, JdbcTemplate jdbc) {
+    private final StorageBudget budget;
+    private final java.util.concurrent.Semaphore uploads;
+    public ImageStorageService(@Value("${app.storage.directory:uploads}") String directory, JdbcTemplate jdbc, StorageBudget budget,
+                               com.FoodtimeNeo.config.properties.StorageQuotaProperties limits) {
         this.directory = Path.of(directory).toAbsolutePath().normalize(); this.jdbc = jdbc;
+        this.budget = budget; this.uploads = new java.util.concurrent.Semaphore(limits.concurrentUploads());
     }
 
     public UploadedImage upload(MultipartFile file, UserProfile user) {
         if (file.isEmpty() || file.getSize() > 10 * 1024 * 1024) throw bad("图片不能为空且不能超过10MB");
+        if (!uploads.tryAcquire()) throw new UploadBusyException();
         UUID id = UUID.randomUUID();
         Path image = directory.resolve(id + ".img"), metadata = directory.resolve(id + ".properties");
         try {
-            byte[] bytes = file.getBytes();
-            int width, height;
-            String contentType;
-            try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
-                if (input == null) throw bad("请选择JPEG或PNG图片");
-                var readers = ImageIO.getImageReaders(input);
-                if (!readers.hasNext()) throw bad("请选择JPEG或PNG图片");
-                var reader = readers.next();
+            var normalized = ImageSanitizer.sanitize(file.getBytes());
+            return budget.write(user.id(), normalized.bytes().length + 1024L, () -> {
                 try {
-                    String format = reader.getFormatName().toLowerCase(java.util.Locale.ROOT);
-                    if (!format.equals("png") && !format.equals("jpeg") && !format.equals("jpg")) throw bad("请选择JPEG或PNG图片");
-                    reader.setInput(input, true, true);
-                    width = reader.getWidth(0); height = reader.getHeight(0);
-                    if (width < 1 || height < 1 || (long) width * height > 20_000_000) throw bad("图片尺寸过大");
-                    if (reader.read(0) == null) throw bad("图片无法读取");
-                    contentType = format.equals("png") ? "image/png" : "image/jpeg";
-                } catch (IOException invalidImage) {
-                    throw bad("图片无法读取，请选择完整的JPEG或PNG图片");
-                } finally { reader.dispose(); }
-            }
-            Files.createDirectories(directory);
-            Files.write(image, bytes, StandardOpenOption.CREATE_NEW);
-            var data = new Properties(); data.setProperty("owner", user.id().toString()); data.setProperty("contentType", contentType); data.setProperty("width",String.valueOf(width)); data.setProperty("height",String.valueOf(height));
-            try (var out = Files.newOutputStream(metadata, StandardOpenOption.CREATE_NEW)) { data.store(out, "Image staging metadata"); }
-            return new UploadedImage(id, reference(id), width, height);
+                    Files.write(image, normalized.bytes(), StandardOpenOption.CREATE_NEW);
+                    var data = new Properties();
+                    data.setProperty("owner", user.id().toString());
+                    data.setProperty("contentType", normalized.contentType());
+                    data.setProperty("width", String.valueOf(normalized.width()));
+                    data.setProperty("height", String.valueOf(normalized.height()));
+                    try (var out = Files.newOutputStream(metadata, StandardOpenOption.CREATE_NEW)) { data.store(out, "Image staging metadata"); }
+                    return new UploadedImage(id, reference(id), normalized.width(), normalized.height());
+                } catch (IOException failure) {
+                    Files.deleteIfExists(image); Files.deleteIfExists(metadata); throw failure;
+                }
+            });
         } catch (IOException failure) {
-            try { Files.deleteIfExists(image); Files.deleteIfExists(metadata); } catch (IOException ignored) { }
             throw new BusinessException("IMAGE_STORAGE_UNAVAILABLE", "图片暂时无法保存，请重试", HttpStatus.SERVICE_UNAVAILABLE);
-        }
+        } finally { uploads.release(); }
+    }
+
+    private static class UploadBusyException extends com.FoodtimeNeo.common.exception.RateLimitedException {
+        UploadBusyException() { super("IMAGE_PROCESSING_BUSY", "图片处理繁忙，请稍后重试", 1); }
     }
 
     public StoredImage read(UUID id, UserProfile user) {
@@ -176,48 +174,57 @@ public class ImageStorageService {
     private Path thumbnailPath(UUID id, String contentType) throws IOException {
         Path thumb = directory.resolve(id + ".thumb");
         if (Files.exists(thumb)) return thumb;
-        byte[] original = Files.readAllBytes(directory.resolve(id + ".img"));
-        try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
-            if (input == null) throw new IOException("unreadable image");
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) throw new IOException("unreadable image");
-            var reader = readers.next();
-            try {
-                reader.setInput(input, true, true);
-                int width = reader.getWidth(0), height = reader.getHeight(0);
-                double scale = Math.min(1.0, 480.0 / Math.max(width, height));
-                int targetWidth = Math.max(1, (int) Math.round(width * scale));
-                int targetHeight = Math.max(1, (int) Math.round(height * scale));
-                var canvas = new java.awt.image.BufferedImage(targetWidth, targetHeight,
-                        contentType.equals("image/png") ? java.awt.image.BufferedImage.TYPE_INT_ARGB
-                                : java.awt.image.BufferedImage.TYPE_INT_RGB);
-                var graphics = canvas.createGraphics();
+        if (!uploads.tryAcquire()) throw new UploadBusyException();
+        try {
+            // A concurrent request may have completed the same thumbnail while we waited.
+            if (Files.exists(thumb)) return thumb;
+            byte[] original = Files.readAllBytes(directory.resolve(id + ".img"));
+            try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
+                if (input == null) throw new IOException("unreadable image");
+                var readers = ImageIO.getImageReaders(input);
+                if (!readers.hasNext()) throw new IOException("unreadable image");
+                var reader = readers.next();
                 try {
-                    graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                            java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    graphics.drawImage(reader.read(0), 0, 0, targetWidth, targetHeight, null);
-                } finally {
-                    graphics.dispose();
-                }
-                Path temporary = Files.createTempFile(directory, id + "-", ".thumb-tmp");
-                try {
-                    try (var out = Files.newOutputStream(temporary)) {
-                        String format = contentType.equals("image/png") ? "png" : "jpeg";
-                        if (!ImageIO.write(canvas, format, out)) throw new IOException("thumbnail encode failed");
+                    reader.setInput(input, true, true);
+                    int width = reader.getWidth(0), height = reader.getHeight(0);
+                    double scale = Math.min(1.0, 480.0 / Math.max(width, height));
+                    int targetWidth = Math.max(1, (int) Math.round(width * scale));
+                    int targetHeight = Math.max(1, (int) Math.round(height * scale));
+                    var canvas = new java.awt.image.BufferedImage(targetWidth, targetHeight,
+                            contentType.equals("image/png") ? java.awt.image.BufferedImage.TYPE_INT_ARGB
+                                    : java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    var graphics = canvas.createGraphics();
+                    try {
+                        graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        graphics.drawImage(reader.read(0), 0, 0, targetWidth, targetHeight, null);
+                    } finally {
+                        graphics.dispose();
                     }
-                    try { Files.move(temporary, thumb, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
-                    catch (AtomicMoveNotSupportedException unsupported) {
-                        Files.move(temporary, thumb, StandardCopyOption.REPLACE_EXISTING);
-                    }
+                    var encoded = new ByteArrayOutputStream();
+                    String format = contentType.equals("image/png") ? "png" : "jpeg";
+                    if (!ImageIO.write(canvas, format, encoded)) throw new IOException("thumbnail encode failed");
+                    byte[] thumbnail = encoded.toByteArray();
+                    budget.write(UUID.fromString(metadata(id).getProperty("owner")), thumbnail.length, () -> {
+                        if (Files.exists(thumb)) return thumb;
+                        Path temporary = Files.createTempFile(directory, id + "-", ".thumb-tmp");
+                        try {
+                            Files.write(temporary, thumbnail);
+                            try { Files.move(temporary, thumb, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+                            catch (AtomicMoveNotSupportedException unsupported) {
+                                Files.move(temporary, thumb, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                        } finally { Files.deleteIfExists(temporary); }
+                        return thumb;
+                    });
+                    return thumb;
                 } finally {
-                    Files.deleteIfExists(temporary);
+                    reader.dispose();
                 }
-                return thumb;
-            } finally {
-                reader.dispose();
             }
-        }
+        } finally { uploads.release(); }
     }
+
     private BusinessException missing() { return new BusinessException("IMAGE_NOT_FOUND", "图片不存在或不可访问", HttpStatus.NOT_FOUND); }
     private BusinessException bad(String message) { return new BusinessException("IMAGE_INVALID", message, HttpStatus.BAD_REQUEST); }
 }
