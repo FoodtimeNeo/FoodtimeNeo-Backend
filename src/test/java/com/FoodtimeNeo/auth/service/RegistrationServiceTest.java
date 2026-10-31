@@ -3,6 +3,8 @@ package com.FoodtimeNeo.auth.service;
 import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.config.PasswordConfig;
+import com.FoodtimeNeo.config.properties.RegistrationLimitsProperties;
+import com.FoodtimeNeo.config.properties.RegistrationMode;
 import com.FoodtimeNeo.user.entity.NewUser;
 import com.FoodtimeNeo.user.mapper.UserMapper;
 import com.FoodtimeNeo.user.service.DefaultDisplayNameGenerator;
@@ -10,6 +12,7 @@ import com.FoodtimeNeo.auth.verification.EmailVerificationService;
 import com.FoodtimeNeo.auth.verification.VerificationClaim;
 import com.FoodtimeNeo.invitation.service.InvitationService;
 import java.time.Clock;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -27,7 +30,9 @@ class RegistrationServiceTest {
 
     private RegistrationService service(UserMapper users, PasswordEncoder encoder) {
         when(verification.claim("123@bjtu.edu.cn", "012345")).thenReturn(claim);
-        return new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(), verification, invitations, Clock.systemUTC());
+        return new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(), verification, invitations,
+                new RegistrationGate(new RegistrationLimitsProperties(RegistrationMode.OPEN, Duration.ofMinutes(15),
+                        10, 10, 1000, "test:registration")), Clock.systemUTC());
     }
     @Test
     void persistenceReceivesOnlyTheHashAndServerGeneratedDefaults() {

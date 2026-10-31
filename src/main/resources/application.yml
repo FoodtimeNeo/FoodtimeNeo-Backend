@@ -206,11 +206,19 @@ app:
     login-ip-limit: ${AUTH_LOGIN_IP_LIMIT:1000}
     redis-namespace: ${AUTH_REDIS_NAMESPACE:foodtime:auth:login}
     registration:
+      # open | invitation | closed. closed also stops verification-code sending.
+      mode: ${REGISTRATION_MODE:open}
       window: ${REGISTRATION_WINDOW:PT15M}
       account-limit: ${REGISTRATION_ACCOUNT_LIMIT:10}
       device-limit: ${REGISTRATION_DEVICE_LIMIT:10}
       ip-limit: ${REGISTRATION_IP_LIMIT:1000}
       redis-namespace: ${REGISTRATION_REDIS_NAMESPACE:foodtime:auth:registration}
+    client-header:
+      # off | observe | enforce. Official clients send the header; observe only logs unknowns.
+      mode: ${CLIENT_HEADER_MODE:observe}
+      header-name: ${CLIENT_HEADER_NAME:X-Foodtime-Client}
+      allowed-clients: ${CLIENT_HEADER_ALLOWED:web,android}
+      paths: ${CLIENT_HEADER_PATHS:/api/v1/auth/register,/api/v1/auth/register/email-code}
     device:
       # 默认复用邮箱验证密钥；也可用 AUTH_DEVICE_SECRET 单独设置。更换会使旧设备 Cookie 失效。
       secret: ${AUTH_DEVICE_SECRET:${EMAIL_VERIFICATION_SECRET:}}

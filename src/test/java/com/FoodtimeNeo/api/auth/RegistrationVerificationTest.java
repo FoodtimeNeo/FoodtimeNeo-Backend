@@ -43,7 +43,12 @@ class RegistrationVerificationTest {
                         "test:email", Duration.ofSeconds(60), Duration.ofMinutes(15), 5, 5, 20),
                 mailboxes, mail, Clock.systemUTC());
         var registration = new RegistrationService(users, passwords, new DefaultDisplayNameGenerator(), verification,
-                mock(InvitationService.class), Clock.systemUTC());
+                mock(InvitationService.class),
+                new com.FoodtimeNeo.auth.service.RegistrationGate(
+                        new com.FoodtimeNeo.config.properties.RegistrationLimitsProperties(
+                                com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
+                                Duration.ofMinutes(15), 10, 10, 1000, "test:registration")),
+                Clock.systemUTC());
         return MockMvcBuilders.standaloneSetup(new RegistrationController(registration,
                         mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
