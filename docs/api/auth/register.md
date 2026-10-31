@@ -71,8 +71,9 @@
 | 400 | `BAD_REQUEST` | `请求参数或请求格式错误`；例如请求体缺失或JSON无法解析 |
 | 400 | `EMAIL_CODE_INVALID` | 验证码错误、过期、已用或达到5次错误上限，不创建账号 |
 | 400 | `INVITATION_CODE_INVALID` | 邀请码无效、过期、停用或次数用尽，不创建账号 |
-| 409 | `EMAIL_ALREADY_REGISTERED` | `该邮箱已注册`；包括并发提交同一邮箱 |
+| 409 | `EMAIL_ALREADY_REGISTERED` | 持有有效邮箱验证码后发现该邮箱已注册；未通过验证码不返回此信息 |
 | 409 | `REGISTRATION_IN_PROGRESS` | 同一邮箱的有效验证码正在被另一注册请求使用，稍后重试 |
+| 429 | `REGISTRATION_RATE_LIMITED` | 发码与注册请求共用邮箱/IP限流，响应含Retry-After |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | `不支持的内容类型`；必须提交JSON |
 | 503 | `REGISTRATION_UNAVAILABLE` | `注册服务暂时不可用，请稍后重试`；数据库读写失败 |
 | 503 | `EMAIL_VERIFICATION_UNAVAILABLE` | 普通验证码的验证服务未配置/未启用，或Redis无法完成校验 |
@@ -111,3 +112,5 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:8080/api/v1/auth/register'
 `auth/verification` 管理发送、HMAC摘要和Redis校验占用，Lua脚本位于 `src/main/resources/redis/email`。验证码校验占用不延长15分钟TTL：数据库写入失败会释放占用，成功后删除验证码；进程中断后占用最多60秒自动到期。数据库提交后即使Redis清理暂时失败，唯一索引仍阻止同邮箱再次创建账号，不把已成功创建的账号误报为注册失败。
 
 数据库唯一索引 `ux_users_normalized_email` 配合 `ON CONFLICT ... DO NOTHING` 保证同一规范化邮箱最多注册一次。注册是一次原子INSERT，不修改既有数据库迁移文件。
+
+注册与发码共用限流：默认15分钟内每邮箱10次、每IP1000次；Redis不可用时拒绝请求。校验邮箱归属后才查询注册状态，已消耗的验证码重放返回400，并发占用返回409，均不会新增第二个账号。

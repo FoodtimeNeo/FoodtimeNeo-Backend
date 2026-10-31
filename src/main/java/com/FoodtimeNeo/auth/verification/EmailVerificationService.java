@@ -4,7 +4,6 @@ import com.FoodtimeNeo.auth.dto.EmailCodeRequest;
 import com.FoodtimeNeo.auth.dto.EmailCodeResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
-import com.FoodtimeNeo.user.mapper.UserMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -29,16 +28,14 @@ public class EmailVerificationService {
     private final EmailVerificationStore store;
     private final EmailVerificationProperties properties;
     private final ObjectProvider<JavaMailSender> mail;
-    private final UserMapper users;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
     public EmailVerificationService(EmailVerificationStore store, EmailVerificationProperties properties,
-                                     ObjectProvider<JavaMailSender> mail, UserMapper users, Clock clock) {
+                                     ObjectProvider<JavaMailSender> mail, Clock clock) {
         this.store = store;
         this.properties = properties;
         this.mail = mail;
-        this.users = users;
         this.clock = clock;
     }
 
@@ -50,9 +47,6 @@ public class EmailVerificationService {
         boolean reserved = false;
         boolean published = false;
         try {
-            if (users.existsByEmail(request.email())) {
-                throw new BusinessException("EMAIL_ALREADY_REGISTERED", "该邮箱已注册", HttpStatus.CONFLICT);
-            }
             long retry = store.reserveSend(request.email(), remoteAddress, token);
             if (retry > 0) { throw new EmailRateLimitException(retry); }
             reserved = true;

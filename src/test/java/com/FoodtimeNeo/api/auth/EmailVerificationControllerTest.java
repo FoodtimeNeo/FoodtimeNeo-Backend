@@ -26,7 +26,7 @@ class EmailVerificationControllerTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new EmailVerificationController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new EmailVerificationController(service, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler()).build();
     }
 

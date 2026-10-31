@@ -3,6 +3,8 @@ package com.FoodtimeNeo.api.auth;
 import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.auth.dto.RegisterResponse;
 import com.FoodtimeNeo.auth.service.RegistrationService;
+import com.FoodtimeNeo.auth.service.RegistrationRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Auth", description = "账号注册")
 public class RegistrationController {
     private final RegistrationService registrations;
+    private final RegistrationRateLimiter limits;
 
-    public RegistrationController(RegistrationService registrations) {
+    public RegistrationController(RegistrationService registrations, RegistrationRateLimiter limits) {
         this.registrations = registrations;
+        this.limits = limits;
     }
 
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -35,7 +39,8 @@ public class RegistrationController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "邮箱已注册"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "注册服务暂时不可用")
     })
-    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest http) {
+        limits.check(request.email(), http.getRemoteAddr());
         return ApiResponse.success(registrations.register(request));
     }
 }

@@ -25,7 +25,7 @@ class EmailVerificationServiceTest {
         when(provider.getIfAvailable()).thenReturn(sender);
         return new EmailVerificationService(store, new EmailVerificationProperties(enabled, "sender@example.test",
                 "test-only-secret-at-least-32-characters", "test:email", Duration.ofSeconds(60),
-                Duration.ofMinutes(15), 5, 20), provider, users, Clock.systemUTC());
+                Duration.ofMinutes(15), 5, 20), provider, Clock.systemUTC());
     }
 
     @Test
@@ -68,14 +68,6 @@ class EmailVerificationServiceTest {
         assertUnavailable(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1"));
         verify(store, never()).publish(anyString(), anyString(), anyString());
         verify(store).cancelSend(eq("123@bjtu.edu.cn"), anyString());
-    }
-
-    @Test
-    void anAlreadyRegisteredAccountNeverReceivesVerificationMail() {
-        when(users.existsByEmail("123@bjtu.edu.cn")).thenReturn(true);
-        assertThatThrownBy(() -> service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1"))
-                .isInstanceOfSatisfying(BusinessException.class, error -> assertThat(error.getCode()).isEqualTo("EMAIL_ALREADY_REGISTERED"));
-        verifyNoInteractions(store, sender);
     }
 
     private void assertUnavailable(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
