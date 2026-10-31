@@ -20,6 +20,7 @@
 | `AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE` | `0.9` | LOW 首判置信度低于此阈值时触发升级复核（0–1） |
 | `AI_TRIAGE_AUTO_APPROVE_ABOVE` / `AI_TRIAGE_AUTO_REJECT_ABOVE` | `0.95` / `0.9` | 评论/点评/回复的自动通过线；HIGH 达到自动驳回线即驳回 |
 | `AI_TRIAGE_COMMUNITY_APPROVE_ABOVE` | `0.85` | 社区帖子专用的自动通过线（正文与全部配图均需达到）；评论/点评/回复仍用 `0.95` |
+| `EMAIL_MAILBOX_VERIFY_ENABLED` / `EMAIL_MAILBOX_VERIFY_HOST` / `EMAIL_MAILBOX_VERIFY_PORT` / `EMAIL_MAILBOX_VERIFY_TIMEOUT` / `EMAIL_MAILBOX_VERIFY_CACHE_TTL` / `EMAIL_MAILBOX_VERIFY_CACHE_NAMESPACE` | `false` / `smg.bjtu.edu.cn` / `465` / `PT3S` / `PT10M` / `foodtime:auth:mailbox` | 注册邮箱存在性 RCPT 预检；`550` 静默 202 不发信且不消耗发送配额，探测异常 fail-open 继续发码 |
 | `AI_TRIAGE_REDIS_NAMESPACE` | `foodtime:ai:triage` | 模型映射覆盖的 Redis 哈希；monitor/超管热切换写这里，删字段即回 env 默认 |
 | `AI_TRIAGE_TIMEOUT` / `AI_TRIAGE_BATCH_SIZE` | `PT30S` / `10` | 单次调用超时（1–120秒整秒）；每轮最多诊断条数（1–100） |
 | `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT30S` / `PT5S` | 兜底扫批周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |

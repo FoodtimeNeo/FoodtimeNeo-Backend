@@ -19,13 +19,22 @@ class EmailVerificationServiceTest {
     private final EmailVerificationStore store = mock(EmailVerificationStore.class);
     private final JavaMailSender sender = mock(JavaMailSender.class);
     private final UserMapper users = mock(UserMapper.class);
+    private final MailboxVerifier mailboxes = mock(MailboxVerifier.class);
 
     private EmailVerificationService service(boolean enabled) {
         ObjectProvider<JavaMailSender> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(sender);
         return new EmailVerificationService(store, new EmailVerificationProperties(enabled, "sender@example.test",
                 "test-only-secret-at-least-32-characters", "test:email", Duration.ofSeconds(60),
-                Duration.ofMinutes(15), 5, 20), provider, Clock.systemUTC());
+                Duration.ofMinutes(15), 5, 20), mailboxes, provider, Clock.systemUTC());
+    }
+
+    @Test
+    void missingMailboxIsSilentlyAcceptedWithoutSendOrQuota() {
+        when(mailboxes.verify("123@bjtu.edu.cn")).thenReturn(MailboxVerifier.Result.NOT_FOUND);
+        var response = service(true).send(new EmailCodeRequest("123@bjtu.edu.cn"), "127.0.0.1");
+        assertThat(response).isNotNull();
+        verifyNoInteractions(store, sender);
     }
 
     @Test

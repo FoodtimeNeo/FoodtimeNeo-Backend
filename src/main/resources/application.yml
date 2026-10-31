@@ -190,6 +190,13 @@ app:
     send-window: ${EMAIL_SEND_WINDOW:PT15M}
     send-account-limit: ${EMAIL_SEND_ACCOUNT_LIMIT:5}
     send-ip-limit: ${EMAIL_SEND_IP_LIMIT:20}
+    mailbox:
+      enabled: ${EMAIL_MAILBOX_VERIFY_ENABLED:false}
+      host: ${EMAIL_MAILBOX_VERIFY_HOST:smg.bjtu.edu.cn}
+      port: ${EMAIL_MAILBOX_VERIFY_PORT:465}
+      timeout: ${EMAIL_MAILBOX_VERIFY_TIMEOUT:PT3S}
+      cache-ttl: ${EMAIL_MAILBOX_VERIFY_CACHE_TTL:PT10M}
+      cache-namespace: ${EMAIL_MAILBOX_VERIFY_CACHE_NAMESPACE:foodtime:auth:mailbox}
   auth:
     session-ttl: ${AUTH_SESSION_TTL:P7D}
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
