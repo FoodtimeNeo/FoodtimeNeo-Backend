@@ -13,8 +13,8 @@ class MediaReferenceTest {
     }
 
     @Test
-    void acceptsUppercaseHex() {
-        assertThat(MediaReference.matches("/api/v1/media/0A3C0E9A-7405-585E-94CE-29D9275B1B6E")).isTrue();
+    void rejectsUppercaseHexBecauseStorageComparesCanonicalLowercase() {
+        assertThat(MediaReference.matches("/api/v1/media/0A3C0E9A-7405-585E-94CE-29D9275B1B6E")).isFalse();
     }
 
     @Test

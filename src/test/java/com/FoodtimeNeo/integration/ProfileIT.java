@@ -17,10 +17,10 @@ class ProfileIT extends IntegrationApiSupport {
         var empty = body(browser.call("GET", "/api/v1/users/me/profile?userId=" + other.id(), null)).path("data");
         assertThat(empty.path("id").asString()).isEqualTo(owner.id().toString());
         assertThat(empty.path("avatarUrl").isNull()).isTrue();
-        jdbc.update("UPDATE foodtime.users SET avatar_url = '/api/v1/media/profile-test' WHERE id = ?", owner.id());
+        jdbc.update("UPDATE foodtime.users SET avatar_url = '/api/v1/media/0a3c0e9a-7405-585e-94ce-29d9275b1b6e' WHERE id = ?", owner.id());
         var response = browser.call("GET", "/api/v1/users/me/profile", null);
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(body(response).path("data").path("avatarUrl").asString()).isEqualTo("/api/v1/media/profile-test");
+        assertThat(body(response).path("data").path("avatarUrl").asString()).isEqualTo("/api/v1/media/0a3c0e9a-7405-585e-94ce-29d9275b1b6e");
         assertThat(response.body()).doesNotContain("passwordHash", "passwordChangedAt", PASSWORD);
     }
 
