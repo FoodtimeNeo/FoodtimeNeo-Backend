@@ -30,7 +30,11 @@ class EmailVerificationControllerTest {
     void setUp() {
         when(devices.resolve(any(), any())).thenReturn("device-test");
         mvc = MockMvcBuilders.standaloneSetup(new EmailVerificationController(service,
-                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
+                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices,
+                        new com.FoodtimeNeo.auth.service.RegistrationGate(
+                                new com.FoodtimeNeo.config.properties.RegistrationLimitsProperties(
+                                        com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
+                                        java.time.Duration.ofMinutes(15), 10, 10, 1000, "test:registration"))))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler()).build();
     }
 

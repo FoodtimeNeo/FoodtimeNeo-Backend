@@ -7,8 +7,8 @@ import java.time.Duration;
 
 @Validated
 @ConfigurationProperties(prefix = "app.auth.registration")
-public record RegistrationLimitsProperties(@NotNull Duration window, @Min(1) int accountLimit,
-        @Min(1) int deviceLimit, @Min(1) int ipLimit,
+public record RegistrationLimitsProperties(@NotNull RegistrationMode mode, @NotNull Duration window,
+        @Min(1) int accountLimit, @Min(1) int deviceLimit, @Min(1) int ipLimit,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9:_-]{1,100}") String redisNamespace) {
     @AssertTrue(message = "Registration window must be whole positive seconds and no more than 30 days")
     public boolean isWindowValid() {
