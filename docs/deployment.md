@@ -30,6 +30,9 @@ docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath
    同时丢弃客户端自带的 `X-Forwarded-For`，防止伪造）。
 2. 后端设置 `FORWARD_HEADERS_STRATEGY=framework`，让Spring从 `X-Forwarded-For` 还原客户端IP；
    该值仅在可信代理之后才能启用，直连或代理未清洗请求头时保持 `none`。
+3. 后端只监听 `127.0.0.1:8080`（同机反代），或在防火墙/安全组中只允许代理访问 8080；
+   否则外部可以绕过 Nginx 直连后端并伪造 `X-Forwarded-For`，使每 IP 限流失效。
+   容器部署应在容器内监听 `0.0.0.0`，但宿主机发布端口限制为 `127.0.0.1:8080:8080`。
 
 校园网多为统一出口，单个出口IP背后可能有数百学生：每IP配额默认值已按此放大10倍
 （登录1000、投稿2000、上传1000，窗口不变），真正的单人滥用仍由每用户/每账号配额卡住。
