@@ -34,6 +34,22 @@ docker run --rm --env-file .env.container --mount "type=bind,source=$uploadsPath
    否则外部可以绕过 Nginx 直连后端并伪造 `X-Forwarded-For`，使每 IP 限流失效。
    容器部署应在容器内监听 `0.0.0.0`，但宿主机发布端口限制为 `127.0.0.1:8080:8080`。
 
+Nginx 边缘再加一层全局 API 速率上限，与应用层的 `PROTECTION_*` 并发上限配合：
+
+```nginx
+# http 块
+limit_req_zone $server_name zone=api_global:10m rate=100r/s;
+limit_req_status 429;
+limit_req_log_level warn;
+
+# location /api/v1/ 块
+limit_req zone=api_global burst=200 nodelay;
+```
+
+2核/1GB堆的当前部署使用应用层全局100并发、发码30、注册/登录各12；
+Nginx全局100 req/s、burst 200。超限直接429，不排队等待，避免线程、SMTP和Argon2被瞬间打满。
+流量规模变化时只调这些上限，不要盲目提高 Tomcat 线程数。
+
 校园网多为统一出口，单个出口IP背后可能有数百学生：每IP配额默认值已按此放大10倍
 （登录1000、投稿2000、上传1000，窗口不变），真正的单人滥用仍由每用户/每账号配额卡住。
 若出口IP更集中，继续调大 `*_IP_LIMIT` 即可，不动用户级配额。
