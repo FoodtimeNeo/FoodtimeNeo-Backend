@@ -147,6 +147,10 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  # Tomcat's max-http-form-post-size only guards form posts; JSON bodies need their own cap.
+  request:
+    max-json-bytes: ${REQUEST_MAX_JSON_BYTES:1048576}
+    max-multipart-bytes: ${REQUEST_MAX_MULTIPART_BYTES:20971520}
   ai:
     triage:
       enabled: ${AI_TRIAGE_ENABLED:false}

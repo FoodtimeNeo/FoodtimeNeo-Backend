@@ -1,6 +1,7 @@
 package com.FoodtimeNeo.common.exception;
 
 import com.FoodtimeNeo.common.api.ApiResponse;
+import com.FoodtimeNeo.common.web.RequestBodyLimitFilter;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException exception) {
         return ResponseEntity.badRequest().body(ApiResponse.error("VALIDATION_ERROR", "请求参数校验失败", null));
+    }
+
+    /** A chunked body has no Content-Length, so it is only measurable while being read. */
+    @ExceptionHandler(RequestBodyLimitFilter.PayloadTooLargeSignal.class)
+    public ResponseEntity<ApiResponse<Void>> handlePayloadTooLarge(RequestBodyLimitFilter.PayloadTooLargeSignal exception) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.error("PAYLOAD_TOO_LARGE", "请求内容超出大小限制", null));
     }
 
     @Override
