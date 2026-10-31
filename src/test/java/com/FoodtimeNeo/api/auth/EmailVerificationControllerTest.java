@@ -3,6 +3,7 @@ package com.FoodtimeNeo.api.auth;
 import com.FoodtimeNeo.auth.dto.EmailCodeResponse;
 import com.FoodtimeNeo.auth.verification.EmailVerificationService;
 import com.FoodtimeNeo.auth.verification.EmailRateLimitException;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,13 +21,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class EmailVerificationControllerTest {
     private final EmailVerificationService service = mock(EmailVerificationService.class);
+    private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private MockMvc mvc;
     private static final String PATH = "/api/v1/auth/register/email-code";
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new EmailVerificationController(service, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
+        when(devices.resolve(any(), any())).thenReturn("device-test");
+        mvc = MockMvcBuilders.standaloneSetup(new EmailVerificationController(service,
+                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler()).build();
     }
 
@@ -40,17 +44,17 @@ class EmailVerificationControllerTest {
 
     @Test
     void normalizedAddressReturnsExpiryAndNoCode() throws Exception {
-        when(service.send(any(), anyString())).thenReturn(new EmailCodeResponse(Instant.parse("2026-10-04T01:15:00Z"), 60));
+        when(service.send(any(), anyString(), anyString())).thenReturn(new EmailCodeResponse(Instant.parse("2026-10-04T01:15:00Z"), 60));
         mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("email", " 00123@BJTU.EDU.CN "))))
                 .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.resendAfterSeconds").value(60))
                 .andExpect(jsonPath("$.data.verificationCode").doesNotExist());
-        verify(service).send(new com.FoodtimeNeo.auth.dto.EmailCodeRequest("00123@bjtu.edu.cn"), "127.0.0.1");
+        verify(service).send(new com.FoodtimeNeo.auth.dto.EmailCodeRequest("00123@bjtu.edu.cn"), "127.0.0.1", "device-test");
     }
 
     @Test
     void limiterReturnsRetryAfterWithoutExposingInternals() throws Exception {
-        when(service.send(any(), anyString())).thenThrow(new EmailRateLimitException(45));
+        when(service.send(any(), anyString(), anyString())).thenThrow(new EmailRateLimitException(45));
         mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"123@bjtu.edu.cn\"}"))
                 .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "45"))
                 .andExpect(jsonPath("$.code").value("EMAIL_SEND_RATE_LIMITED"));

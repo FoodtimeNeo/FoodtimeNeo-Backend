@@ -4,7 +4,9 @@ import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.auth.dto.RegisterResponse;
 import com.FoodtimeNeo.auth.service.RegistrationService;
 import com.FoodtimeNeo.auth.service.RegistrationRateLimiter;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -24,10 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegistrationController {
     private final RegistrationService registrations;
     private final RegistrationRateLimiter limits;
+    private final DeviceIdentityService devices;
 
-    public RegistrationController(RegistrationService registrations, RegistrationRateLimiter limits) {
+    public RegistrationController(RegistrationService registrations, RegistrationRateLimiter limits,
+                                  DeviceIdentityService devices) {
         this.registrations = registrations;
         this.limits = limits;
+        this.devices = devices;
     }
 
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -39,8 +44,10 @@ public class RegistrationController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "邮箱已注册"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "注册服务暂时不可用")
     })
-    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest http) {
-        limits.check(request.email(), http.getRemoteAddr());
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                  HttpServletRequest http, HttpServletResponse response) {
+        String deviceId = devices.resolve(http, response);
+        limits.check(request.email(), http.getRemoteAddr(), deviceId);
         return ApiResponse.success(registrations.register(request));
     }
 }
