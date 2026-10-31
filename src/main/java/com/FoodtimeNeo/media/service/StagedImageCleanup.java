@@ -100,11 +100,12 @@ public class StagedImageCleanup {
                 SELECT EXISTS (
                     SELECT 1 FROM foodtime.dish_images WHERE image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.stalls WHERE cover_image_url = ?
+                    UNION ALL SELECT 1 FROM foodtime.stall_images WHERE image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.dining_halls WHERE cover_image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.users WHERE avatar_url = ?
                     UNION ALL SELECT 1 FROM foodtime.community_post_images WHERE image_url = ?
                 )
-                """, Boolean.class, reference, reference, reference, reference, reference));
+                """, Boolean.class, reference, reference, reference, reference, reference, reference));
     }
 
     private boolean delete(String id) {

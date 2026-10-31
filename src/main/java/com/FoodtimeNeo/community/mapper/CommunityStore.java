@@ -125,11 +125,16 @@ public class CommunityStore {
                 (r, n) -> new ImageRef(r.getObject("id", UUID.class), r.getString("image_url")), postId);
     }
 
+    /** Called only after the admin detail service checks the caller's role. */
+    public String userEmail(UUID userId) {
+        return jdbc.queryForObject("SELECT email FROM foodtime.users WHERE id=?",String.class,userId);
+    }
+
     /** Admin queue items reuse the moderation item shape (target = the post itself). */
     public java.util.List<com.FoodtimeNeo.moderation.dto.ModerationItem> queue(String status, int size, long offset) {
         return jdbc.query("""
                 SELECT p.id, p.user_id, p.title, p.content, p.status, p.review_reason, p.created_at,
-                u.display_name AS user_display_name,
+                u.display_name AS user_display_name, u.email AS user_email,
                 (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
@@ -144,7 +149,7 @@ public class CommunityStore {
                         r.getString("review_reason"), r.getTimestamp("created_at").toInstant(),
                         r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
                         labels == null ? null : List.of((String[]) labels.getArray()),
-                        r.getString("ai_reason"), instant(r, "ai_checked_at"));
+                        r.getString("ai_reason"), instant(r, "ai_checked_at"),r.getString("user_email"));
                 }, status, size, offset);
     }
 
@@ -156,7 +161,7 @@ public class CommunityStore {
     public java.util.List<com.FoodtimeNeo.moderation.dto.ModerationItem> queueComments(String status, int size, long offset) {
         return jdbc.query("""
                 SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
-                u.display_name AS user_display_name,
+                u.display_name AS user_display_name, u.email AS user_email,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
                 FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
@@ -170,7 +175,7 @@ public class CommunityStore {
                         r.getString("review_reason"), r.getTimestamp("created_at").toInstant(),
                         r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
                         labels == null ? null : java.util.List.of((String[]) labels.getArray()),
-                        r.getString("ai_reason"), instant(r, "ai_checked_at"));
+                        r.getString("ai_reason"), instant(r, "ai_checked_at"),r.getString("user_email"));
                 }, status, size, offset);
     }
 

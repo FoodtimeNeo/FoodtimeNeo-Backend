@@ -1,10 +1,8 @@
 # FoodTimeNeo Backend
 
-当前版本 **1.0.0**；本轮完整测试结果与发布范围见 [1.0.0 发布验收](docs/release-1.0.0.md)。
+当前版本 **1.1.1**；发布范围与部署要求见 [1.1.1 发布说明](docs/release-1.1.1.md)。
 
 校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
-
-**测试专用**：默认开发环境注册时可直接填写验证码 `000000`，无需先发送邮件；生产环境禁用。使用方式、关闭开关和覆盖范围见[测试验证码说明](docs/testing-verification.md)。
 
 ## 技术栈
 
@@ -23,7 +21,7 @@
 | API 文档 | springdoc-openapi 3.1.1 + Swagger UI；仅开发环境启用 |
 | 测试 | JUnit、MockMvc、AssertJ；真实依赖测试通过 integration profile 单独运行 |
 
-Spring Boot 管理通用依赖版本，不单独覆盖 Spring、Jackson、数据库驱动和 Flyway 的版本。
+Spring Boot管理通用依赖版本；Tomcat与Jackson使用已验证的安全补丁覆盖，具体版本见pom.xml。
 
 ## 本地启动（PowerShell）
 
@@ -95,7 +93,6 @@ java -jar target/foodtime-neo-backend.jar
 | --- | --- |
 | 目录、分层职责与测试组织 | [项目目录与职责](docs/architecture.md) |
 | 环境、连接、CORS与运行配置 | [配置说明](docs/configuration.md) |
-| 测试专用000000、开关与覆盖范围 | [测试验证码说明](docs/testing-verification.md) |
 | 数据库表、迁移与评分汇总 | [数据库说明](docs/database.md) |
 | 当前数据库字段、约束与业务规则 | [数据库设计](docs/database-design.md) |
 | 现有接口与数据库设计的核查结果 | [数据库设计核查](docs/database-design-audit.md) |

@@ -73,7 +73,8 @@ public class CommunityModerationService {
         var post=postId==null?null:posts.find(postId,actor.id());
         if(post==null||(comment!=null&&comment.deleted()))throw missing();
         return new CommunityModerationDetail(post,comment,comment!=null&&comment.rootCommentId()!=null?threads.find(comment.rootCommentId(),actor.id()):null,
-            comment!=null&&comment.replyToCommentId()!=null?threads.find(comment.replyToCommentId(),actor.id()):null);
+            comment!=null&&comment.replyToCommentId()!=null?threads.find(comment.replyToCommentId(),actor.id()):null,
+            posts.userEmail(comment==null?post.userId():comment.userId()));
     }
     @Transactional
     public void remove(UserProfile actor,String type,UUID id,@Valid RemoveCommunityRequest request){

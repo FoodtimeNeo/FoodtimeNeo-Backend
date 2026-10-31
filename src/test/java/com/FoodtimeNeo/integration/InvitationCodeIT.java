@@ -1,6 +1,9 @@
 package com.FoodtimeNeo.integration;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.boot.test.context.SpringBootTest;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -9,9 +12,35 @@ import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "app.invitation.secret=0123456789abcdef0123456789abcdef0123456789abcdef",
-                "app.test-verification.enabled=true"})
+                "app.invitation.secret=0123456789abcdef0123456789abcdef0123456789abcdef"})
 class InvitationCodeIT extends IntegrationApiSupport {
+    private static final CapturingSmtpServer SMTP = new CapturingSmtpServer();
+    private static final String EMAIL_PREFIX = "foodtime:integration:invitation-email:" + UUID.randomUUID();
+
+    @DynamicPropertySource
+    static void emailConfiguration(DynamicPropertyRegistry properties) {
+        properties.add("app.email-verification.enabled", () -> true);
+        properties.add("app.email-verification.from", () -> "sender@example.test");
+        properties.add("app.email-verification.secret", () -> "test-only-secret-at-least-32-characters");
+        properties.add("app.email-verification.redis-namespace", () -> EMAIL_PREFIX);
+        properties.add("spring.mail.host", () -> "127.0.0.1");
+        properties.add("spring.mail.port", SMTP::port);
+        properties.add("spring.mail.properties[mail.smtp.localhost]", () -> "localhost");
+        properties.add("spring.mail.properties[mail.from]", () -> "sender@example.test");
+        properties.add("spring.mail.properties[mail.smtp.auth]", () -> false);
+        properties.add("spring.mail.properties[mail.smtp.starttls.enable]", () -> false);
+        properties.add("spring.mail.properties[mail.smtp.starttls.required]", () -> false);
+        properties.add("spring.mail.properties[mail.smtp.ssl.enable]", () -> false);
+    }
+
+    @AfterAll
+    static void closeSmtp() throws Exception { SMTP.close(); }
+
+    private String emailCode(Browser browser, String email) throws Exception {
+        assertThat(browser.call("POST", "/api/v1/auth/register/email-code", Map.of("email", email)).statusCode()).isEqualTo(202);
+        return SMTP.code(email);
+    }
+
     private record Created(UUID id, String code) { }
 
     @Test
@@ -55,7 +84,7 @@ class InvitationCodeIT extends IntegrationApiSupport {
         Browser anonymous = new Browser(); anonymous.csrf();
         String email = freshEmail(0);
         var response = anonymous.call("POST", "/api/v1/auth/register",
-                Map.of("email", email, "password", PASSWORD, "verificationCode", "000000",
+                Map.of("email", email, "password", PASSWORD, "verificationCode", emailCode(anonymous, email),
                         "invitationCode", created.code().toLowerCase(java.util.Locale.ROOT)));
         assertThat(response.statusCode()).isEqualTo(201);
         assertThat(jdbc.queryForObject("SELECT invited_by_code_id FROM foodtime.users WHERE lower(btrim(email)) = ?",
@@ -69,7 +98,7 @@ class InvitationCodeIT extends IntegrationApiSupport {
         Browser anonymous = new Browser(); anonymous.csrf();
         String email = freshEmail(0);
         var response = anonymous.call("POST", "/api/v1/auth/register",
-                Map.of("email", email, "password", PASSWORD, "verificationCode", "000000"));
+                Map.of("email", email, "password", PASSWORD, "verificationCode", emailCode(anonymous, email)));
         assertThat(response.statusCode()).isEqualTo(201);
         assertThat(jdbc.queryForObject("SELECT invited_by_code_id FROM foodtime.users WHERE lower(btrim(email)) = ?",
                 UUID.class, email)).isNull();
@@ -90,8 +119,9 @@ class InvitationCodeIT extends IntegrationApiSupport {
     void unknownExpiredDisabledOrExhaustedCodesAreRejected() throws Exception {
         var superadmin = login(account("superadmin"));
         Browser anonymous = new Browser(); anonymous.csrf();
+        String unknownEmail = freshEmail(0);
         var unknown = anonymous.call("POST", "/api/v1/auth/register",
-                Map.of("email", freshEmail(0), "password", PASSWORD, "verificationCode", "000000",
+                Map.of("email", unknownEmail, "password", PASSWORD, "verificationCode", emailCode(anonymous, unknownEmail),
                         "invitationCode", "AAAAAAAAAAAA"));
         assertThat(unknown.statusCode()).isEqualTo(400);
         assertThat(unknown.body()).contains("INVITATION_CODE_INVALID");
@@ -122,8 +152,9 @@ class InvitationCodeIT extends IntegrationApiSupport {
     }
 
     private java.net.http.HttpResponse<String> registerWith(Browser anonymous, String code, int salt) throws Exception {
+        String email = freshEmail(salt);
         return anonymous.call("POST", "/api/v1/auth/register",
-                Map.of("email", freshEmail(salt), "password", PASSWORD, "verificationCode", "000000",
+                Map.of("email", email, "password", PASSWORD, "verificationCode", emailCode(anonymous, email),
                         "invitationCode", code));
     }
 

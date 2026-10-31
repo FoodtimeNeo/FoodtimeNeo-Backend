@@ -3,7 +3,6 @@ package com.FoodtimeNeo.config;
 import com.FoodtimeNeo.config.properties.CorsProperties;
 import com.FoodtimeNeo.config.validation.ProductionConfigurationValidator;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
-import com.FoodtimeNeo.config.properties.TestVerificationProperties;
 import com.FoodtimeNeo.config.validation.MailConfigurationValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +66,6 @@ class EnvironmentConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getEnvironment().getActiveProfiles()).containsExactly("prod");
                     assertThat(context).hasSingleBean(ProductionConfigurationValidator.class);
-                    assertThat(context.getBean(TestVerificationProperties.class).enabled()).isFalse();
                     assertThat(context.getEnvironment().getProperty("spring.datasource.username")).isEqualTo("test_user");
                     assertThat(context.getEnvironment().getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();
                     assertThat(context.getEnvironment().getProperty("springdoc.swagger-ui.enabled", Boolean.class)).isFalse();
@@ -76,31 +74,13 @@ class EnvironmentConfigurationTest {
     }
 
     @Test
-    void developmentEnablesTestVerificationByDefaultAndCanDisableIt() {
-        runner.withPropertyValues("SPRING_PROFILES_ACTIVE=dev")
+    void obsoleteTestSwitchCannotEnableABypass() {
+        runner.withPropertyValues("SPRING_PROFILES_ACTIVE=dev", "TEST_VERIFICATION_ENABLED=true")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(TestVerificationProperties.class).enabled()).isTrue();
+                    assertThat(context.getEnvironment().getProperty("app.test-verification.enabled")).isNull();
+                    assertThat(context.getBean(EmailVerificationProperties.class).enabled()).isFalse();
                 });
-        runner.withPropertyValues("SPRING_PROFILES_ACTIVE=dev", "TEST_VERIFICATION_ENABLED=false")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(TestVerificationProperties.class).enabled()).isFalse();
-                });
-    }
-
-    @Test
-    void productionRejectsExplicitTestVerificationIncludingMixedProfiles() {
-        for (String profiles : new String[] {"prod", "dev,prod", "prod,dev"}) {
-            runner.withPropertyValues("SPRING_PROFILES_ACTIVE=" + profiles, "TEST_VERIFICATION_ENABLED=true",
-                            "DB_URL=jdbc:postgresql://localhost/foodtime_test?currentSchema=foodtime",
-                            "DB_USERNAME=test_user", "DB_PASSWORD=test_password", "REDIS_HOST=localhost",
-                            "REDIS_PASSWORD=test_redis_password", "AUTH_COOKIE_SECURE=true")
-                    .run(context -> {
-                        assertThat(context).hasFailed();
-                        assertThat(context.getStartupFailure()).hasRootCauseMessage("Production must disable test verification");
-                    });
-        }
     }
 
     @Test
@@ -164,7 +144,7 @@ class EnvironmentConfigurationTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties({CorsProperties.class, EmailVerificationProperties.class, TestVerificationProperties.class})
+    @EnableConfigurationProperties({CorsProperties.class, EmailVerificationProperties.class})
     @Import({ProductionConfigurationValidator.class, MailConfigurationValidator.class})
     static class TestConfiguration { }
 }

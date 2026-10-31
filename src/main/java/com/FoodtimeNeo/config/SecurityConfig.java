@@ -5,6 +5,7 @@ import com.FoodtimeNeo.config.properties.MonitoringProperties;
 import com.FoodtimeNeo.auth.security.SecurityErrorWriter;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.security.SessionValidationFilter;
+import com.FoodtimeNeo.dashboard.OnlinePresence;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,7 +53,7 @@ public class SecurityConfig {
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contexts,
                                                    SessionAuthenticationService sessions, SecurityErrorWriter errors,
-                                                   MonitoringProperties monitoring)
+                                                   OnlinePresence presence, MonitoringProperties monitoring)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -81,11 +82,12 @@ public class SecurityConfig {
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
                                 "/api/v1/auth/register/email-code").permitAll()
-                        .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**").hasRole("superadmin")
+                        .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**",
+                                "/api/v1/admin/notices", "/api/v1/admin/notices/**").hasRole("superadmin")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").access(prometheusScrape(monitoring))
                         .anyRequest().authenticated())
-                .addFilterBefore(new SessionValidationFilter(sessions, errors), CsrfFilter.class);
+                .addFilterBefore(new SessionValidationFilter(sessions, errors, presence), CsrfFilter.class);
         return http.build();
     }
 

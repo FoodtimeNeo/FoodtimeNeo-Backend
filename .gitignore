@@ -39,6 +39,8 @@ application-secrets.*
 logs/
 *.log
 uploads/
+# 本地备份（数据库 dump、uploads、配置），禁止入库
+backups/
 data/
 .docker/
 .m2/

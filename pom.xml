@@ -11,7 +11,7 @@
   </parent>
   <groupId>com.foodtime</groupId>
   <artifactId>foodtime-neo-backend</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.1</version>
   <name>FoodTimeNeo Backend</name>
   <description>校园食堂菜品展示与点评平台后端</description>
   <properties>
@@ -19,10 +19,15 @@
     <mybatis-plus.version>3.5.17</mybatis-plus.version>
     <springdoc.version>3.1.1</springdoc.version>
     <bouncycastle.version>1.86</bouncycastle.version>
+    <!-- Security patches within the Boot 4.1 Jackson/Tomcat release lines. -->
+    <tomcat.version>11.0.27</tomcat.version>
+    <jackson-bom.version>3.1.7</jackson-bom.version>
+    <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
     <!-- Preload Mockito instead of attaching at runtime (JDK 21 / restricted Windows environments). -->
     <test.jvm.args>-javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar" -Djava.io.tmpdir="${project.build.directory}"</test.jvm.args>
   </properties>
   <dependencies>
+    <dependency><groupId>org.commonmark</groupId><artifactId>commonmark</artifactId><version>0.31.0</version></dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-mail</artifactId>

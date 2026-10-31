@@ -22,6 +22,7 @@ class CatalogAdminIT extends IntegrationApiSupport {
             assertThat(data.path("items").size()).isEqualTo(1);
             assertThat(data.path("items").get(0).path("id").asString()).isEqualTo(first.toString());
             assertThat(data.path("items").get(0).path("userDisplayName").asString()).isEqualTo("author-" + owner.id());
+            assertThat(data.path("items").get(0).path("userEmail").asString()).isEqualTo(owner.email());
             assertThat(response.body()).doesNotContain(second.toString(),"password_hash");
         }
         assertThat(body(admin.call("GET","/api/v1/admin/reviews?q=no-match-" + UUID.randomUUID(),null)).path("data").path("total").asLong()).isZero();

@@ -39,6 +39,30 @@ class ModerationIT extends IntegrationApiSupport {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("created submission missing from queue"));
         assertThat(mine.path("userDisplayName").asString()).isEqualTo("integration user");
+        assertThat(mine.path("userEmail").asString()).isEqualTo(owner.email());
+        assertThat(mine.path("userId").asString()).isEqualTo(owner.id().toString());
+        assertThat(mine.path("content").asString()).isEqualTo("named review");
+        assertThat(mine.path("createdAt").asString()).isNotBlank();
+    }
+
+    @Test
+    void logsIncludePublisherAndSubmissionTimeSeparatelyFromDecisionTime() throws Exception {
+        UUID id=review(login(owner),"publisher log body");
+        var submitted=java.time.Instant.parse("2026-01-01T01:02:03Z");
+        jdbc.update("UPDATE foodtime.dish_review_submissions SET submitted_at=? WHERE id=?",Timestamp.from(submitted),id);
+        Browser admin=login(account("admin"));
+        assertThat(admin.call("POST",moderate("review",id),Map.of("action","approve")).statusCode()).isEqualTo(200);
+        var items=body(admin.call("GET","/api/v1/admin/moderation/logs?size=100",null)).path("data").path("items");
+        var log=java.util.stream.StreamSupport.stream(items.spliterator(),false)
+                .filter(row->row.path("submissionId").asString().equals(id.toString())).findFirst().orElseThrow();
+        assertThat(log.path("userId").asString()).isEqualTo(owner.id().toString());
+        assertThat(log.path("userEmail").asString()).isEqualTo(owner.email());
+        assertThat(log.path("userDisplayName").asString()).isEqualTo("integration user");
+        assertThat(log.path("content").asString()).isEqualTo("publisher log body");
+        assertThat(java.time.Instant.parse(log.path("submittedAt").asString())).isEqualTo(submitted);
+        assertThat(java.time.Instant.parse(log.path("createdAt").asString())).isAfter(submitted);
+        var publicRows=login(other).call("GET","/api/v1/dishes/"+dish+"/reviews",null);
+        assertThat(publicRows.body()).doesNotContain(owner.email(),"userEmail");
     }
 
     @Test

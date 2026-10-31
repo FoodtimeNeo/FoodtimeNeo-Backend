@@ -39,8 +39,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = { "app.email-verification.send-ip-limit=6",
-                "app.test-verification.enabled=false"})
+        properties = { "app.email-verification.send-ip-limit=6", "app.auth.registration.account-limit=100" })
 class RegistrationIT {
     private static final CapturingSmtpServer SMTP = new CapturingSmtpServer();
     private static final String PREFIX = "foodtime:integration:email:" + UUID.randomUUID();
@@ -53,6 +52,7 @@ class RegistrationIT {
         properties.add("app.email-verification.redis-namespace", () -> PREFIX);
         properties.add("spring.session.redis.namespace", () -> PREFIX + ":sessions");
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":login");
+        properties.add("app.auth.registration.redis-namespace", () -> PREFIX + ":registration");
         properties.add("spring.mail.host", () -> "127.0.0.1");
         properties.add("spring.mail.port", SMTP::port);
         // Make both EHLO and MIME Message-ID independent of workstation DNS.
@@ -93,6 +93,15 @@ class RegistrationIT {
     }
 
     @Test
+    void formerTestCodeWithoutAnEmailProofIsRejected() throws Exception {
+        String email = newEmail();
+        var response = registerWithCode(email, "000000");
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(json.readTree(response.body()).path("code").asString()).isEqualTo("EMAIL_CODE_INVALID");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM foodtime.users WHERE email = ?", Long.class, email)).isZero();
+    }
+
+    @Test
     void registrationPersistsSaltedHashAndDiscardsClientControlledPrivileges() throws Exception {
         String email = newEmail();
         String password = "aB12!" + "x".repeat(80) + "~";
@@ -127,11 +136,16 @@ class RegistrationIT {
         assertThat(register(body(email, "Abc12345")).statusCode()).isEqualTo(201);
         String originalHash = jdbc.queryForObject("select password_hash from foodtime.users where email = ?", String.class, email);
         HttpResponse<String> duplicate = register(body(email.toUpperCase(), "Different123"));
-        assertThat(duplicate.statusCode()).isEqualTo(409);
-        assertThat(json.readTree(duplicate.body()).path("code").asString()).isEqualTo("EMAIL_ALREADY_REGISTERED");
+        assertThat(duplicate.statusCode()).isEqualTo(400);
+        assertThat(json.readTree(duplicate.body()).path("code").asString()).isEqualTo("EMAIL_CODE_INVALID");
         assertThat(jdbc.queryForObject("select password_hash from foodtime.users where email = ?", String.class, email))
                 .isEqualTo(originalHash);
         assertThat(jdbc.queryForObject("select count(*) from foodtime.users where email = ?", Integer.class, email)).isEqualTo(1);
+        redis.delete(store.key("cooldown", email));
+        assertThat(send(email).statusCode()).isEqualTo(202);
+        var verifiedDuplicate = registerWithCode(email, SMTP.code(email));
+        assertThat(verifiedDuplicate.statusCode()).isEqualTo(409);
+        assertThat(json.readTree(verifiedDuplicate.body()).path("code").asString()).isEqualTo("EMAIL_ALREADY_REGISTERED");
     }
 
     @Test
@@ -143,8 +157,8 @@ class RegistrationIT {
             var first = executor.submit(() -> { start.await(); return register(payload).statusCode(); });
             var second = executor.submit(() -> { start.await(); return register(payload).statusCode(); });
             start.countDown();
-            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder(201, 409);
+            var statuses = List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS));
+            assertThat(statuses).allSatisfy(status -> assertThat(status).isIn(201, 400, 409)).containsOnlyOnce(201);
         }
         assertThat(jdbc.queryForObject("select count(*) from foodtime.users where email = ?", Integer.class, email)).isEqualTo(1);
     }

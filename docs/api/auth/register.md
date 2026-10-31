@@ -6,8 +6,6 @@
 
 先通过 `POST /api/v1/auth/register/email-code` 发送验证码，再提交邮箱、密码和验证码；校验通过才创建账号。发送接口及SMTP配置详见 [邮箱验证码](email-verification.md)。
 
-**仅用于测试**：默认开发环境可将下方 `verificationCode` 填为字符串 `000000`，直接注册，无需发送邮件。此路径模拟邮箱验证，仍校验邮箱、密码及邮箱唯一性。生产禁用；开关和完整行为见[测试验证码说明](../../testing-verification.md)。
-
 ## 设计依据与额外约定
 
 [数据库设计](../../database-design.md#users用户表) 规定邮箱最多254位、规范化后唯一、仅存密码哈希、角色由服务端控制，以及未设置昵称时由系统生成。以下是现有接口的额外约定，数据库设计未规定：数字前缀的 `@bjtu.edu.cn` 邮箱、8至128位ASCII密码及字母/数字复杂度、强制6位邮箱验证码、昵称使用“干饭人”加6位数字、注册不接受自定义昵称或头像、邀请码仅作为可选归因（数据库设计没有邀请规则，发放与核销均为本接口的额外约定）。
@@ -29,7 +27,7 @@
 | --- | --- | --- |
 | `email` | 是 | 去除首尾空白、转为小写后，必须完全匹配 `[0-9]+@bjtu.edu.cn`；至少一位数字前缀，最多254位 |
 | `password` | 是 | 8至128位，仅允许英文字母（A–Z / a–z）、数字（0–9）和ASCII半角符号；至少包含一个数字和一个英文字母；符号非必需；保持原样，不修改大小写 |
-| `verificationCode` | 是 | 与该邮箱绑定的6位ASCII数字验证码；作为字符串提交以保留前导零；发送成功后15分钟内有效，最多5次错误尝试。启用测试通道时，`000000` 可模拟验证 |
+| `verificationCode` | 是 | 与该邮箱绑定的6位ASCII数字验证码；作为字符串提交以保留前导零；发送成功后15分钟内有效，最多5次错误尝试 |
 | `invitationCode` | 否 | 可选；平台发放的12位邀请码，大小写均可，仅用于记录邀请归因，不填不影响注册；填写后须为有效未失效码，详见 [邀请码](invitation-codes.md) |
 
 允许的符号如下（ASCII可打印字符范围 `!` 至 `~` 中的非字母、非数字字符）：
@@ -73,11 +71,12 @@
 | 400 | `BAD_REQUEST` | `请求参数或请求格式错误`；例如请求体缺失或JSON无法解析 |
 | 400 | `EMAIL_CODE_INVALID` | 验证码错误、过期、已用或达到5次错误上限，不创建账号 |
 | 400 | `INVITATION_CODE_INVALID` | 邀请码无效、过期、停用或次数用尽，不创建账号 |
-| 409 | `EMAIL_ALREADY_REGISTERED` | `该邮箱已注册`；包括并发提交同一邮箱 |
+| 409 | `EMAIL_ALREADY_REGISTERED` | 持有有效邮箱验证码后发现该邮箱已注册；未通过验证码不返回此信息 |
 | 409 | `REGISTRATION_IN_PROGRESS` | 同一邮箱的有效验证码正在被另一注册请求使用，稍后重试 |
+| 429 | `REGISTRATION_RATE_LIMITED` | 发码与注册请求共用邮箱/IP限流，响应含Retry-After |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | `不支持的内容类型`；必须提交JSON |
 | 503 | `REGISTRATION_UNAVAILABLE` | `注册服务暂时不可用，请稍后重试`；数据库读写失败 |
-| 503 | `EMAIL_VERIFICATION_UNAVAILABLE` | 普通验证码的验证服务未配置/未启用，或Redis无法完成校验；启用的测试码通道不依赖邮件或验证码Redis记录 |
+| 503 | `EMAIL_VERIFICATION_UNAVAILABLE` | 普通验证码的验证服务未配置/未启用，或Redis无法完成校验 |
 | 503 | `INVITATION_UNAVAILABLE` | 填写了邀请码但邀请码服务未配置（缺少32位以上随机密钥）；不填邀请码不受影响 |
 | 500 | `INTERNAL_ERROR` | `服务器内部错误`；其他未预期故障 |
 
@@ -113,3 +112,5 @@ Invoke-RestMethod -Method Post -Uri 'http://localhost:8080/api/v1/auth/register'
 `auth/verification` 管理发送、HMAC摘要和Redis校验占用，Lua脚本位于 `src/main/resources/redis/email`。验证码校验占用不延长15分钟TTL：数据库写入失败会释放占用，成功后删除验证码；进程中断后占用最多60秒自动到期。数据库提交后即使Redis清理暂时失败，唯一索引仍阻止同邮箱再次创建账号，不把已成功创建的账号误报为注册失败。
 
 数据库唯一索引 `ux_users_normalized_email` 配合 `ON CONFLICT ... DO NOTHING` 保证同一规范化邮箱最多注册一次。注册是一次原子INSERT，不修改既有数据库迁移文件。
+
+注册与发码共用限流：默认15分钟内每邮箱10次、每IP1000次；Redis不可用时拒绝请求。校验邮箱归属后才查询注册状态，已消耗的验证码重放返回400，并发占用返回409，均不会新增第二个账号。

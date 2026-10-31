@@ -32,14 +32,18 @@ class CommunityPublicationIT extends IntegrationApiSupport {
   assertThat(admin.call("POST","/api/v1/admin/community/posts/"+id,Map.of("action","approve")).statusCode()).isEqualTo(200);
   assertThat(viewer.image(image).statusCode()).isEqualTo(200);
   var publishedImage=viewer.image(image);
-  assertThat(publishedImage.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+  assertThat(publishedImage.headers().firstValue("Cache-Control").orElseThrow()).contains("private", "no-cache");
+  assertThat(publishedImage.headers().allValues("Vary").toString()).contains("Cookie");
   var conditional=viewer.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow());
   assertThat(conditional.statusCode()).isEqualTo(304);
-  assertThat(conditional.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+  assertThat(conditional.headers().firstValue("Cache-Control").orElseThrow()).contains("private", "no-cache");
   assertThatThrownBy(()->jdbc.update("UPDATE foodtime.community_posts SET title='修改' WHERE id=?",id)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThat(author.call("DELETE","/api/v1/community/posts/"+id,null).statusCode()).isEqualTo(200);
   assertThat(viewer.call("GET","/api/v1/community/posts/"+id,null).statusCode()).isEqualTo(404);
   assertThat(viewer.image(image).statusCode()).isEqualTo(404);
+  assertThat(viewer.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow()).statusCode()).isEqualTo(404);
+  assertThat(author.image(image).headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+  assertThat(author.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow()).statusCode()).isEqualTo(200);
   assertThat(jdbc.queryForObject("SELECT deleted_at IS NOT NULL FROM foodtime.community_posts WHERE id=?",Boolean.class,id)).isTrue();
   assertThat(jdbc.queryForObject("SELECT count(*) FROM foodtime.content_moderation_logs WHERE community_post_id=?",Long.class,id)).isEqualTo(1);
  }

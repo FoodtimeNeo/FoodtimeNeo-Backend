@@ -6,8 +6,6 @@ GitHub Actions 在面向main/dev的PR和push时执行CI。CD按用户选择仅�
 
 生产环境必填：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`REDIS_HOST`、`REDIS_PASSWORD`。例如在部署平台设置 `SPRING_PROFILES_ACTIVE=prod` 并注入这些变量；远程 PostgreSQL 的 JDBC URL 可配置 `sslmode=verify-full`，Redis TLS 使用 `REDIS_SSL_ENABLED=true`。生产默认仅暴露健康端点，健康详情隐藏，API 文档关闭。
 
-`000000` 是[测试专用验证码](testing-verification.md)，仅开发环境默认启用。生产默认 `TEST_VERIFICATION_ENABLED=false`，显式设为true会导致启动失败；部署时使用 `prod` 环境并保持该开关关闭。
-
 Dockerfile 使用 Java 21 多阶段构建，以非 root 用户运行，容器默认启用 `prod`：
 
 ```powershell

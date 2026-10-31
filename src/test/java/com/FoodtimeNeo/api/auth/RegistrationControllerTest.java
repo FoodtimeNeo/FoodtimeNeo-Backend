@@ -36,7 +36,7 @@ class RegistrationControllerTest {
     @BeforeEach
     void setUp() {
         service = mock(RegistrationService.class);
-        mvc = MockMvcBuilders.standaloneSetup(new RegistrationController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new RegistrationController(service, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).addFilters(new RequestIdFilter()).build();
     }
 

@@ -7,7 +7,6 @@
 | 环境变量 | 开发默认值 | 说明 |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `dev` | 环境选择：dev / prod |
-| `TEST_VERIFICATION_ENABLED` | `true` | 仅用于测试：允许验证码 `000000` 模拟邮箱验证；生产默认false且拒绝启用。测试真实验证码时设false，详见[测试验证码说明](testing-verification.md) |
 | `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](api/auth/invitation-codes.md) |
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `2000` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `1000` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |
@@ -16,14 +15,19 @@
 | `MONITORING_SCRAPE_IP` | `127.0.0.1` | Prometheus抓取允许的来源IP或CIDR；留空拒绝一切抓取。详见[监控](monitoring.md) |
 | `AI_TRIAGE_ENABLED` | `false` | AI预检总开关；**生产在用户协议披露并审批前保持关闭** |
 | `AI_TRIAGE_PROVIDER` | `openai` | `openai`（OpenAI兼容接口）或 `fake`（确定性演示，仅开发测试） |
-| `AI_TRIAGE_BASE_URL` / `AI_TRIAGE_API_KEY` / `AI_TRIAGE_PRIMARY_MODEL` | 空 | `openai` 提供方必填；缺任何一项启动失败。密钥只走环境变量或平台密钥 |
+| `AI_TRIAGE_BASE_URL` / `AI_TRIAGE_API_KEY` / `AI_TRIAGE_PRIMARY_MODEL` | 空 | `openai` 提供方必填；缺任何一项启动失败。密钥只走环境变量、平台密钥或 systemd 加密凭据，见[密钥安全存储](secrets.md) |
 | `AI_TRIAGE_ESCALATION_MODEL` / `AI_TRIAGE_FALLBACK_MODEL` / `AI_TRIAGE_PHOTO_MODEL` | 见 application.yml 默认值 | 升级复核 / 故障兜底 / 图片直诊模型；留空表示不启用对应环节 |
 | `AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE` | `0.9` | LOW 首判置信度低于此阈值时触发升级复核（0–1） |
 | `AI_TRIAGE_AUTO_APPROVE_ABOVE` / `AI_TRIAGE_AUTO_REJECT_ABOVE` | `0.95` / `0.9` | 达到即 AI 自动通过/驳回评论；其余留给人工 |
 | `AI_TRIAGE_REDIS_NAMESPACE` | `foodtime:ai:triage` | 模型映射覆盖的 Redis 哈希；monitor/超管热切换写这里，删字段即回 env 默认 |
 | `AI_TRIAGE_TIMEOUT` / `AI_TRIAGE_BATCH_SIZE` | `PT30S` / `10` | 单次调用超时（1–120秒整秒）；每轮最多诊断条数（1–100） |
-| `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT5M` / `PT1M` | 调度周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
+| `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT30S` / `PT5S` | 兜底扫批周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
+| `AI_TRIAGE_POOL_CORE` / `AI_TRIAGE_POOL_MAX` / `AI_TRIAGE_POOL_QUEUE` | `4` / `8` / `500` | 即时审核线程池；新投稿先走即时路径，队列满时由扫批兜底 |
+| `AI_SINGLE_ENABLED` | `false` | 单 key 直判开关；开启后多 key 轮询、升级复核、兜底、Redis 模型映射与热切换不再进入。密钥用 systemd 加密凭据注入，见[密钥安全存储](secrets.md) |
+| `AI_SINGLE_BASE_URL` / `AI_SINGLE_MODEL` | `.env.example` 为 `https://api.deepseek.com` / `deepseek-flash`（应用内默认空） | 单 key 提供方与模型；`AI_SINGLE_API_KEY` 不写 `.env`，由加密凭据注入 |
+| `AI_SINGLE_TIMEOUT` | `PT30S` | 单 key 单次调用超时（1–120 秒整秒） |
 | `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |
+| `DASHBOARD_PRESENCE_TTL` / `DASHBOARD_PRESENCE_NAMESPACE` | `PT5M` / `foodtime:presence` | 在线用户 presence 窗口与 Redis 前缀；TTL 内有已认证请求的去重用户计为在线 |
 | `STORAGE_DISK_WARN_BYTES` | `1073741824` | 暂存目录字节数告警线，超限记warn |
 | `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime` | JDBC URL；生产必须显式提供，保留 `currentSchema=foodtime` |
@@ -41,7 +45,7 @@
 | `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
-| `SESSION_REDIS_NAMESPACE` | `foodtime:session` | 会话Redis命名空间；专用联调环境应与其他环境隔离 |
+| `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |
@@ -57,3 +61,13 @@
 数据库迁移不会创建图片字节。V5菜单图片、V6食堂封面及 `.properties` 元数据的铺放方式见 [种子数据与图片部署](seed-data.md)。容器挂载见 [部署说明](deployment.md)。
 
 点评轻量动作使用 REVIEW_ACTION_WINDOW / REVIEW_ACTION_USER_LIMIT / REVIEW_ACTION_IP_LIMIT / REVIEW_ACTION_REDIS_NAMESPACE，默认 PT1M / 100 / 1000 / foodtime:review:actions；与内容投稿及社区互动独立。
+
+## 注册与图片容量保护
+
+注册和发码请求共同按邮箱/IP计数，默认15分钟每邮箱10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。参数见`.env.example`中的`REGISTRATION_*`。
+
+上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。处理后仍不超过10MB；并发上传/首次缩略图解码默认最多2项，繁忙返回429。
+
+磁盘文件实时计入配额，默认每用户100MiB、上传目录总计10GiB、磁盘预留1GiB。包含原图、缩略图及元数据；全局还计入孤儿文件。超用户配额返回413，全局容量或磁盘余量不足返回503。可用`STORAGE_USER_BYTES`、`STORAGE_TOTAL_BYTES`、`STORAGE_MIN_FREE_BYTES`调整；不会删除已有图片。现有旧图片的元数据不追溯改写，新增上传才进行清理。
+
+单机本地文件系统通过文件锁串行核对配额并写入，跨进程配额不依赖内存计数。当前为平面目录核对；大规模媒体库应迁移至数据库索引/对象存储配额，不应将此实现用于缺少一致文件锁的网络文件系统。

@@ -3,6 +3,8 @@ package com.FoodtimeNeo.api.auth;
 import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.auth.dto.RegisterResponse;
 import com.FoodtimeNeo.auth.service.RegistrationService;
+import com.FoodtimeNeo.auth.service.RegistrationRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,21 +23,24 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Auth", description = "账号注册")
 public class RegistrationController {
     private final RegistrationService registrations;
+    private final RegistrationRateLimiter limits;
 
-    public RegistrationController(RegistrationService registrations) {
+    public RegistrationController(RegistrationService registrations, RegistrationRateLimiter limits) {
         this.registrations = registrations;
+        this.limits = limits;
     }
 
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "注册用户", description = "提交校园邮箱、密码及6位邮箱验证码；验证通过后创建账号，默认昵称为干饭人加6位随机数字，角色为user；开发环境默认可用000000模拟验证，仅用于测试，生产禁用")
+    @Operation(summary = "注册用户", description = "提交校园邮箱、密码及6位邮箱验证码；验证通过后创建账号，默认昵称为干饭人加6位随机数字，角色为user；所有环境均需真实邮箱验证码")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "注册成功"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求格式或参数校验失败"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "邮箱已注册"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "注册服务暂时不可用")
     })
-    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest http) {
+        limits.check(request.email(), http.getRemoteAddr());
         return ApiResponse.success(registrations.register(request));
     }
 }

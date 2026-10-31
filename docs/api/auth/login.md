@@ -19,8 +19,6 @@ Cookie/Redis会话、CSRF、默认7天期限、登录次数配额、8至128位AS
 
 注册接口仍可匿名调用，但必须提交通过校验的邮箱验证码，不自动登录。注册发送验证码接口匿名可调用且需要CSRF令牌，详见 [邮箱验证码](email-verification.md)。其他业务接口默认需要登录；运行检查、健康检查和开发环境API文档允许匿名读取。
 
-开发环境默认支持 `000000` [测试验证码](../../testing-verification.md)模拟注册验证，仅用于测试。登录仍须输入注册时设置的密码。
-
 ## 正确调用顺序
 
 1. `GET /csrf`，保存响应中的 `data.headerName` 和 `data.token`；浏览器接收会话Cookie。
@@ -120,7 +118,7 @@ Redis通过Lua原子计数，默认每个规范化账号15分钟最多10次登�
 | --- | --- | --- |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话固定期限，正整数秒，最多30天 |
 | `AUTH_COOKIE_SECURE` | prod为true；dev为false | Cookie仅HTTPS传输；生产禁止false |
-| `SESSION_REDIS_NAMESPACE` | `foodtime:session` | 会话Redis命名空间 |
+| `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（Boot 4 的 `spring.session.data.redis.namespace`） |
 | `AUTH_REDIS_NAMESPACE` | `foodtime:auth:login` | 登录限流Redis命名空间 |
 | `AUTH_LOGIN_WINDOW` | `PT15M` | 限流窗口，正整数秒，最多30天 |
 | `AUTH_LOGIN_ACCOUNT_LIMIT` | `10` | 每个账号在窗口内的登录次数 |
