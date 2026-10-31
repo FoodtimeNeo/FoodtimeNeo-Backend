@@ -4,7 +4,7 @@ import com.FoodtimeNeo.admin.dto.*;
 import com.FoodtimeNeo.admin.service.CatalogAdminService;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.*;
-import com.FoodtimeNeo.review.dto.PublishedReviewResponse;
+import com.FoodtimeNeo.admin.dto.AdminReviewResponse;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -35,7 +35,7 @@ public class CatalogAdminController {
     @PutMapping("/catalog/{type}/{id}") @Operation(summary = "编辑名称简介价格或启停状态",description = "已有所属关系保持不变，无楼层字段")
     public ApiResponse<AdminCatalogResponse> update(@PathVariable String type,@PathVariable UUID id,@Valid @RequestBody CatalogEditRequest body,HttpServletRequest request) { return ApiResponse.success(catalog.save(current(request),type,id,body)); }
     @GetMapping("/reviews") @Operation(summary = "管理员查看正式评论",description = "包括停用菜品历史，仅管理员可见")
-    public ApiResponse<PageResponse<PublishedReviewResponse>> reviews(@RequestParam(required = false) String q,
+    public ApiResponse<PageResponse<AdminReviewResponse>> reviews(@RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") int page,@RequestParam(defaultValue = "20") int size,HttpServletRequest request) {
         return ApiResponse.success(catalog.reviews(current(request),q,new PageRequest(page,size)));
     }

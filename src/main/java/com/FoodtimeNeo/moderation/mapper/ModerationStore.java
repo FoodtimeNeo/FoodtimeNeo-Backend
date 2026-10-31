@@ -38,9 +38,9 @@ public class ModerationStore {
             WHERE c.deleted_at IS NULL
             """;
     private static final String ITEMS_WITH_AI =
-            "SELECT q.*, a.risk_level AS ai_risk_level, a.confidence AS ai_confidence,"
+            "SELECT q.*, u.email AS user_email, a.risk_level AS ai_risk_level, a.confidence AS ai_confidence,"
             + " a.labels AS ai_labels, a.reason AS ai_reason, a.checked_at AS ai_checked_at FROM ("
-            + ITEMS + ") q LEFT JOIN foodtime.ai_moderation_results a"
+            + ITEMS + ") q JOIN foodtime.users u ON u.id=q.user_id LEFT JOIN foodtime.ai_moderation_results a"
             + " ON a.submission_type = q.type AND a.submission_id = q.id";
     private static final RowMapper<ModerationItem> ROW = (r, n) -> new ModerationItem(
             r.getObject("id", UUID.class),r.getString("type"),r.getObject("target_id",UUID.class),
@@ -48,7 +48,7 @@ public class ModerationStore {
             r.getString("image_url"),r.getObject("rating",Integer.class),r.getString("status"),
             r.getString("reason"),r.getTimestamp("created_at").toInstant(),
             r.getString("ai_risk_level"),r.getBigDecimal("ai_confidence"),readLabels(r),
-            r.getString("ai_reason"),readInstant(r,"ai_checked_at"));
+            r.getString("ai_reason"),readInstant(r,"ai_checked_at"),r.getString("user_email"));
     private final JdbcTemplate jdbc;
     private final ReviewAccessService reviewAccess;
     public ModerationStore(JdbcTemplate jdbc, ReviewAccessService reviewAccess) { this.jdbc = jdbc; this.reviewAccess=reviewAccess; }
@@ -87,7 +87,7 @@ public class ModerationStore {
     public ModerationItem lockCommunityPost(UUID id) {
         var rows = jdbc.query("""
                 SELECT p.id, p.user_id, p.content, p.status, p.review_reason, p.created_at,
-                u.display_name AS user_display_name,
+                u.display_name AS user_display_name, u.email AS user_email,
                 (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
@@ -98,7 +98,7 @@ public class ModerationStore {
                 r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
                 r.getString("image_url"), null, r.getString("status"), r.getString("review_reason"),
                 r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
-                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at")), id);
+                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at"),r.getString("user_email")), id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -109,7 +109,7 @@ public class ModerationStore {
         if(parents.isEmpty())return null;
         var rows = jdbc.query("""
                 SELECT c.id, c.post_id, c.user_id, c.content, c.status, c.review_reason, c.created_at,
-                u.display_name AS user_display_name,
+                u.display_name AS user_display_name, u.email AS user_email,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
                 a.reason AS ai_reason, a.checked_at AS ai_checked_at
                 FROM foodtime.community_comments c JOIN foodtime.users u ON u.id = c.user_id
@@ -119,7 +119,7 @@ public class ModerationStore {
                 r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
                 null, null, r.getString("status"), r.getString("review_reason"),
                 r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
-                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at")), id);
+                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at"),r.getString("user_email")), id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -177,12 +177,29 @@ public class ModerationStore {
 
     public List<ModerationLogResponse> logs(int size, long offset) {
         return jdbc.query("""
-                SELECT id,COALESCE(review_submission_id,dish_submission_id,stall_submission_id,dish_image_id,community_post_id,community_comment_id,dish_review_reply_id) AS submission_id,
-                       CASE WHEN review_submission_id IS NOT NULL THEN 'review' WHEN dish_submission_id IS NOT NULL THEN 'dish' WHEN stall_submission_id IS NOT NULL THEN 'stall' WHEN dish_image_id IS NOT NULL THEN 'photo' WHEN community_post_id IS NOT NULL THEN 'community-post' WHEN community_comment_id IS NOT NULL THEN 'community-comment' ELSE 'dish-review-reply' END AS type,
-                       moderator_user_id,actor,ai_model,action,reason,created_at
-                FROM foodtime.content_moderation_logs ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?
+                SELECT l.id,COALESCE(l.review_submission_id,l.dish_submission_id,l.stall_submission_id,l.dish_image_id,l.community_post_id,l.community_comment_id,l.dish_review_reply_id) AS submission_id,
+                       CASE WHEN l.review_submission_id IS NOT NULL THEN 'review' WHEN l.dish_submission_id IS NOT NULL THEN 'dish' WHEN l.stall_submission_id IS NOT NULL THEN 'stall' WHEN l.dish_image_id IS NOT NULL THEN 'photo' WHEN l.community_post_id IS NOT NULL THEN 'community-post' WHEN l.community_comment_id IS NOT NULL THEN 'community-comment' ELSE 'dish-review-reply' END AS type,
+                       l.moderator_user_id,l.actor,l.ai_model,l.action,l.reason,l.created_at,
+                       u.id AS user_id,u.email AS user_email,u.display_name AS user_display_name,
+                       COALESCE(ds.name,ss.name,p.title,d.name) AS name,
+                       COALESCE(rs.content,ds.description,ss.description,p.content,c.content,rr.content) AS content,
+                       COALESCE(ds.image_url,ss.cover_image_url,i.image_url,
+                           (SELECT image_url FROM foodtime.community_post_images WHERE post_id=p.id ORDER BY sort_order,id LIMIT 1)) AS image_url,
+                       COALESCE(rs.submitted_at,ds.created_at,ss.created_at,i.created_at,p.created_at,c.created_at,rr.created_at) AS submitted_at
+                FROM foodtime.content_moderation_logs l
+                LEFT JOIN foodtime.dish_review_submissions rs ON rs.id=l.review_submission_id
+                LEFT JOIN foodtime.dish_submissions ds ON ds.id=l.dish_submission_id
+                LEFT JOIN foodtime.stall_submissions ss ON ss.id=l.stall_submission_id
+                LEFT JOIN foodtime.dish_images i ON i.id=l.dish_image_id
+                LEFT JOIN foodtime.community_posts p ON p.id=l.community_post_id
+                LEFT JOIN foodtime.community_comments c ON c.id=l.community_comment_id
+                LEFT JOIN foodtime.dish_review_replies rr ON rr.id=l.dish_review_reply_id
+                LEFT JOIN foodtime.dishes d ON d.id=COALESCE(rs.dish_id,i.dish_id)
+                LEFT JOIN foodtime.users u ON u.id=COALESCE(rs.user_id,ds.submitted_by_user_id,ss.submitted_by_user_id,i.uploaded_by_user_id,p.user_id,c.user_id,rr.user_id)
+                ORDER BY l.created_at DESC,l.id ASC LIMIT ? OFFSET ?
                 """, (r,n) -> new ModerationLogResponse(r.getObject("id",UUID.class),r.getObject("submission_id",UUID.class),
-                r.getString("type"),r.getObject("moderator_user_id",UUID.class),r.getString("actor"),r.getString("ai_model"),r.getString("action"),r.getString("reason"),r.getTimestamp("created_at").toInstant()), size, offset);
+                r.getString("type"),r.getObject("moderator_user_id",UUID.class),r.getString("actor"),r.getString("ai_model"),r.getString("action"),r.getString("reason"),r.getTimestamp("created_at").toInstant(),
+                r.getObject("user_id",UUID.class),r.getString("user_email"),r.getString("user_display_name"),r.getString("name"),r.getString("content"),r.getString("image_url"),readInstant(r,"submitted_at")), size, offset);
     }
     public long countLogs() { return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.content_moderation_logs", Long.class); }
 

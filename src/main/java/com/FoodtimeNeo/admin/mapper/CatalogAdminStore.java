@@ -1,7 +1,7 @@
 package com.FoodtimeNeo.admin.mapper;
 
 import com.FoodtimeNeo.admin.dto.*;
-import com.FoodtimeNeo.review.dto.PublishedReviewResponse;
+import com.FoodtimeNeo.admin.dto.AdminReviewResponse;
 import org.springframework.jdbc.core.*;
 import org.springframework.stereotype.Repository;
 import java.util.*;
@@ -43,10 +43,10 @@ public class CatalogAdminStore {
             else jdbc.update("UPDATE " + table(type) + " SET name = ?,description = ?,cover_image_url = ?,status = ?,sort_order = ? WHERE id = ?",body.name().strip(),body.description(),body.coverImageUrl(),status,sort,id);
         }
     }
-    public List<PublishedReviewResponse> reviews(String q,int size,long offset) {
+    public List<AdminReviewResponse> reviews(String q,int size,long offset) {
         return jdbc.query("""
                 SELECT r.*,d.name AS dish_name,s.id AS stall_id,s.name AS stall_name,h.id AS hall_id,h.name AS hall_name,
-                u.display_name AS user_display_name,
+                u.display_name AS user_display_name,u.email AS user_email,
                 a.risk_level AS ai_risk_level,a.confidence AS ai_confidence,a.labels AS ai_labels,
                 a.reason AS ai_reason,a.checked_at AS ai_checked_at
                 FROM foodtime.dish_reviews r JOIN foodtime.dishes d ON d.id = r.dish_id
@@ -54,7 +54,7 @@ public class CatalogAdminStore {
                 JOIN foodtime.users u ON u.id = r.user_id
                 LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'review' AND a.submission_id = r.submission_id
                 """ + REVIEW_FILTER + " ORDER BY r.created_at DESC,r.id ASC LIMIT ? OFFSET ?",
-                (r,n) -> new PublishedReviewResponse(r.getObject("id",UUID.class),r.getObject("dish_id",UUID.class),r.getObject("user_id",UUID.class),r.getString("user_display_name"),r.getInt("rating"),r.getString("content"),r.getTimestamp("created_at").toInstant(),r.getTimestamp("updated_at").toInstant(),r.getString("dish_name"),r.getObject("stall_id",UUID.class),r.getString("stall_name"),r.getObject("hall_id",UUID.class),r.getString("hall_name"),r.getString("ai_risk_level"),r.getBigDecimal("ai_confidence"),readLabels(r),r.getString("ai_reason"),readInstant(r)),q,q,q,size,offset);
+                (r,n) -> new AdminReviewResponse(r.getObject("id",UUID.class),r.getObject("dish_id",UUID.class),r.getObject("user_id",UUID.class),r.getString("user_display_name"),r.getInt("rating"),r.getString("content"),r.getTimestamp("created_at").toInstant(),r.getTimestamp("updated_at").toInstant(),r.getString("dish_name"),r.getObject("stall_id",UUID.class),r.getString("stall_name"),r.getObject("hall_id",UUID.class),r.getString("hall_name"),r.getString("ai_risk_level"),r.getBigDecimal("ai_confidence"),readLabels(r),r.getString("ai_reason"),readInstant(r),r.getString("user_email")),q,q,q,size,offset);
     }
 
     private static java.util.List<String> readLabels(java.sql.ResultSet result) throws java.sql.SQLException {
