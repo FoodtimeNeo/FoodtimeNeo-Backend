@@ -7,7 +7,6 @@
 | 环境变量 | 开发默认值 | 说明 |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `dev` | 环境选择：dev / prod |
-| `TEST_VERIFICATION_ENABLED` | `true` | 仅用于测试：允许验证码 `000000` 模拟邮箱验证；生产默认false且拒绝启用。测试真实验证码时设false，详见[测试验证码说明](testing-verification.md) |
 | `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](api/auth/invitation-codes.md) |
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `2000` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `1000` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |

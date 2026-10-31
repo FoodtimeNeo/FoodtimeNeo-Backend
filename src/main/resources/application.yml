@@ -147,8 +147,6 @@ springdoc:
   paths-to-match: /api/**
 
 app:
-  test-verification:
-    enabled: ${TEST_VERIFICATION_ENABLED:false}
   ai:
     triage:
       enabled: ${AI_TRIAGE_ENABLED:false}

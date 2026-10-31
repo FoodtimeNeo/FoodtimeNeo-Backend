@@ -4,7 +4,6 @@ import com.FoodtimeNeo.auth.dto.EmailCodeRequest;
 import com.FoodtimeNeo.auth.dto.EmailCodeResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
-import com.FoodtimeNeo.config.properties.TestVerificationProperties;
 import com.FoodtimeNeo.user.mapper.UserMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -29,18 +28,15 @@ public class EmailVerificationService {
     private static final Logger LOG = LoggerFactory.getLogger(EmailVerificationService.class);
     private final EmailVerificationStore store;
     private final EmailVerificationProperties properties;
-    private final TestVerificationProperties testVerification;
     private final ObjectProvider<JavaMailSender> mail;
     private final UserMapper users;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
     public EmailVerificationService(EmailVerificationStore store, EmailVerificationProperties properties,
-                                     TestVerificationProperties testVerification,
                                      ObjectProvider<JavaMailSender> mail, UserMapper users, Clock clock) {
         this.store = store;
         this.properties = properties;
-        this.testVerification = testVerification;
         this.mail = mail;
         this.users = users;
         this.clock = clock;
@@ -83,8 +79,6 @@ public class EmailVerificationService {
     }
 
     public VerificationClaim claim(String email, String code) {
-        // Test registration works without requesting mail or creating a Redis verification lease.
-        if (testVerification.accepts(code)) { return new VerificationClaim(email, null, true); }
         requireEnabled();
         String token = UUID.randomUUID().toString();
         try {
@@ -102,7 +96,6 @@ public class EmailVerificationService {
     }
 
     public void finish(VerificationClaim claim, boolean registered) {
-        if (claim.testVerification()) { return; }
         try { store.finish(claim, registered); }
         catch (DataAccessException exception) {
             // The database unique index prevents replay after commit. Never report a committed account as a failure.

@@ -1,8 +1,7 @@
 package com.FoodtimeNeo.auth.verification;
 
-/** Real Redis verification lease, or an explicit test verification without a lease. */
-public record VerificationClaim(String email, String token, boolean testVerification) {
-    public VerificationClaim(String email, String token) { this(email, token, false); }
+/** A verification lease obtained from a valid, email-bound Redis proof. */
+public record VerificationClaim(String email, String token) {
 
     @Override
     public String toString() { return "VerificationClaim[<redacted>]"; }

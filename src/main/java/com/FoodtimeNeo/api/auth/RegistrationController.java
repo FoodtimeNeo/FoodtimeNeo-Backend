@@ -28,7 +28,7 @@ public class RegistrationController {
 
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "注册用户", description = "提交校园邮箱、密码及6位邮箱验证码；验证通过后创建账号，默认昵称为干饭人加6位随机数字，角色为user；开发环境默认可用000000模拟验证，仅用于测试，生产禁用")
+    @Operation(summary = "注册用户", description = "提交校园邮箱、密码及6位邮箱验证码；验证通过后创建账号，默认昵称为干饭人加6位随机数字，角色为user；所有环境均需真实邮箱验证码")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "注册成功"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求格式或参数校验失败"),

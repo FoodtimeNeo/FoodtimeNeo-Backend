@@ -39,8 +39,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = { "app.email-verification.send-ip-limit=6",
-                "app.test-verification.enabled=false"})
+        properties = { "app.email-verification.send-ip-limit=6"})
 class RegistrationIT {
     private static final CapturingSmtpServer SMTP = new CapturingSmtpServer();
     private static final String PREFIX = "foodtime:integration:email:" + UUID.randomUUID();
@@ -90,6 +89,15 @@ class RegistrationIT {
         Set<String> keys = redis.keys(PREFIX + ":*");
         if (keys != null && !keys.isEmpty()) { redis.delete(keys); }
         SMTP.clear();
+    }
+
+    @Test
+    void formerTestCodeWithoutAnEmailProofIsRejected() throws Exception {
+        String email = newEmail();
+        var response = registerWithCode(email, "000000");
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(json.readTree(response.body()).path("code").asString()).isEqualTo("EMAIL_CODE_INVALID");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM foodtime.users WHERE email = ?", Long.class, email)).isZero();
     }
 
     @Test
