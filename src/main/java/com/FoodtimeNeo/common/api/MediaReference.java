@@ -7,11 +7,14 @@ import java.util.regex.Pattern;
  * <p>
  * Validation rejects malformed values before the transaction reaches storage, where
  * {@code ImageStorageService.requireOwnedReference} still enforces ownership.
+ * <p>
+ * The UUID must be the canonical lowercase form produced by {@link java.util.UUID#toString()},
+ * which is exactly what that ownership check compares against.
  */
 public final class MediaReference {
     public static final String PREFIX = "/api/v1/media/";
     public static final String PATTERN =
-            "\\A/api/v1/media/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\z";
+            "\\A/api/v1/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\z";
     public static final String MESSAGE = "图片引用不合法，请使用本人上传的图片";
 
     private static final Pattern COMPILED = Pattern.compile(PATTERN);
