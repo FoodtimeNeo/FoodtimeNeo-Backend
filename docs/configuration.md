@@ -54,6 +54,7 @@
 | `REGISTRATION_ACCOUNT_LIMIT` / `REGISTRATION_DEVICE_LIMIT` / `REGISTRATION_IP_LIMIT` | `10` / `10` / `1000` | 发码与注册共用的邮箱 / 设备 / IP尝试配额 |
 | `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
+| `PROTECTION_ENABLED` / `PROTECTION_GLOBAL_MAX_CONCURRENCY` / `PROTECTION_EMAIL_CODE_MAX_CONCURRENCY` / `PROTECTION_REGISTRATION_MAX_CONCURRENCY` / `PROTECTION_LOGIN_MAX_CONCURRENCY` / `PROTECTION_RETRY_AFTER_SECONDS` | `true` / `100` / `30` / `12` / `12` / `2` | 应用层全局在途请求与发码/注册/登录并发上限；超限立即 429 `SERVER_BUSY`，不排队 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |
 | `FORWARD_HEADERS_STRATEGY` | `none` | 受信任反向代理统一设置转发头时可改为 `framework` |

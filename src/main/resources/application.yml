@@ -229,6 +229,15 @@ app:
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
       ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:500}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
+  protection:
+    # 全局在途请求上限；按 2 vCPU / 1GB 堆 / Tomcat 200 线程留出余量。
+    enabled: ${PROTECTION_ENABLED:true}
+    global-max-concurrency: ${PROTECTION_GLOBAL_MAX_CONCURRENCY:100}
+    # 发码会访问学校 SMTP 与 163，注册/登录会跑 Argon2；单独压低并发。
+    email-code-max-concurrency: ${PROTECTION_EMAIL_CODE_MAX_CONCURRENCY:30}
+    registration-max-concurrency: ${PROTECTION_REGISTRATION_MAX_CONCURRENCY:12}
+    login-max-concurrency: ${PROTECTION_LOGIN_MAX_CONCURRENCY:12}
+    retry-after-seconds: ${PROTECTION_RETRY_AFTER_SECONDS:2}
   content:
     submissions:
       window: ${SUBMISSION_WINDOW:PT15M}
