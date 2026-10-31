@@ -25,7 +25,7 @@ class AiModelRouterTest {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final HashOperations<String, String, String> hash = mock(HashOperations.class);
     private final AiTriageProperties properties = new AiTriageProperties(false, "openai", "https://api.example.com",
-            "secret", "env-primary", "env-escalation", "env-fallback", 0.9, "env-photo", 0.95, 0.9,
+            "secret", "env-primary", "env-escalation", "env-fallback", 0.9, "env-photo", 0.95, 0.85, 0.9,
             "foodtime:ai:test", Duration.ofSeconds(30), 10, Duration.ofMinutes(5), Duration.ofMinutes(1));
     private final AiModelRouter router = new AiModelRouter(properties, redis);
 

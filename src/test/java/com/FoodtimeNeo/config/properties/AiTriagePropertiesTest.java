@@ -13,7 +13,7 @@ class AiTriagePropertiesTest {
 
     private AiTriageProperties config(boolean enabled, String provider, String baseUrl, String key, String model) {
         return new AiTriageProperties(enabled, provider, baseUrl, key, model,
-                "escalation-model", "fallback-model", 0.9, "photo-model", 0.95, 0.9, "foodtime:ai:triage",
+                "escalation-model", "fallback-model", 0.9, "photo-model", 0.95, 0.85, 0.9, "foodtime:ai:triage",
                 Duration.ofSeconds(30), 10, Duration.ofMinutes(5), Duration.ofMinutes(1));
     }
 
@@ -39,14 +39,14 @@ class AiTriagePropertiesTest {
     @Test
     void redisNamespaceMustBePresentAndClean() {
         assertThat(validator.validate(config(true, "fake", "", "", ""))).isEmpty();
-        var bad = new AiTriageProperties(true, "fake", "", "", "", "", "", 0.9, "", 0.95, 0.9, "has space",
+        var bad = new AiTriageProperties(true, "fake", "", "", "", "", "", 0.9, "", 0.95, 0.85, 0.9, "has space",
                 Duration.ofSeconds(30), 10, Duration.ofMinutes(5), Duration.ofMinutes(1));
         assertThat(validator.validate(bad)).anyMatch(v -> v.getMessage().contains("illegal characters"));
     }
 
     @Test
     void windowsAndBatchesAreBounded() {
-        var bad = new AiTriageProperties(true, "fake", "", "", "", "", "", -0.5, "", 1.5, -0.1, "",
+        var bad = new AiTriageProperties(true, "fake", "", "", "", "", "", -0.5, "", 1.5, 0.85, -0.1, "",
                 Duration.ofSeconds(0), 0, Duration.ofDays(2), Duration.ofSeconds(-1));
         assertThat(validator.validate(bad)).hasSizeGreaterThanOrEqualTo(4);
     }

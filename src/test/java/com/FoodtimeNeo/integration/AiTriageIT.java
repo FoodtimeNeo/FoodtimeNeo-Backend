@@ -76,7 +76,7 @@ class AiTriageIT extends IntegrationApiSupport {
                 .path("data").path("items");
         var low = find(items, "普通点评");
         assertThat(low.path("aiRiskLevel").asString()).isEqualTo("LOW");
-        assertThat(low.path("aiConfidence").asDouble()).isEqualTo(0.9);
+        assertThat(low.path("aiConfidence").asDouble()).isEqualTo(0.8);
         assertThat(low.path("aiReason").asString()).isNotBlank();
         assertThat(low.path("userDisplayName").asString()).isEqualTo("integration user");
         // Auto-rejected reviews leave the pending queue; humans only see the undecided ones.
@@ -140,7 +140,7 @@ class AiTriageIT extends IntegrationApiSupport {
             Thread.sleep(1000);
             confidence = quietConfidence(content);
         }
-        assertThat(confidence).isEqualByComparingTo("0.9");
+        assertThat(confidence).isEqualByComparingTo("0.8");
     }
 
     private String quietReason(String content) {
@@ -202,7 +202,7 @@ class AiTriageIT extends IntegrationApiSupport {
                 .path("data").path("items");
         var row = find(items, content);
         assertThat(row.path("aiRiskLevel").asString()).isEqualTo("LOW");
-        assertThat(row.path("aiConfidence").asDouble()).isEqualTo(0.9);
+        assertThat(row.path("aiConfidence").asDouble()).isEqualTo(0.8);
         assertThat(row.path("aiReason").asString()).isNotBlank();
     }
 
