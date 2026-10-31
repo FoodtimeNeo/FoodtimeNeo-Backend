@@ -5,7 +5,7 @@ import com.FoodtimeNeo.admin.mapper.CatalogAdminStore;
 import com.FoodtimeNeo.common.api.*;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.media.service.ImageStorageService;
-import com.FoodtimeNeo.review.dto.PublishedReviewResponse;
+import com.FoodtimeNeo.admin.dto.AdminReviewResponse;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import jakarta.validation.Valid;
 import org.springframework.dao.DuplicateKeyException;
@@ -47,7 +47,7 @@ public class CatalogAdminService {
         return existing(type,id,false);
     }
     @Transactional(isolation = Isolation.REPEATABLE_READ,readOnly = true)
-    public PageResponse<PublishedReviewResponse> reviews(UserProfile actor,String query,PageRequest page) {
+    public PageResponse<AdminReviewResponse> reviews(UserProfile actor,String query,PageRequest page) {
         guard(actor);
         String q = query == null ? "" : query.strip();
         if (q.length() > 254) throw bad("搜索内容不能超过254字");
