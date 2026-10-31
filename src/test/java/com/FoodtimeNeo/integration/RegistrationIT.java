@@ -39,7 +39,9 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = { "app.email-verification.send-ip-limit=6", "app.auth.registration.account-limit=100" })
+        properties = { "app.email-verification.send-ip-limit=6", "app.auth.registration.account-limit=100",
+                "app.email-verification.mailbox.enabled=false", "app.auth.cookie-secure=false",
+                "app.ai.single.enabled=false", "app.ai.triage.enabled=false" })
 class RegistrationIT {
     private static final CapturingSmtpServer SMTP = new CapturingSmtpServer();
     private static final String PREFIX = "foodtime:integration:email:" + UUID.randomUUID();
