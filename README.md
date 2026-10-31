@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-当前版本 **1.0.0**；本轮完整测试结果与发布范围见 [1.0.0 发布验收](docs/release-1.0.0.md)。
+当前版本 **1.1.0**；发布范围与部署要求见 [1.1.0 发布说明](docs/release-1.1.0.md)。
 
 校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
 
@@ -21,7 +21,7 @@
 | API 文档 | springdoc-openapi 3.1.1 + Swagger UI；仅开发环境启用 |
 | 测试 | JUnit、MockMvc、AssertJ；真实依赖测试通过 integration profile 单独运行 |
 
-Spring Boot 管理通用依赖版本，不单独覆盖 Spring、Jackson、数据库驱动和 Flyway 的版本。
+Spring Boot管理通用依赖版本；Tomcat与Jackson使用已验证的安全补丁覆盖，具体版本见pom.xml。
 
 ## 本地启动（PowerShell）
 
