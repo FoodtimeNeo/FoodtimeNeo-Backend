@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.config;
 
+import com.FoodtimeNeo.config.properties.AppReleaseProperties;
 import com.FoodtimeNeo.config.properties.CorsProperties;
 import com.FoodtimeNeo.api.system.SystemController;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,11 @@ class CorsConfigurationTest {
         CorsProperties corsProperties() {
             return new CorsProperties(List.of("http://localhost:5173"), List.of("GET", "POST", "OPTIONS"),
                     List.of("Authorization", "Content-Type"), List.of("X-Request-Id"), Duration.ofHours(1));
+        }
+
+        @Bean
+        AppReleaseProperties appReleaseProperties() {
+            return new AppReleaseProperties(0, "", "", "", 0);
         }
     }
 }
