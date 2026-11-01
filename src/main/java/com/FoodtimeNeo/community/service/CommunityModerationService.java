@@ -83,11 +83,10 @@ public class CommunityModerationService {
         if (!"posts".equals(type) && !"comments".equals(type)) {
             throw new BusinessException("VALIDATION_ERROR", "不支持的社区内容类型", HttpStatus.BAD_REQUEST);
         }
-        if (request == null || request.reason() == null || request.reason().isBlank()
-                || request.reason().length() > 500) {
-            throw new BusinessException("VALIDATION_ERROR", "请填写1–500字的删除原因", HttpStatus.BAD_REQUEST);
+        if (request != null && request.reason() != null && request.reason().length() > 500) {
+            throw new BusinessException("VALIDATION_ERROR", "删除备注最多500字", HttpStatus.BAD_REQUEST);
         }
-        String reason = request.reason().strip();
+        String reason = request == null || request.reason() == null || request.reason().isBlank() ? null : request.reason().strip();
         int changed;
         if(type.equals("posts"))changed=posts.remove(id,actor.id(),reason);
         else {UUID post=threads.postOf(id);if(post==null||!threads.lockPost(post))throw missing();changed=threads.remove(id,actor.id(),reason);}
