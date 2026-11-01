@@ -26,7 +26,10 @@ class WebInfrastructureTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new SystemController(), new ValidationTestController())
+        mvc = MockMvcBuilders.standaloneSetup(
+                new SystemController(new com.FoodtimeNeo.config.properties.AppReleaseProperties(
+                        0, "", "", "", 0)),
+                new ValidationTestController())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilters(new RequestIdFilter())
                 .build();
