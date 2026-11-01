@@ -229,6 +229,16 @@ app:
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
       ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:500}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
+    password-reset:
+      redis-namespace: ${PASSWORD_RESET_REDIS_NAMESPACE:foodtime:auth:password-reset}
+      code-ttl: ${PASSWORD_RESET_CODE_TTL:PT10M}
+      token-ttl: ${PASSWORD_RESET_TOKEN_TTL:PT5M}
+      resend-interval: ${PASSWORD_RESET_RESEND_INTERVAL:PT1M}
+      send-account-limit: ${PASSWORD_RESET_SEND_ACCOUNT_LIMIT:5}
+      send-device-limit: ${PASSWORD_RESET_SEND_DEVICE_LIMIT:10}
+      send-ip-limit: ${PASSWORD_RESET_SEND_IP_LIMIT:200}
+      verify-account-limit: ${PASSWORD_RESET_VERIFY_ACCOUNT_LIMIT:10}
+      verify-ip-limit: ${PASSWORD_RESET_VERIFY_IP_LIMIT:300}
   protection:
     # 全局在途请求上限；按 2 vCPU / 1GB 堆 / Tomcat 200 线程留出余量。
     enabled: ${PROTECTION_ENABLED:true}

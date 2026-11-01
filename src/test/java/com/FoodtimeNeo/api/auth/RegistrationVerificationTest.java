@@ -79,6 +79,23 @@ class RegistrationVerificationTest {
     }
 
     @Test
+    void frontendVerifiedFlagAndOmittedCodeNeverCreateAnAccount() throws Exception {
+        mvc(true).perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+            {"email":"123@bjtu.edu.cn","password":"Foodtime2026!","verified":true,"emailVerified":true}
+            """)).andExpect(status().isBadRequest());
+        verifyNoInteractions(store);
+        verify(users,never()).insertRegisteredUser(any());
+    }
+
+    @Test
+    void fabricatedVerificationFlagsDoNotOverrideARejectedCode() throws Exception {
+        mvc(true).perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+            {"email":"123@bjtu.edu.cn","password":"Foodtime2026!","verificationCode":"012345","verified":true}
+            """)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMAIL_CODE_INVALID"));
+        verify(users,never()).insertRegisteredUser(any());
+    }
+
+    @Test
     void zeroIsValidOnlyWhenTheRealStoreGrantsItsProof() throws Exception {
         when(store.claim(eq("123@bjtu.edu.cn"), eq("000000"), anyString())).thenReturn(1L);
         when(users.insertRegisteredUser(any())).thenReturn(1);
