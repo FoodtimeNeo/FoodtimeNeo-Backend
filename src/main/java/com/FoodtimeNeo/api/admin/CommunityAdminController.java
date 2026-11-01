@@ -61,7 +61,9 @@ public class CommunityAdminController {
     @GetMapping("/comments/{id}")
     public ApiResponse<CommunityModerationDetail> commentDetail(@PathVariable UUID id,HttpServletRequest request){return ApiResponse.success(moderation.detail(current(request),"comments",id));}
     @DeleteMapping("/posts/{id}")
+    @Operation(summary = "管理员删除社区帖子", description = "active admin/superadmin 可删除他人帖子；原因必填，最多500字。软删除并记录操作者，重复删除返回404。")
     public ApiResponse<Void> removePost(@PathVariable UUID id,@Valid @RequestBody RemoveCommunityRequest body,HttpServletRequest request){moderation.remove(current(request),"posts",id,body);return ApiResponse.success(null);}
     @DeleteMapping("/comments/{id}")
+    @Operation(summary = "管理员删除社区评论", description = "active admin/superadmin 可删除评论与回复；原因必填，最多500字。保留已通过的楼内回复及删除审计信息。")
     public ApiResponse<Void> removeComment(@PathVariable UUID id,@Valid @RequestBody RemoveCommunityRequest body,HttpServletRequest request){moderation.remove(current(request),"comments",id,body);return ApiResponse.success(null);}
 }

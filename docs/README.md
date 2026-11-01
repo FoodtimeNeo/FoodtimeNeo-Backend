@@ -5,6 +5,8 @@
 | 需要了解的内容 | 入口 |
 | --- | --- |
 | 安装、启动与常用检查 | [项目 README](../README.md) |
+| 1.1.3 发布范围与验证 | [1.1.3 发布说明](release-1.1.3.md) |
+| 管理员社区删除接口与权限 | [社区管理](community-management.md) |
 | 1.0.0 发布范围与完整回归 | [1.0.0 发布验收](release-1.0.0.md) |
 | 分层、目录和事务边界 | [架构](architecture.md) |
 | 环境变量、Cookie、存储与连接 | [配置](configuration.md) |
