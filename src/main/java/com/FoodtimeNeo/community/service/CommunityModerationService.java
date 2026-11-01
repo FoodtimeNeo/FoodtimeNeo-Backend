@@ -60,7 +60,8 @@ public class CommunityModerationService {
     }
 
     private void guard(UserProfile actor) {
-        if (!actor.status().equals("active") || !(actor.role().equals("admin") || actor.role().equals("superadmin"))) {
+        if (actor == null || !"active".equals(actor.status())
+                || !("admin".equals(actor.role()) || "superadmin".equals(actor.role()))) {
             throw new BusinessException("ACCESS_DENIED", "需要管理员权限", HttpStatus.FORBIDDEN);
         }
     }
@@ -78,9 +79,18 @@ public class CommunityModerationService {
     }
     @Transactional
     public void remove(UserProfile actor,String type,UUID id,@Valid RemoveCommunityRequest request){
-        guard(actor);int changed;
-        if(type.equals("posts"))changed=posts.remove(id,actor.id(),request.reason().strip());
-        else {UUID post=threads.postOf(id);if(post==null||!threads.lockPost(post))throw missing();changed=threads.remove(id,actor.id(),request.reason().strip());}
+        guard(actor);
+        if (!"posts".equals(type) && !"comments".equals(type)) {
+            throw new BusinessException("VALIDATION_ERROR", "不支持的社区内容类型", HttpStatus.BAD_REQUEST);
+        }
+        if (request == null || request.reason() == null || request.reason().isBlank()
+                || request.reason().length() > 500) {
+            throw new BusinessException("VALIDATION_ERROR", "请填写1–500字的删除原因", HttpStatus.BAD_REQUEST);
+        }
+        String reason = request.reason().strip();
+        int changed;
+        if(type.equals("posts"))changed=posts.remove(id,actor.id(),reason);
+        else {UUID post=threads.postOf(id);if(post==null||!threads.lockPost(post))throw missing();changed=threads.remove(id,actor.id(),reason);}
         if(changed==0)throw missing();
     }
     private BusinessException missing(){return new BusinessException("CONTENT_NOT_FOUND","社区内容不存在或已删除",HttpStatus.NOT_FOUND);}
