@@ -16,7 +16,7 @@
 
 V19 扩充 `community_posts`：标题、发布去重编号、收藏计数、审核阶段/转人工原因、更新时间、删除时间/操作者/原因；扩充 `community_post_images`：宽高及图片顺序唯一约束。帖子、评论内容禁止更新。
 
-`status=pending` 时，`reviewStage=ai_pending` 或 `manual_pending`。AI 无法判断、不可用、关闭时分别以 `uncertain`、`ai_unavailable`、`ai_disabled` 转人工；终审后为 `completed`。所有配图与标题正文都须完成审核才可自动通过。文件清理会保留仍被社区引用的图片；私有图片只允许作者及管理员访问，公开图片随帖子可见性变化。
+`status=pending` 时，`reviewStage=ai_pending` 或 `manual_pending`。AI 判断存疑时以 `uncertain` 转人工；AI 暂时不可用（传输故障）保持 `ai_pending` 由扫批重试；AI 关闭时以 `ai_disabled` 转人工；非 AI 基础设施错误才以 `ai_unavailable` 转人工。终审后为 `completed`。所有配图与标题正文都须完成审核才可自动通过。文件清理会保留仍被社区引用的图片；私有图片只允许作者及管理员访问，公开图片随帖子可见性变化。
 
 ## 紧凑楼中楼
 

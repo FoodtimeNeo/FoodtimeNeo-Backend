@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * Community P1: submit → AI/human decision → feed/mine/detail/delete.
- * Fake AI: default LOW 0.9 stays pending, "放心" auto-approves at 0.99.
+ * Fake AI: default LOW 0.8 stays pending, "放心" auto-approves at 0.99.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
@@ -71,6 +71,25 @@ class CommunityPostIT extends IntegrationApiSupport {
         assertThat(jdbc.queryForObject("SELECT actor FROM foodtime.content_moderation_logs WHERE community_post_id IN"
                 + " (SELECT id FROM foodtime.community_posts WHERE content = ?)",
                 String.class, content)).isEqualTo("ai");
+    }
+
+    @Test
+    void communityThresholdAutoApprovesLowAtEightyFive() throws Exception {
+        org.mockito.Mockito.doReturn(new com.FoodtimeNeo.ai.dto.AiVerdict(
+                        "LOW", 0.86, java.util.List.of(), "阈值测试通过", "fake"))
+                .when(provider).checkText(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.contains("阈值测试"));
+        Browser author = login(owner);
+        String content = "阈值测试-" + UUID.randomUUID();
+        assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author, content)).statusCode())
+                .isEqualTo(202);
+        String status = null;
+        for (int i = 0; i < 30 && !"approved".equals(status); i++) {
+            Thread.sleep(1000);
+            status = jdbc.queryForObject("SELECT status FROM foodtime.community_posts WHERE content = ?",
+                    String.class, content);
+        }
+        assertThat(status).isEqualTo("approved");
     }
 
     @Test

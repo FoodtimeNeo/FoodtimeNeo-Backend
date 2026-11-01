@@ -19,14 +19,17 @@ class CommunityAiFallbackIT extends IntegrationApiSupport {
  @DynamicPropertySource static void enabled(DynamicPropertyRegistry r){r.add("app.ai.triage.enabled",()->"true");}
  @MockitoSpyBean FakeAiProvider provider;
  @Autowired ModerationService moderation;
- @Test void providerFailureRoutesToHumanInsteadOfLeavingContentStuck()throws Exception{
+ @Test void providerFailureStaysAiPendingForSweepRetry()throws Exception{
   doThrow(new AiUnavailableException("模拟服务中断")).when(provider).checkText(anyString(),contains("故障测试"));
   var author=login(owner);UUID id=UUID.fromString(body(author.call("POST","/api/v1/community/posts",communityPost(author,"故障测试"))).path("data").path("id").asString());
-  awaitManual(id);
-  assertThat(jdbc.queryForObject("SELECT manual_review_reason FROM foodtime.community_posts WHERE id=?",String.class,id)).isEqualTo("ai_unavailable");
+  Thread.sleep(500);
+  assertThat(jdbc.queryForObject("SELECT review_stage FROM foodtime.community_posts WHERE id=?",String.class,id)).isEqualTo("ai_pending");
+  assertThat(jdbc.queryForObject("SELECT manual_review_reason FROM foodtime.community_posts WHERE id=?",String.class,id)).isNull();
   assertThat(login(other).call("GET","/api/v1/community/posts/"+id,null).statusCode()).isEqualTo(404);
  }
  @Test void uncertainImageNeedsHumanEvenWithConfidentText()throws Exception{
+  doReturn(new AiVerdict("MEDIUM", 0.8, List.of(), "演示判定：图片存疑", "fake"))
+      .when(provider).checkImage(anyString(), any(), anyString());
   var author=login(owner);UUID id=UUID.fromString(body(author.call("POST","/api/v1/community/posts",communityPost(author,"放心，配图结论仍需人工确认"))).path("data").path("id").asString());
   awaitManual(id);
   assertThat(jdbc.queryForObject("SELECT status FROM foodtime.community_posts WHERE id=?",String.class,id)).isEqualTo("pending");

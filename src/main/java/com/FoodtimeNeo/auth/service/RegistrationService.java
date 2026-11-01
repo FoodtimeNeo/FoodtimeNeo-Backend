@@ -32,21 +32,26 @@ public class RegistrationService {
     private final DefaultDisplayNameGenerator names;
     private final EmailVerificationService verification;
     private final InvitationService invitations;
+    private final RegistrationGate gate;
     private final Clock clock;
 
     public RegistrationService(UserMapper users, PasswordEncoder passwords, DefaultDisplayNameGenerator names,
-                               EmailVerificationService verification, InvitationService invitations, Clock clock) {
+                               EmailVerificationService verification, InvitationService invitations,
+                               RegistrationGate gate, Clock clock) {
         this.users = users;
         this.passwords = passwords;
         this.names = names;
         this.verification = verification;
         this.invitations = invitations;
+        this.gate = gate;
         this.clock = clock;
     }
 
     @Transactional
     public RegisterResponse register(@NotNull @Valid RegisterRequest request) {
         try {
+            // Policy first: never consume a verification code or reveal account state while closed.
+            gate.requireInvitation(request);
             // Reveal account existence only after proving control of its email address.
             VerificationClaim claim = verification.claim(request.email(), request.verificationCode());
             boolean registered = false;

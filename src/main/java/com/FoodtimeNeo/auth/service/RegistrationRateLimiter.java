@@ -16,10 +16,11 @@ public class RegistrationRateLimiter {
     public RegistrationRateLimiter(StringRedisTemplate redis, RegistrationLimitsProperties properties) {
         this.redis = redis; this.properties = properties;
     }
-    public void check(String email, String remoteAddress) {
+    public void check(String email, String remoteAddress, String deviceId) {
         try {
-            Long retry = RedisAttemptLimiter.check(redis, properties.redisNamespace(), "account", email, remoteAddress,
-                    properties.accountLimit(), properties.ipLimit(), properties.window());
+            Long retry = RedisAttemptLimiter.check(redis, properties.redisNamespace(), "account", email,
+                    deviceId, remoteAddress, properties.accountLimit(), properties.deviceLimit(),
+                    properties.ipLimit(), properties.window());
             if (retry == null) throw EmailVerificationService.unavailable();
             if (retry > 0) throw new RegistrationLimited(retry);
         } catch (DataAccessException failure) { throw EmailVerificationService.unavailable(); }

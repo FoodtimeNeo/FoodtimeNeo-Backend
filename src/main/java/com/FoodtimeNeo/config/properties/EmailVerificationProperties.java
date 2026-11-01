@@ -15,7 +15,7 @@ import java.time.Duration;
 public record EmailVerificationProperties(boolean enabled, @Email String from, String secret,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9:_-]{1,100}") String redisNamespace,
         @NotNull Duration resendInterval, @NotNull Duration sendWindow,
-        @Min(1) int sendAccountLimit, @Min(1) int sendIpLimit) {
+        @Min(1) int sendAccountLimit, @Min(1) int sendDeviceLimit, @Min(1) int sendIpLimit) {
     public static final Duration CODE_TTL = Duration.ofMinutes(15);
     public static final int MAX_ATTEMPTS = 5;
     public static final int CLAIM_SECONDS = 60;

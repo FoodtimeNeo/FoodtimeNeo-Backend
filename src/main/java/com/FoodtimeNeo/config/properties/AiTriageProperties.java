@@ -20,6 +20,7 @@ public record AiTriageProperties(boolean enabled,
         String baseUrl, String apiKey, String primaryModel, String escalationModel, String fallbackModel,
         @DecimalMin("0.0") @DecimalMax("1.0") double escalationBelowConfidence, String photoModel,
         @DecimalMin("0.0") @DecimalMax("1.0") double autoApproveAbove,
+        @DecimalMin("0.0") @DecimalMax("1.0") double communityApproveAbove,
         @DecimalMin("0.0") @DecimalMax("1.0") double autoRejectAbove,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9:_-]{1,100}", message = "AI triage redis namespace has illegal characters")
         String redisNamespace,

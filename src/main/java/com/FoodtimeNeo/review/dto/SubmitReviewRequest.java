@@ -6,9 +6,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Schema(description = "评分与评论正文；提交人由服务器会话取得，提交后等待审核")
 public record SubmitReviewRequest(
         @NotNull @Min(1) @Max(5) Integer rating,
-        @NotBlank String content) { }
+        @NotBlank @Size(max = 500, message = "评论正文不能超过500字") String content) { }

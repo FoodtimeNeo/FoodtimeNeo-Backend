@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * Community P2: comments submit → AI/human decision → list/delete;
- * admin comment queue carries AI verdicts. Fake AI: default LOW 0.9 stays
+ * admin comment queue carries AI verdicts. Fake AI: default LOW 0.8 stays
  * pending, "放心" auto-approves at 0.99, "违禁" auto-rejects at 0.95.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

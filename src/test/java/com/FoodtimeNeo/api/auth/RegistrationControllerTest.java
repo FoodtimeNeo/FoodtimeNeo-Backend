@@ -3,6 +3,7 @@ package com.FoodtimeNeo.api.auth;
 import com.FoodtimeNeo.auth.dto.RegisterRequest;
 import com.FoodtimeNeo.auth.dto.RegisterResponse;
 import com.FoodtimeNeo.auth.service.RegistrationService;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.common.exception.GlobalExceptionHandler;
 import com.FoodtimeNeo.common.web.RequestIdFilter;
@@ -30,13 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class RegistrationControllerTest {
     private final JsonMapper json = JsonMapper.builder().build();
+    private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private RegistrationService service;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         service = mock(RegistrationService.class);
-        mvc = MockMvcBuilders.standaloneSetup(new RegistrationController(service, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
+        when(devices.resolve(any(), any())).thenReturn("device-test");
+        mvc = MockMvcBuilders.standaloneSetup(new RegistrationController(service,
+                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new GlobalExceptionHandler()).addFilters(new RequestIdFilter()).build();
     }
 

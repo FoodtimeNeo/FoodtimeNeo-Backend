@@ -1,6 +1,6 @@
 # 配置说明
 
-修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
+修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；注册与发码额外使用签名匿名设备 Cookie，按邮箱/设备/IP三层计数，见[邮箱验证码](api/auth/email-verification.md)。反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
 
 `application.yml` 保存共享配置；`application-dev.yml` 保存本地默认值；`application-prod.yml` 要求显式提供连接信息并关闭 API 文档。默认启用 `dev`；可通过环境变量 `SPRING_PROFILES_ACTIVE=prod` 或启动参数切换。系统环境变量可覆盖 `.env` 值。
 
@@ -18,7 +18,9 @@
 | `AI_TRIAGE_BASE_URL` / `AI_TRIAGE_API_KEY` / `AI_TRIAGE_PRIMARY_MODEL` | 空 | `openai` 提供方必填；缺任何一项启动失败。密钥只走环境变量、平台密钥或 systemd 加密凭据，见[密钥安全存储](secrets.md) |
 | `AI_TRIAGE_ESCALATION_MODEL` / `AI_TRIAGE_FALLBACK_MODEL` / `AI_TRIAGE_PHOTO_MODEL` | 见 application.yml 默认值 | 升级复核 / 故障兜底 / 图片直诊模型；留空表示不启用对应环节 |
 | `AI_TRIAGE_ESCALATION_BELOW_CONFIDENCE` | `0.9` | LOW 首判置信度低于此阈值时触发升级复核（0–1） |
-| `AI_TRIAGE_AUTO_APPROVE_ABOVE` / `AI_TRIAGE_AUTO_REJECT_ABOVE` | `0.95` / `0.9` | 达到即 AI 自动通过/驳回评论；其余留给人工 |
+| `AI_TRIAGE_AUTO_APPROVE_ABOVE` / `AI_TRIAGE_AUTO_REJECT_ABOVE` | `0.95` / `0.9` | 评论/点评/回复的自动通过线；HIGH 达到自动驳回线即驳回 |
+| `AI_TRIAGE_COMMUNITY_APPROVE_ABOVE` | `0.85` | 社区帖子专用的自动通过线（正文与全部配图均需达到）；评论/点评/回复仍用 `0.95` |
+| `EMAIL_MAILBOX_VERIFY_ENABLED` / `EMAIL_MAILBOX_VERIFY_HOST` / `EMAIL_MAILBOX_VERIFY_PORT` / `EMAIL_MAILBOX_VERIFY_TIMEOUT` / `EMAIL_MAILBOX_VERIFY_CACHE_TTL` / `EMAIL_MAILBOX_VERIFY_CACHE_NAMESPACE` | `false` / `smg.bjtu.edu.cn` / `465` / `PT3S` / `PT10M` / `foodtime:auth:mailbox` | 注册邮箱存在性 RCPT 预检；`550` 静默 202 不发信且不消耗发送配额，探测异常 fail-open 继续发码 |
 | `AI_TRIAGE_REDIS_NAMESPACE` | `foodtime:ai:triage` | 模型映射覆盖的 Redis 哈希；monitor/超管热切换写这里，删字段即回 env 默认 |
 | `AI_TRIAGE_TIMEOUT` / `AI_TRIAGE_BATCH_SIZE` | `PT30S` / `10` | 单次调用超时（1–120秒整秒）；每轮最多诊断条数（1–100） |
 | `AI_TRIAGE_INTERVAL` / `AI_TRIAGE_INITIAL_DELAY` | `PT30S` / `PT5S` | 兜底扫批周期与启动延迟（整秒；周期不超过1天，延迟不超过1天） |
@@ -29,7 +31,7 @@
 | `SLOW_REQUEST_THRESHOLD` | `PT2S` | 慢请求日志阈值，0至300秒的整秒数 |
 | `DASHBOARD_PRESENCE_TTL` / `DASHBOARD_PRESENCE_NAMESPACE` | `PT5M` / `foodtime:presence` | 在线用户 presence 窗口与 Redis 前缀；TTL 内有已认证请求的去重用户计为在线 |
 | `STORAGE_DISK_WARN_BYTES` | `1073741824` | 暂存目录字节数告警线，超限记warn |
-| `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口 |
+| `SERVER_ADDRESS` / `SERVER_PORT` | `0.0.0.0` / `8080` | 服务监听地址与端口；Nginx 同机部署建议设为 `127.0.0.1`，只允许本机反代访问 |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/foodtime_neo?currentSchema=foodtime` | JDBC URL；生产必须显式提供，保留 `currentSchema=foodtime` |
 | `DB_USERNAME` / `DB_PASSWORD` | `.env.example` 中的本地账号 | 生产必填，不允许为空 |
 | `DB_POOL_MIN_IDLE` / `DB_POOL_MAX_SIZE` | `2` / `10` | Hikari 连接池 |
@@ -45,8 +47,14 @@
 | `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
+| `AUTH_DEVICE_SECRET` / `AUTH_DEVICE_COOKIE_NAME` / `AUTH_DEVICE_COOKIE_MAX_AGE` | 复用`EMAIL_VERIFICATION_SECRET` / `foodtime_device` / `P365D` | 注册与发码的签名匿名设备Cookie；不采集指纹，仅用于限流。更换密钥会使旧Cookie失效 |
+| `EMAIL_SEND_DEVICE_LIMIT` / `EMAIL_SEND_IP_LIMIT` | `5` / `200` | 每浏览器设备 / 每来源IP发码配额；IP只做高上限兜底，避免校园NAT下正常用户互相挤占 |
+| `REGISTRATION_MODE` | `open` | 注册策略：`open` 正常注册；`invitation` 额外要求有效邀请码；`closed` 同时拒绝注册与发码，避免继续消耗发信配额 |
+| `CLIENT_HEADER_MODE` / `CLIENT_HEADER_NAME` / `CLIENT_HEADER_ALLOWED` / `CLIENT_HEADER_PATHS` | `observe` / `X-Foodtime-Client` / `web,android` / 注册与发码路径 | 官方客户端标识头。`observe` 仅记录未知客户端，`enforce` 才拒绝；这是抬高脚本成本的门槛，不是身份证明 |
+| `REGISTRATION_ACCOUNT_LIMIT` / `REGISTRATION_DEVICE_LIMIT` / `REGISTRATION_IP_LIMIT` | `10` / `10` / `1000` | 发码与注册共用的邮箱 / 设备 / IP尝试配额 |
 | `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
+| `PROTECTION_ENABLED` / `PROTECTION_GLOBAL_MAX_CONCURRENCY` / `PROTECTION_EMAIL_CODE_MAX_CONCURRENCY` / `PROTECTION_REGISTRATION_MAX_CONCURRENCY` / `PROTECTION_LOGIN_MAX_CONCURRENCY` / `PROTECTION_RETRY_AFTER_SECONDS` | `true` / `100` / `30` / `12` / `12` / `2` | 应用层全局在途请求与发码/注册/登录并发上限；超限立即 429 `SERVER_BUSY`，不排队 |
 | `LOG_LEVEL` / `APP_LOG_LEVEL` | `INFO` / `INFO` | 根日志 / 应用日志等级 |
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |
 | `FORWARD_HEADERS_STRATEGY` | `none` | 受信任反向代理统一设置转发头时可改为 `framework` |
@@ -64,7 +72,7 @@
 
 ## 注册与图片容量保护
 
-注册和发码请求共同按邮箱/IP计数，默认15分钟每邮箱10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。参数见`.env.example`中的`REGISTRATION_*`。
+注册和发码请求共同按邮箱/设备/IP计数，默认15分钟每邮箱10次、每设备10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。发码另按邮箱5次、每设备5次、每IP200次计数。参数见`.env.example`中的`REGISTRATION_*`和`EMAIL_SEND_*`。
 
 上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。处理后仍不超过10MB；并发上传/首次缩略图解码默认最多2项，繁忙返回429。
 

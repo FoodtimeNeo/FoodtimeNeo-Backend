@@ -1,7 +1,9 @@
 package com.FoodtimeNeo.community.dto;
 
+import com.FoodtimeNeo.common.api.MediaReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,7 +21,8 @@ public record CreatePostRequest(
 
         @Size(max = 9, message = "配图最多9张")
         @Schema(description = "本人已上传的暂存图片引用（/api/v1/media/{id}），最多9张")
-        List<String> imageUrls,
+        List<@NotBlank(message = "图片引用不能为空")
+             @Pattern(regexp = MediaReference.PATTERN, message = MediaReference.MESSAGE) String> imageUrls,
 
         @Schema(description = "转发来源动态ID；原创不填", nullable = true)
         UUID repostOfId) {

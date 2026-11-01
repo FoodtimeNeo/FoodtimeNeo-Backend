@@ -27,27 +27,36 @@ public class EmailVerificationService {
     private static final Logger LOG = LoggerFactory.getLogger(EmailVerificationService.class);
     private final EmailVerificationStore store;
     private final EmailVerificationProperties properties;
+    private final MailboxVerifier mailboxes;
     private final ObjectProvider<JavaMailSender> mail;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
     public EmailVerificationService(EmailVerificationStore store, EmailVerificationProperties properties,
-                                     ObjectProvider<JavaMailSender> mail, Clock clock) {
+                                     MailboxVerifier mailboxes, ObjectProvider<JavaMailSender> mail, Clock clock) {
         this.store = store;
         this.properties = properties;
+        this.mailboxes = mailboxes;
         this.mail = mail;
         this.clock = clock;
     }
 
-    public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress) {
+    public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress, String deviceId) {
         requireEnabled();
         JavaMailSender sender = mail.getIfAvailable();
         if (sender == null) { throw unavailable(); }
+        // Anti-enumeration: a non-existent mailbox gets the same 202 response, but no mail
+        // is sent and no send quota is consumed. Probe failures fail open.
+        if (mailboxes.verify(request.email()) == MailboxVerifier.Result.NOT_FOUND) {
+            LOG.info("Email verification skipped: mailbox not found");
+            return new EmailCodeResponse(clock.instant().plus(EmailVerificationProperties.CODE_TTL),
+                    properties.resendInterval().toSeconds());
+        }
         String token = UUID.randomUUID().toString();
         boolean reserved = false;
         boolean published = false;
         try {
-            long retry = store.reserveSend(request.email(), remoteAddress, token);
+            long retry = store.reserveSend(request.email(), remoteAddress, deviceId, token);
             if (retry > 0) { throw new EmailRateLimitException(retry); }
             reserved = true;
             String code = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));

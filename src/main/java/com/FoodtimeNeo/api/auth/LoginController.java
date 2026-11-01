@@ -4,6 +4,7 @@ import com.FoodtimeNeo.auth.dto.CsrfResponse;
 import com.FoodtimeNeo.auth.dto.LoginRequest;
 import com.FoodtimeNeo.auth.dto.LoginResponse;
 import com.FoodtimeNeo.auth.dto.UserResponse;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.service.LoginRateLimiter;
 import com.FoodtimeNeo.auth.service.LoginService;
@@ -37,18 +38,21 @@ public class LoginController {
     private final LoginRateLimiter limiter;
     private final SessionAuthenticationService sessions;
     private final TransactionTemplate transactions;
+    private final DeviceIdentityService devices;
 
     public LoginController(LoginService logins, LoginRateLimiter limiter, SessionAuthenticationService sessions,
-                           TransactionTemplate transactions) {
+                           TransactionTemplate transactions, DeviceIdentityService devices) {
         this.logins = logins;
         this.limiter = limiter;
         this.sessions = sessions;
         this.transactions = transactions;
+        this.devices = devices;
     }
 
     @GetMapping("/csrf")
     @Operation(summary = "获取CSRF令牌", description = "登录前及登录成功后获取；写请求携带返回的请求头和Cookie")
-    public ApiResponse<CsrfResponse> csrf(CsrfToken token) {
+    public ApiResponse<CsrfResponse> csrf(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
+        devices.resolve(request, response);
         return ApiResponse.success(new CsrfResponse(token.getHeaderName(), token.getToken()));
     }
 

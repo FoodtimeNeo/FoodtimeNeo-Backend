@@ -28,11 +28,13 @@ public class EmailVerificationStore {
         this.properties = properties;
     }
 
-    public long reserveSend(String email, String ip, String token) {
+    public long reserveSend(String email, String ip, String deviceId, String token) {
+        String device = deviceId == null || deviceId.isBlank() ? "unidentified" : deviceId;
         return result(redis.execute(RESERVE, List.of(key("code", email), key("cooldown", email),
-                key("account", email), key("ip", ip)), token, Long.toString(properties.resendInterval().toSeconds()),
+                key("account", email), key("device", device), key("ip", ip)), token,
+                Long.toString(properties.resendInterval().toSeconds()),
                 Long.toString(properties.sendWindow().toSeconds()), Integer.toString(properties.sendAccountLimit()),
-                Integer.toString(properties.sendIpLimit())));
+                Integer.toString(properties.sendDeviceLimit()), Integer.toString(properties.sendIpLimit())));
     }
 
     public boolean publish(String email, String token, String code) {

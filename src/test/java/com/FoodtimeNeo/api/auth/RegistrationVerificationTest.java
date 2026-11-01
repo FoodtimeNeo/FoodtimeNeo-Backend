@@ -3,6 +3,8 @@ package com.FoodtimeNeo.api.auth;
 import com.FoodtimeNeo.auth.service.RegistrationService;
 import com.FoodtimeNeo.auth.verification.EmailVerificationService;
 import com.FoodtimeNeo.auth.verification.EmailVerificationStore;
+import com.FoodtimeNeo.auth.verification.MailboxVerifier;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.common.exception.GlobalExceptionHandler;
 import com.FoodtimeNeo.config.PasswordConfig;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
@@ -30,17 +32,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class RegistrationVerificationTest {
     private final UserMapper users = mock(UserMapper.class);
     private final EmailVerificationStore store = mock(EmailVerificationStore.class);
+    private final MailboxVerifier mailboxes = mock(MailboxVerifier.class);
+    private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private final ObjectProvider<JavaMailSender> mail = mock(ObjectProvider.class);
     private final org.springframework.security.crypto.password.PasswordEncoder passwords = new PasswordConfig().passwordEncoder();
 
     private MockMvc mvc(boolean enabled) {
         var verification = new EmailVerificationService(store,
                 new EmailVerificationProperties(enabled, "sender@example.test", "test-only-secret-at-least-32-characters",
-                        "test:email", Duration.ofSeconds(60), Duration.ofMinutes(15), 5, 20),
-                mail, Clock.systemUTC());
+                        "test:email", Duration.ofSeconds(60), Duration.ofMinutes(15), 5, 5, 20),
+                mailboxes, mail, Clock.systemUTC());
         var registration = new RegistrationService(users, passwords, new DefaultDisplayNameGenerator(), verification,
-                mock(InvitationService.class), Clock.systemUTC());
-        return MockMvcBuilders.standaloneSetup(new RegistrationController(registration, mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class)))
+                mock(InvitationService.class),
+                new com.FoodtimeNeo.auth.service.RegistrationGate(
+                        new com.FoodtimeNeo.config.properties.RegistrationLimitsProperties(
+                                com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
+                                Duration.ofMinutes(15), 10, 10, 1000, "test:registration")),
+                Clock.systemUTC());
+        return MockMvcBuilders.standaloneSetup(new RegistrationController(registration,
+                        mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

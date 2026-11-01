@@ -1,6 +1,7 @@
 package com.FoodtimeNeo.api.auth;
 
 import com.FoodtimeNeo.auth.dto.LoginRequest;
+import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.auth.service.LoginService;
 import com.FoodtimeNeo.auth.service.LoginRateLimiter;
@@ -26,12 +27,13 @@ class LoginControllerTest {
     private final LoginRateLimiter limiter = mock(LoginRateLimiter.class);
     private final SessionAuthenticationService sessions = mock(SessionAuthenticationService.class);
     private final TransactionTemplate transactions = mock(TransactionTemplate.class);
+    private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new LoginController(logins, limiter, sessions, transactions))
+        mvc = MockMvcBuilders.standaloneSetup(new LoginController(logins, limiter, sessions, transactions, devices))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler())
                 .addFilters(new RequestIdFilter()).build();
     }

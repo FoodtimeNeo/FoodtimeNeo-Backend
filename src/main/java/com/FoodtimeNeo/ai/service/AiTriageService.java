@@ -96,7 +96,9 @@ public class AiTriageService {
             try {
                 checked += diagnosePendingCommunityPost(provider, item);
             } catch (RuntimeException exception) {
-                community.routeToManual("community-post",item.id(),"ai_unavailable");
+                if (!(exception instanceof AiUnavailableException)) {
+                    community.routeToManual("community-post",item.id(),"ai_unavailable");
+                }
                 LOG.error("AI community triage failed for {}", item.id(), exception);
             }
         }
@@ -104,7 +106,9 @@ public class AiTriageService {
             try {
                 checked += diagnosePendingCommunityComment(provider, item);
             } catch (RuntimeException exception) {
-                community.routeToManual("community-comment",item.id(),"ai_unavailable");
+                if (!(exception instanceof AiUnavailableException)) {
+                    community.routeToManual("community-comment",item.id(),"ai_unavailable");
+                }
                 LOG.error("AI community comment triage failed for {}", item.id(), exception);
             }
         }
@@ -147,7 +151,7 @@ public class AiTriageService {
                 store.pendingCommunityComment(event.submissionId()).ifPresent(item -> diagnosePendingCommunityComment(provider, item));
             }
         } catch (RuntimeException exception) {
-            if (event.type().startsWith("community-")) {
+            if (event.type().startsWith("community-") && !(exception instanceof AiUnavailableException)) {
                 community.routeToManual(event.type(),event.submissionId(),"ai_unavailable");
             }
             LOG.warn("AI instant triage deferred for {} {}, sweep will retry: {}",
@@ -186,7 +190,10 @@ public class AiTriageService {
      */
     private void maybeAutoDecide(AiVerdict verdict, String type, UUID submissionId) {
         if (!"review".equals(type) && !"community-post".equals(type) && !"community-comment".equals(type) && !"dish-review-reply".equals(type)) return;
-        boolean approve = verdict.riskLevel().equals("LOW") && verdict.confidence() >= properties.autoApproveAbove();
+        double approveAbove = "community-post".equals(type)
+                ? properties.communityApproveAbove()
+                : properties.autoApproveAbove();
+        boolean approve = verdict.riskLevel().equals("LOW") && verdict.confidence() >= approveAbove;
         boolean reject = verdict.riskLevel().equals("HIGH") && verdict.confidence() >= properties.autoRejectAbove();
         if (!approve && !reject) return;
         try {
@@ -244,20 +251,25 @@ public class AiTriageService {
                     community.routeToManual("community-post",item.id(),"uncertain");
             return rows;
                 }
-                if (seen == null || !seen.riskLevel().equals("LOW")
-                        || seen.confidence() < properties.autoApproveAbove()) {
+                if (seen == null) {
+                    LOG.warn("AI community image deferred for {}; sweep will retry", item.id());
+                    return 0;
+                }
+                if (!seen.riskLevel().equals("LOW")
+                        || seen.confidence() < properties.communityApproveAbove()) {
                     imagesClean = false;
                 }
             }
             if (imagesClean) maybeAutoDecide(text, "community-post", item.id());
-            else if (text.riskLevel().equals("LOW") && text.confidence() >= properties.autoApproveAbove()) {
+            else if (text.riskLevel().equals("LOW")
+                    && text.confidence() >= properties.communityApproveAbove()) {
                 LOG.info("AI community post {} stays human: an image needs a human look", item.id());
             }
             community.routeToManual("community-post",item.id(),"uncertain");
             return rows;
         } catch (AiUnavailableException exception) {
-            community.routeToManual("community-post",item.id(),"ai_unavailable");
-            LOG.warn("AI community triage deferred for {}: {}", item.id(), exception.getCode());
+            LOG.warn("AI community triage deferred for {}: {} (sweep will retry)",
+                    item.id(), exception.getCode());
             return 0;
         }
     }
@@ -273,8 +285,8 @@ public class AiTriageService {
             community.routeToManual("community-comment",item.id(),"uncertain");
             return rows;
         } catch (AiUnavailableException exception) {
-            community.routeToManual("community-comment",item.id(),"ai_unavailable");
-            LOG.warn("AI community comment triage deferred for {}: {}", item.id(), exception.getCode());
+            LOG.warn("AI community comment triage deferred for {}: {} (sweep will retry)",
+                    item.id(), exception.getCode());
             return 0;
         }
     }
@@ -329,9 +341,6 @@ public class AiTriageService {
                     BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
                     verdict.reason(), verdict.model());
             return verdict;
-        } catch (AiUnavailableException exception) {
-            LOG.warn("AI community image triage deferred for {}: {}", image.id(), exception.getCode());
-            return null;
         } catch (BusinessException missing) {
             if (!"IMAGE_NOT_FOUND".equals(missing.getCode())) throw missing;
             AiVerdict gone = new AiVerdict("HIGH", 1.0, List.of("文件缺失"),

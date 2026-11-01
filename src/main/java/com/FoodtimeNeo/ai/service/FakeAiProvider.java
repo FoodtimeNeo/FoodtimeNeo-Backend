@@ -38,7 +38,7 @@ public class FakeAiProvider implements AiProvider {
             }
             return new AiVerdict("MEDIUM", 0.85, List.of("无关"), "演示判定：复核仍存疑", "fake");
         }
-        return new AiVerdict("LOW", 0.9, List.of(), "演示判定：无风险", "fake");
+        return new AiVerdict("LOW", 0.8, List.of(), "演示判定：无风险", "fake");
     }
 
     @Override
