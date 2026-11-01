@@ -21,14 +21,28 @@ public class CommunityCommentService {
  private final ApplicationEventPublisher events;
  private final boolean ai;
  public CommunityCommentService(CommunityStore posts,CommunityThreadStore threads,SubmissionRateLimiter limiter,ApplicationEventPublisher events,@Value("${app.ai.triage.enabled:false}") boolean ai){this.posts=posts;this.threads=threads;this.limiter=limiter;this.events=events;this.ai=ai;}
- @Transactional public Map<String,UUID> submit(UUID user,UUID post,@Valid CreateCommentRequest body,String address){
-  UUID prior=threads.retry(user,post,body);if(prior!=null)return Map.of("id",prior);
+ @Transactional public CommunityCommentResponse submit(UUID user,UUID post,@Valid CreateCommentRequest body,String address){
+  UUID prior=threads.retry(user,post,body);
+  if(prior!=null)return requireComment(prior,user);
   if(!threads.lockPost(post))throw missing();
   limiter.check(user,address);
   UUID id=threads.create(user,post,body,ai);
-  if(id==null)return Map.of("id",threads.retry(user,post,body));
+  if(id==null)return requireComment(threads.retry(user,post,body),user);
   if(ai)events.publishEvent(new SubmissionDiagnoseEvent("community-comment",id));
-  return Map.of("id",id);
+  return requireComment(id,user);
+ }
+
+ /** 提交后轮询用；只对作者本人或已通过的评论返回状态，避免探测他人待审内容。 */
+ @Transactional(readOnly=true) public CommentStatusResponse status(UUID id,UUID viewer){
+  String status=threads.statusFor(id,viewer);
+  if(status==null)throw missing();
+  return new CommentStatusResponse(id,status);
+ }
+
+ private CommunityCommentResponse requireComment(UUID id,UUID viewer){
+  CommunityCommentResponse comment=threads.find(id,viewer);
+  if(comment==null)throw missing();
+  return comment;
  }
  @Transactional(readOnly=true) public PageResponse<CommunityCommentResponse> list(UUID post,PageRequest page){
   if(!posts.postVisibleForComment(post))throw missing();

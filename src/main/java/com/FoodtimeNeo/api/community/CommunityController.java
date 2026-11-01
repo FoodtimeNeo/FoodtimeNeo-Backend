@@ -2,6 +2,7 @@ package com.FoodtimeNeo.api.community;
 
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.*;
+import com.FoodtimeNeo.community.dto.CommentStatusResponse;
 import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
 import com.FoodtimeNeo.community.dto.CreateCommentRequest;
@@ -70,10 +71,16 @@ public class CommunityController {
 
     @PostMapping("/posts/{postId}/comments")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @Operation(summary = "发表社区评论", description = "仅已通过动态可评论；同样走AI即审，结论够硬自动过")
-    public ApiResponse<Map<String, UUID>> comment(@PathVariable UUID postId, @Valid @RequestBody CreateCommentRequest body,
+    @Operation(summary = "发表社区评论", description = "仅已通过动态可评论；返回创建后的评论（含审核状态），便于客户端立即展示")
+    public ApiResponse<CommunityCommentResponse> comment(@PathVariable UUID postId, @Valid @RequestBody CreateCommentRequest body,
                                                  HttpServletRequest request) {
         return ApiResponse.success(comments.submit(current(request).id(), postId, body, request.getRemoteAddr()));
+    }
+
+    @GetMapping("/comments/{commentId}/status")
+    @Operation(summary = "评论审核状态", description = "作者本人或已通过评论可查询；供提交后轮询")
+    public ApiResponse<CommentStatusResponse> commentStatus(@PathVariable UUID commentId, HttpServletRequest request) {
+        return ApiResponse.success(comments.status(commentId, current(request).id()));
     }
 
     @GetMapping("/posts/{postId}/comments")
