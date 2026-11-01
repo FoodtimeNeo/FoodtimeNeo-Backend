@@ -10,8 +10,11 @@ import java.util.UUID;
 @Mapper
 public interface ProfileMapper {
     @Select("""
-            SELECT id, email, display_name, role, avatar_url FROM foodtime.users
-            WHERE id = #{userId,jdbcType=OTHER} AND status = 'active'
+            SELECT u.id, u.email, u.display_name, u.role, u.avatar_url,
+                   (SELECT count(*) FROM foodtime.user_follows f WHERE f.follower_id = u.id) AS following_count,
+                   (SELECT count(*) FROM foodtime.user_follows f WHERE f.following_id = u.id) AS follower_count
+            FROM foodtime.users u
+            WHERE u.id = #{userId,jdbcType=OTHER} AND u.status = 'active'
             """)
     ProfileResponse current(UUID userId);
 

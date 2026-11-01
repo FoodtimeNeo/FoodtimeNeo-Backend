@@ -5,4 +5,6 @@ import java.util.UUID;
 
 @Schema(description = "当前用户的个人资料；头像来自users.avatar_url，不返回敏感认证字段")
 public record ProfileResponse(UUID id, String email, String displayName, String role,
-                              @Schema(nullable = true) String avatarUrl) { }
+                              @Schema(nullable = true) String avatarUrl,
+                              @Schema(description = "我关注的人数") long followingCount,
+                              @Schema(description = "关注我的人数") long followerCount) { }
