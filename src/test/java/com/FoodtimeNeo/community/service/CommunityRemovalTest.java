@@ -76,11 +76,15 @@ class CommunityRemovalTest {
     }
 
     @ParameterizedTest @ValueSource(strings = {"", " ", "\n\t"})
-    void blankReasonsNeverReachStorage(String reason) {
-        assertThatThrownBy(() -> service.remove(actor("admin", "active"), "posts", id,
-                new RemoveCommunityRequest(reason))).isInstanceOfSatisfying(BusinessException.class,
-                e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
-        verifyNoInteractions(posts, threads);
+    void blankReasonsAreOptionalAndAuditStillRecordsActor(String reason) {
+        var actor=actor("admin","active");
+        when(posts.remove(id,actor.id(),null)).thenReturn(1);
+        service.remove(actor,"posts",id,new RemoveCommunityRequest(reason));
+        verify(posts).remove(id,actor.id(),null);
+    }
+    @Test void absentBodyAlsoAllowsAuthorizedDeletion(){
+        var actor=actor("superadmin","active");when(posts.remove(id,actor.id(),null)).thenReturn(1);
+        service.remove(actor,"posts",id,null);verify(posts).remove(id,actor.id(),null);
     }
 
     @Test void overlongReasonsAndUnsupportedTypesNeverReachStorage() {
