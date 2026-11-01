@@ -66,12 +66,14 @@ Nginx全局100 req/s、burst 200。超限直接429，不排队等待，避免线
 
 | 入口 | 证书要求 |
 | --- | --- |
-| 域名 | SAN 包含 `bjtufoodtime.top` |
+| 域名 | SAN 同时包含 `bjtufoodtime.top` 与 `www.bjtufoodtime.top` |
 | IP | SAN 包含 `IP Address:<服务器IP>` |
 
 浏览器与 App 都会做主机名校验，**证书 SAN 不匹配时 HTTPS 直接失败**，不是"只是有个警告"。
 两个入口可以共用一份同时包含域名与 IP 的证书；否则需要分别为两个 `server` 块配置证书路径。
-无论哪种方式，都要确认自动续期同时覆盖域名与 IP 证书。
+无论哪种方式，都要确认自动续期同时覆盖域名与 IP 证书。DNS 侧需同时提供
+`bjtufoodtime.top` 与 `www.bjtufoodtime.top` 指向本机的 A/AAAA 记录（或 www CNAME 到主域名），
+否则 `www` 的 HTTP-01 验证和 HTTPS 主机名校验都会失败。
 
 ### Nginx 结构
 
@@ -79,7 +81,7 @@ Nginx全局100 req/s、burst 200。超限直接429，不排队等待，避免线
 # 域名入口：页面 + API
 server {
     listen 443 ssl;
-    server_name bjtufoodtime.top;
+    server_name bjtufoodtime.top www.bjtufoodtime.top;
 
     ssl_certificate     /etc/letsencrypt/live/bjtufoodtime.top/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bjtufoodtime.top/privkey.pem;
@@ -134,8 +136,10 @@ CORS_ALLOWED_ORIGINS=https://bjtufoodtime.top
 
 ```bash
 curl -sI https://bjtufoodtime.top/api/v1/system/ping | head -1      # 200
+curl -sI https://www.bjtufoodtime.top/api/v1/system/ping | head -1  # 200
 curl -sI https://<服务器IP>/api/v1/system/ping        | head -1      # 200
 curl -s  https://bjtufoodtime.top/ | head -3                        # 页面
+curl -s  https://www.bjtufoodtime.top/ | head -3                    # 页面
 curl -s  https://<服务器IP>/ | head -3                              # 页面（IP 访问已恢复）
 echo | openssl s_client -connect bjtufoodtime.top:443 -servername bjtufoodtime.top 2>/dev/null   | openssl x509 -noout -ext subjectAltName                          # 应包含域名
 echo | openssl s_client -connect <服务器IP>:443 2>/dev/null   | openssl x509 -noout -enddate                                     # 确认未临近过期
