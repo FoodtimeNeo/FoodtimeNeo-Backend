@@ -69,7 +69,7 @@ tar -czf "$EXT/config.tar.gz" \
     -C "$REPO_ROOT" .env \
     -C /etc/systemd/system "$SERVICE.service" \
     -C /usr/local/bin foodtime-backend-start.sh \
-    -C /www/server/panel/vhost/nginx foodtime-web.conf kfcvivo50.ddns.net.conf kfcvivo50.ddns.net.443.conf
+    -C /www/server/panel/vhost/nginx foodtime-web.conf bjtufoodtime.top.conf bjtufoodtime.top.443.conf foodtime-ip.443.conf
 if [ -f "$REPO_ROOT/target/foodtime-neo-backend.jar" ]; then
     cp -a "$REPO_ROOT/target/foodtime-neo-backend.jar" "$EXT/"
 fi
