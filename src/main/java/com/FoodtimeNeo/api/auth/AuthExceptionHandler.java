@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Keep authentication-specific error codes out of the shared exception layer. */
-@RestControllerAdvice(assignableTypes = {LoginController.class, EmailVerificationController.class, PasswordChangeController.class})
+@RestControllerAdvice(assignableTypes = {LoginController.class, EmailVerificationController.class, PasswordChangeController.class, PasswordResetController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthExceptionHandler {
     private static final Logger LOG = LoggerFactory.getLogger(AuthExceptionHandler.class);
