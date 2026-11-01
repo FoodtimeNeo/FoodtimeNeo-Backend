@@ -265,6 +265,12 @@ app:
       user-limit: ${REVIEW_ACTION_USER_LIMIT:100}
       ip-limit: ${REVIEW_ACTION_IP_LIMIT:1000}
       redis-namespace: ${REVIEW_ACTION_REDIS_NAMESPACE:foodtime:review:actions}
+  follow:
+    actions:
+      window: ${FOLLOW_ACTION_WINDOW:PT1M}
+      user-limit: ${FOLLOW_ACTION_USER_LIMIT:60}
+      ip-limit: ${FOLLOW_ACTION_IP_LIMIT:600}
+      redis-namespace: ${FOLLOW_ACTION_REDIS_NAMESPACE:foodtime:follow:actions}
   community:
     actions:
       window: ${COMMUNITY_ACTION_WINDOW:PT1M}

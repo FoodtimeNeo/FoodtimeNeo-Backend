@@ -47,6 +47,7 @@ abstract class IntegrationApiSupport {
         properties.add("app.auth.redis-namespace", () -> PREFIX + ":limits");
         properties.add("app.auth.registration.redis-namespace", () -> PREFIX + ":registration");
         properties.add("app.review.actions.redis-namespace", () -> PREFIX + ":review-actions");
+        properties.add("app.follow.actions.redis-namespace", () -> PREFIX + ":follow-actions");
     }
 
     @BeforeEach
