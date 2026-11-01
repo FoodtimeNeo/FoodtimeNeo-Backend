@@ -56,6 +56,100 @@ Nginx全局100 req/s、burst 200。超限直接429，不排队等待，避免线
 
 `.gitignore` 已覆盖 Maven 构建目录、IDE 状态、本地环境配置、日志、运行数据和私钥；保留 `.env.example`、Maven Wrapper 与版本化数据库迁移。`.dockerignore` 将本地凭据、Git 与构建缓存排除在镜像构建上下文之外。
 
+## 域名接入与 IP 访问
+
+站点需要同时接受域名（`bjtufoodtime.top`）与 IP 访问时，Nginx 必须显式声明两个入口。只写一个
+`server_name` 时，用 IP 或其他主机名访问会落到默认站点，页面通常返回 404，而 `/api/` 仍可能正常，
+容易误判为"站点挂了、接口还在"。
+
+### 证书
+
+| 入口 | 证书要求 |
+| --- | --- |
+| 域名 | SAN 同时包含 `bjtufoodtime.top` 与 `www.bjtufoodtime.top` |
+| IP | SAN 包含 `IP Address:<服务器IP>` |
+
+浏览器与 App 都会做主机名校验，**证书 SAN 不匹配时 HTTPS 直接失败**，不是"只是有个警告"。
+两个入口可以共用一份同时包含域名与 IP 的证书；否则需要分别为两个 `server` 块配置证书路径。
+无论哪种方式，都要确认自动续期同时覆盖域名与 IP 证书。DNS 侧需同时提供
+`bjtufoodtime.top` 与 `www.bjtufoodtime.top` 指向本机的 A/AAAA 记录（或 www CNAME 到主域名），
+否则 `www` 的 HTTP-01 验证和 HTTPS 主机名校验都会失败。
+
+### Nginx 结构
+
+```nginx
+# 域名入口：页面 + API
+server {
+    listen 443 ssl;
+    server_name bjtufoodtime.top www.bjtufoodtime.top;
+
+    ssl_certificate     /etc/letsencrypt/live/bjtufoodtime.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bjtufoodtime.top/privkey.pem;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header X-Forwarded-For $remote_addr;   # 覆写，丢弃客户端自带值
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+    }
+    location / {
+        root /var/www/foodtime;
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# IP 入口：作为默认站点兜底，同样提供页面与 API
+server {
+    listen 443 ssl default_server;
+    server_name _;
+
+    ssl_certificate     /etc/letsencrypt/live/<ip-cert>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<ip-cert>/privkey.pem;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+    }
+    location / {
+        root /var/www/foodtime;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+要点：
+
+- 必须显式写 `default_server`，否则 IP 访问命中哪个 server 块取决于配置顺序。
+- 两个块都要覆写 `X-Forwarded-For`，否则每 IP 限流全部落在代理地址上。
+- 启用 `FORWARD_HEADERS_STRATEGY=framework` 后，后端才按真实客户端 IP 计数。
+
+### 后端配置
+
+```bash
+# 同源部署（页面与 API 同一主机）不需要 CORS；该值用于前端分域或本地预览
+CORS_ALLOWED_ORIGINS=https://bjtufoodtime.top,https://www.bjtufoodtime.top
+```
+
+证书续期必须让 Nginx 重新加载证书。当前部署使用 certbot 的
+`renewal-hooks/deploy/reload-nginx` 钩子；IP 证书使用独立的
+`/etc/letsencrypt-ip` 配置目录，已有对应的 reload 钩子。新增证书目录时不要只验证续期成功，
+还要确认续期后会执行 `nginx -s reload`。
+
+### 迁移后的验证
+
+```bash
+curl -sI https://bjtufoodtime.top/api/v1/system/ping | head -1      # 200
+curl -sI https://www.bjtufoodtime.top/api/v1/system/ping | head -1  # 200
+curl -sI https://<服务器IP>/api/v1/system/ping        | head -1      # 200
+curl -s  https://bjtufoodtime.top/ | head -3                        # 页面
+curl -s  https://www.bjtufoodtime.top/ | head -3                    # 页面
+curl -s  https://<服务器IP>/ | head -3                              # 页面（IP 访问已恢复）
+echo | openssl s_client -connect bjtufoodtime.top:443 -servername bjtufoodtime.top 2>/dev/null   | openssl x509 -noout -ext subjectAltName                          # 应包含域名
+echo | openssl s_client -connect <服务器IP>:443 2>/dev/null   | openssl x509 -noout -enddate                                     # 确认未临近过期
+```
+
 ## 2核4G Debian 单机调配
 
 `compose.prod.yml` 是按 2C4G 单机（应用+PG+Redis 同机）调好的生产编排，

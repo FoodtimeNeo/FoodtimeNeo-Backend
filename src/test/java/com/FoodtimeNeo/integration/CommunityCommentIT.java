@@ -96,6 +96,36 @@ class CommunityCommentIT extends IntegrationApiSupport {
         assertThat(author.call("POST", "/api/v1/community/posts", communityPost(author,"  ")).statusCode()).isEqualTo(400);
     }
 
+    @Test
+    void submittedCommentExposesStatusOnlyToItsAuthorUntilApproved() throws Exception {
+        Browser author = login(owner), viewer = login(other);
+        UUID post = approvedPost(author, "状态-" + UUID.randomUUID());
+
+        var created = author.call("POST", "/api/v1/community/posts/" + post + "/comments",
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "待审-" + UUID.randomUUID()));
+        assertThat(created.statusCode()).isEqualTo(202);
+        // 提交响应直接带状态，客户端可立即渲染"审核中"
+        assertThat(body(created).path("data").path("status").asString()).isEqualTo("pending");
+        UUID comment = UUID.fromString(body(created).path("data").path("id").asString());
+
+        var mine = author.call("GET", "/api/v1/community/comments/" + comment + "/status", null);
+        assertThat(mine.statusCode()).isEqualTo(200);
+        assertThat(body(mine).path("data").path("status").asString()).isEqualTo("pending");
+
+        // 他人不能探测尚未通过的评论
+        assertThat(viewer.call("GET", "/api/v1/community/comments/" + comment + "/status", null).statusCode())
+                .isEqualTo(404);
+
+        Browser admin = login(account("admin"));
+        assertThat(admin.call("POST", "/api/v1/admin/community/comments/" + comment,
+                Map.of("action", "approve")).statusCode()).isEqualTo(200);
+
+        // 通过后任何登录用户都能轮询到 approved
+        var after = viewer.call("GET", "/api/v1/community/comments/" + comment + "/status", null);
+        assertThat(after.statusCode()).isEqualTo(200);
+        assertThat(body(after).path("data").path("status").asString()).isEqualTo("approved");
+    }
+
     private UUID approvedPost(Browser author, String content) throws Exception {
         var created = author.call("POST", "/api/v1/community/posts", communityPost(author,content));
         assertThat(created.statusCode()).isEqualTo(202);

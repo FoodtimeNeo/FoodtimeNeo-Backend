@@ -77,11 +77,12 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/system/ping",
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/system/ping", "/api/v1/system/app-release",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
-                                "/api/v1/auth/register/email-code").permitAll()
+                                "/api/v1/auth/register/email-code", "/api/v1/auth/password-reset/email-code",
+                                "/api/v1/auth/password-reset/verify", "/api/v1/auth/password-reset").permitAll()
                         .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**",
                                 "/api/v1/admin/notices", "/api/v1/admin/notices/**").hasRole("superadmin")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")

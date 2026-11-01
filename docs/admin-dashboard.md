@@ -22,7 +22,7 @@
 ## 示例
 
 ```bash
-curl -b cookies.txt 'https://kfcvivo50.ddns.net/api/v1/admin/dashboard?days=7'
+curl -b cookies.txt 'https://bjtufoodtime.top/api/v1/admin/dashboard?days=7'
 # {"code":"OK","data":{"registeredUsers":...,"onlineUsers":...,"trend":[{"day":"2026-10-26",...}],...}}
 ```
 

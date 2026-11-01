@@ -1,4 +1,4 @@
 package com.FoodtimeNeo.community.dto;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-public record RemoveCommunityRequest(@NotBlank @Size(max=500) String reason) { }
+/** Optional legacy annotation; deletion never requires the user to supply a reason. */
+public record RemoveCommunityRequest(@Size(max=500) String reason) { }

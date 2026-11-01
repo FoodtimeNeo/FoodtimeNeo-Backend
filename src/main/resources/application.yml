@@ -229,6 +229,16 @@ app:
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}
       ip-limit: ${PASSWORD_CHANGE_IP_LIMIT:500}
       redis-namespace: ${PASSWORD_CHANGE_REDIS_NAMESPACE:foodtime:auth:password-change}
+    password-reset:
+      redis-namespace: ${PASSWORD_RESET_REDIS_NAMESPACE:foodtime:auth:password-reset}
+      code-ttl: ${PASSWORD_RESET_CODE_TTL:PT10M}
+      token-ttl: ${PASSWORD_RESET_TOKEN_TTL:PT5M}
+      resend-interval: ${PASSWORD_RESET_RESEND_INTERVAL:PT1M}
+      send-account-limit: ${PASSWORD_RESET_SEND_ACCOUNT_LIMIT:5}
+      send-device-limit: ${PASSWORD_RESET_SEND_DEVICE_LIMIT:10}
+      send-ip-limit: ${PASSWORD_RESET_SEND_IP_LIMIT:200}
+      verify-account-limit: ${PASSWORD_RESET_VERIFY_ACCOUNT_LIMIT:10}
+      verify-ip-limit: ${PASSWORD_RESET_VERIFY_IP_LIMIT:300}
   protection:
     # 全局在途请求上限；按 2 vCPU / 1GB 堆 / Tomcat 200 线程留出余量。
     enabled: ${PROTECTION_ENABLED:true}
@@ -255,6 +265,12 @@ app:
       user-limit: ${REVIEW_ACTION_USER_LIMIT:100}
       ip-limit: ${REVIEW_ACTION_IP_LIMIT:1000}
       redis-namespace: ${REVIEW_ACTION_REDIS_NAMESPACE:foodtime:review:actions}
+  follow:
+    actions:
+      window: ${FOLLOW_ACTION_WINDOW:PT1M}
+      user-limit: ${FOLLOW_ACTION_USER_LIMIT:60}
+      ip-limit: ${FOLLOW_ACTION_IP_LIMIT:600}
+      redis-namespace: ${FOLLOW_ACTION_REDIS_NAMESPACE:foodtime:follow:actions}
   community:
     actions:
       window: ${COMMUNITY_ACTION_WINDOW:PT1M}
@@ -275,13 +291,20 @@ app:
   monitoring:
     scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
+  release:
+    # Android 应用内更新检查；version-code 为 0 表示未配置，客户端不会提示更新。
+    version-code: ${APP_RELEASE_VERSION_CODE:0}
+    version-name: ${APP_RELEASE_VERSION_NAME:}
+    apk-url: ${APP_RELEASE_APK_URL:}
+    notes: ${APP_RELEASE_NOTES:}
+    min-version-code: ${APP_RELEASE_MIN_VERSION_CODE:0}
   dashboard:
     presence-namespace: ${DASHBOARD_PRESENCE_NAMESPACE:foodtime:presence}
     presence-ttl: ${DASHBOARD_PRESENCE_TTL:PT5M}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: Content-Type,Authorization,X-Request-Id,X-CSRF-TOKEN
+    allowed-headers: Content-Type,Authorization,X-Request-Id,X-CSRF-TOKEN,X-Foodtime-Client
     exposed-headers: X-Request-Id
     max-age: 3600s
 
