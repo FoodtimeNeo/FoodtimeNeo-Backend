@@ -291,6 +291,13 @@ app:
   monitoring:
     scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
+  release:
+    # Android 应用内更新检查；version-code 为 0 表示未配置，客户端不会提示更新。
+    version-code: ${APP_RELEASE_VERSION_CODE:0}
+    version-name: ${APP_RELEASE_VERSION_NAME:}
+    apk-url: ${APP_RELEASE_APK_URL:}
+    notes: ${APP_RELEASE_NOTES:}
+    min-version-code: ${APP_RELEASE_MIN_VERSION_CODE:0}
   dashboard:
     presence-namespace: ${DASHBOARD_PRESENCE_NAMESPACE:foodtime:presence}
     presence-ttl: ${DASHBOARD_PRESENCE_TTL:PT5M}
