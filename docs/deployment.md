@@ -129,8 +129,13 @@ server {
 
 ```bash
 # 同源部署（页面与 API 同一主机）不需要 CORS；该值用于前端分域或本地预览
-CORS_ALLOWED_ORIGINS=https://bjtufoodtime.top
+CORS_ALLOWED_ORIGINS=https://bjtufoodtime.top,https://www.bjtufoodtime.top
 ```
+
+证书续期必须让 Nginx 重新加载证书。当前部署使用 certbot 的
+`renewal-hooks/deploy/reload-nginx` 钩子；IP 证书使用独立的
+`/etc/letsencrypt-ip` 配置目录，已有对应的 reload 钩子。新增证书目录时不要只验证续期成功，
+还要确认续期后会执行 `nginx -s reload`。
 
 ### 迁移后的验证
 
