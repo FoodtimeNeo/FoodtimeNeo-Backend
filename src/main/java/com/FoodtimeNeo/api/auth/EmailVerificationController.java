@@ -36,6 +36,7 @@ public class EmailVerificationController {
                                                HttpServletRequest http, HttpServletResponse response) {
         // A closed door must not keep sending mail through the shared SMTP account.
         gate.requireAcceptingRequests();
+        gate.requireAllowedEmail(request.email());
         String deviceId = devices.resolve(http, response);
         limits.check(request.email(), http.getRemoteAddr(), deviceId);
         return ApiResponse.success(verification.send(request, http.getRemoteAddr(), deviceId));

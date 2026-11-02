@@ -4,8 +4,9 @@ import java.util.UUID;
 import java.time.Instant;
 
 /** Persistence input only; registration responses use a separate DTO. */
-public record NewUser(UUID id, String email, String passwordHash, String displayName, Instant emailVerifiedAt,
-                      UUID invitedByCodeId) {
+public record NewUser(UUID id, String email, String passwordHash, String displayName, String role,
+                      Instant emailVerifiedAt, UUID invitedByCodeId, String schoolEmail,
+                      Instant schoolEmailVerifiedAt) {
     @Override
     public String toString() {
         return "NewUser[id=" + id + ", credentials=<redacted>]";

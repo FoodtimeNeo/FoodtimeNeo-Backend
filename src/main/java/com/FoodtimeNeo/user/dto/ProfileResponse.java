@@ -7,4 +7,6 @@ import java.util.UUID;
 public record ProfileResponse(UUID id, String email, String displayName, String role,
                               @Schema(nullable = true) String avatarUrl,
                               @Schema(description = "我关注的人数") long followingCount,
-                              @Schema(description = "关注我的人数") long followerCount) { }
+                              @Schema(description = "关注我的人数") long followerCount,
+                              @Schema(description = "已绑定的学校邮箱；未绑定为 null", nullable = true) String schoolEmail,
+                              @Schema(description = "学校邮箱是否已验证") boolean schoolEmailVerified) { }

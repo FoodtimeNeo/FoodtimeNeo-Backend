@@ -36,7 +36,7 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
     private final long maxMultipartBytes;
 
     public RequestBodyLimitFilter(@Value("${app.request.max-json-bytes:1048576}") long maxJsonBytes,
-                                  @Value("${app.request.max-multipart-bytes:20971520}") long maxMultipartBytes) {
+                                  @Value("${app.request.max-multipart-bytes:62914560}") long maxMultipartBytes) {
         if (maxJsonBytes < 1 || maxMultipartBytes < 1) {
             throw new IllegalArgumentException("Request body limits must be positive");
         }

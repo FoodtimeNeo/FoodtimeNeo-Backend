@@ -2,7 +2,11 @@ package com.FoodtimeNeo.media.service;
 
 import com.FoodtimeNeo.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
+import javax.imageio.ImageWriteParam;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.*;
@@ -10,6 +14,17 @@ import java.util.Locale;
 
 /** Decode pixels and encode a fresh image, dropping EXIF/GPS, comments and trailing payloads. */
 final class ImageSanitizer {
+    /** 单次上传允许的原始大小（与 multipart 配置保持一致）。 */
+    static final long MAX_INPUT = 50L * 1024 * 1024;
+    /** 处理后的硬上限：任何图片都不会保存超过该体积。 */
+    static final long HARD_LIMIT = 10L * 1024 * 1024;
+    /** 原始图片超过 HARD_LIMIT 时，尽量压缩到的目标体积。 */
+    static final long LARGE_TARGET = 5L * 1024 * 1024;
+    /** 解码后的像素上限；超出时按整数倍降采样读取，避免大图占满堆内存。 */
+    private static final long MAX_DECODED_PIXELS = 20_000_000L;
+    /** 仅用于拒绝明显异常的图片头（超大尺寸的压缩炸弹）。 */
+    private static final long MAX_DECLARED_PIXELS = 300_000_000L;
+
     record Image(byte[] bytes, String contentType, int width, int height) { }
 
     static Image sanitize(byte[] bytes) throws IOException {
@@ -23,9 +38,15 @@ final class ImageSanitizer {
                 if (!format.equals("png") && !format.equals("jpeg") && !format.equals("jpg")) throw bad("请选择JPEG或PNG图片");
                 reader.setInput(input, true, true);
                 int width = reader.getWidth(0), height = reader.getHeight(0);
-                if (width < 1 || height < 1 || (long) width * height > 20_000_000) throw bad("图片尺寸过大");
-                BufferedImage pixels = reader.read(0);
+                if (width < 1 || height < 1 || width > 100_000 || height > 100_000
+                        || (long) width * height > MAX_DECLARED_PIXELS) throw bad("图片尺寸过大");
+                ImageReadParam read = reader.getDefaultReadParam();
+                int subsample = 1;
+                while ((long) (width / subsample) * (height / subsample) > MAX_DECODED_PIXELS) subsample++;
+                if (subsample > 1) read.setSourceSubsampling(subsample, subsample, 0, 0);
+                BufferedImage pixels = reader.read(0, read);
                 if (pixels == null) throw bad("图片无法读取");
+                width = pixels.getWidth(); height = pixels.getHeight();
                 int orientation = format.equals("png") ? 1 : orientation(bytes);
                 // A new canvas also strips metadata and normalizes uncommon JPEG color models.
                 boolean swapped = orientation >= 5;
@@ -46,25 +67,66 @@ final class ImageSanitizer {
                         };
                         canvas.setRGB(dx, dy, pixels.getRGB(x, y));
                 }
-                var out = new ByteArrayOutputStream();
-                // Bound compressed output too: a tiny compressed input may expand during normalization.
-                var bounded = new FilterOutputStream(out) {
-                    private int size;
-                    @Override public void write(int value) throws IOException {
-                        if (++size > 10 * 1024 * 1024) throw new IOException("normalized image exceeds limit");
-                        out.write(value);
-                    }
-                    @Override public void write(byte[] value, int offset, int length) throws IOException {
-                        if (length > 10 * 1024 * 1024 - size) throw new IOException("normalized image exceeds limit");
-                        size += length; out.write(value, offset, length);
-                    }
-                };
-                if (!ImageIO.write(canvas, format.equals("png") ? "png" : "jpeg", bounded)) throw bad("图片无法保存");
-                return new Image(out.toByteArray(), format.equals("png") ? "image/png" : "image/jpeg", canvas.getWidth(), canvas.getHeight());
+                // 大图压到 5MB 左右，其余保证不超过 10MB；缩略图仍由读取端按需生成。
+                String targetFormat = format.equals("png") ? "png" : "jpeg";
+                long target = bytes.length > HARD_LIMIT ? LARGE_TARGET : HARD_LIMIT;
+                Encoded encoded = encodeWithin(canvas, targetFormat, target);
+                return new Image(encoded.bytes(), format.equals("png") ? "image/png" : "image/jpeg",
+                        encoded.width(), encoded.height());
             } catch (java.awt.color.CMMException | IllegalArgumentException invalid) { throw bad("图片颜色或格式无法读取，请重新导出图片"); }
-            catch (IOException invalid) { throw bad("图片无法读取或处理后超过10MB，请选择较小的完整图片"); }
+            catch (IOException invalid) { throw bad("图片无法读取或处理失败，请重新导出图片"); }
             finally { reader.dispose(); }
         }
+    }
+
+    private record Encoded(byte[] bytes, int width, int height) { }
+
+    /** Re-encode at decreasing scale until the payload fits the budget; never upscales. */
+    private static Encoded encodeWithin(BufferedImage source, String format, long target) throws IOException {
+        BufferedImage image = source;
+        byte[] encoded = encode(image, format, 0.85f);
+        for (int attempt = 0; attempt < 8 && encoded.length > target; attempt++) {
+            double ratio = Math.sqrt((double) target / encoded.length);
+            double factor = Math.max(0.35, Math.min(0.9, ratio * 0.94));
+            BufferedImage smaller = scale(image, factor);
+            if (smaller.getWidth() == image.getWidth() && smaller.getHeight() == image.getHeight()) break;
+            image = smaller;
+            encoded = encode(image, format, 0.85f);
+        }
+        if (encoded.length > HARD_LIMIT) throw bad("图片处理后仍然过大，请选择尺寸更小的图片");
+        return new Encoded(encoded, image.getWidth(), image.getHeight());
+    }
+
+    private static byte[] encode(BufferedImage image, String format, float quality) throws IOException {
+        var out = new ByteArrayOutputStream();
+        if (format.equals("png")) {
+            if (!ImageIO.write(image, "png", out)) throw bad("图片无法保存");
+            return out.toByteArray();
+        }
+        var writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        try (var stream = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(stream);
+            var parameters = writer.getDefaultWriteParam();
+            parameters.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            parameters.setCompressionQuality(quality);
+            writer.write(null, new IIOImage(image, null, null), parameters);
+        } finally { writer.dispose(); }
+        return out.toByteArray();
+    }
+
+    private static BufferedImage scale(BufferedImage source, double factor) {
+        int width = Math.max(1, (int) Math.round(source.getWidth() * factor));
+        int height = Math.max(1, (int) Math.round(source.getHeight() * factor));
+        if (width >= source.getWidth() && height >= source.getHeight()) return source;
+        var result = new BufferedImage(width, height,
+                source.getType() == BufferedImage.TYPE_INT_ARGB ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+        var graphics = result.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            graphics.drawImage(source, 0, 0, width, height, null);
+        } finally { graphics.dispose(); }
+        return result;
     }
 
     /** Bounded EXIF TIFF IFD0 parsing; corrupt metadata is discarded without affecting valid pixels. */

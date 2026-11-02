@@ -31,7 +31,7 @@ public class ImageStorageService {
     }
 
     public UploadedImage upload(MultipartFile file, UserProfile user) {
-        if (file.isEmpty() || file.getSize() > 10 * 1024 * 1024) throw bad("图片不能为空且不能超过10MB");
+        if (file.isEmpty() || file.getSize() > ImageSanitizer.MAX_INPUT) throw bad("图片不能为空且不能超过50MB");
         if (!uploads.tryAcquire()) throw new UploadBusyException();
         UUID id = UUID.randomUUID();
         Path image = directory.resolve(id + ".img"), metadata = directory.resolve(id + ".properties");

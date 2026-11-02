@@ -19,7 +19,24 @@ class RegistrationGateTest {
 
     private static RegistrationGate gate(RegistrationMode mode) {
         return new RegistrationGate(new RegistrationLimitsProperties(mode, Duration.ofMinutes(15),
-                10, 10, 1000, "test:registration"));
+                10, 10, 1000, "test:registration",
+                RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS));
+    }
+
+    @Test
+    void onlyMainstreamEmailDomainsAreAccepted() {
+        RegistrationGate gate = gate(RegistrationMode.OPEN);
+        for (String email : new String[]{"a@qq.com", "a@vip.163.com", "a@gmail.com",
+                "a@outlook.com", "a@bjtu.edu.cn"}) {
+            assertThatCode(() -> gate.requireAllowedEmail(email)).doesNotThrowAnyException();
+        }
+        for (String email : new String[]{"a@example.com", "a@evilqq.com",
+                "a@qq.com.evil.com", "a@163.com.cn"}) {
+            assertThatThrownBy(() -> gate.requireAllowedEmail(email))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(error -> ((BusinessException) error).getCode())
+                    .isEqualTo("EMAIL_DOMAIN_NOT_ALLOWED");
+        }
     }
 
     @Test

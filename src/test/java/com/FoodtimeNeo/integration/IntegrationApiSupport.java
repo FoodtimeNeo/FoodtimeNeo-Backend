@@ -86,6 +86,10 @@ abstract class IntegrationApiSupport {
                     + " (SELECT id FROM foodtime.dish_review_submissions WHERE user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_image_id IN"
                     + " (SELECT id FROM foodtime.dish_images WHERE uploaded_by_user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?)", user);
+            jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type='dish' AND submission_id IN"
+                    + " (SELECT id FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_id IN"
                     + " (SELECT id FROM foodtime.dish_review_submissions WHERE user_id = ?)", user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type = 'photo' AND submission_id IN"

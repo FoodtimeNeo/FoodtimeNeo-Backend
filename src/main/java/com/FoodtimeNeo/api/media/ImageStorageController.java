@@ -26,7 +26,7 @@ public class ImageStorageController {
 
     @PostMapping(value = "/uploads/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "上传图片文件", description = "multipart字段file，JPEG/PNG，不超过10MB；只保存私有暂存文件，后续投稿需使用返回的imageUrl")
+    @Operation(summary = "上传图片文件", description = "multipart字段file，JPEG/PNG，不超过50MB；超过10MB的图片会自动压缩到5MB左右，缩略图仍为KB级；只保存私有暂存文件，后续投稿需使用返回的imageUrl")
     public ApiResponse<ImageStorageService.UploadedImage> upload(@RequestPart("file") MultipartFile file,
             HttpServletRequest request) {
         UserProfile user = current(request);

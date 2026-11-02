@@ -25,7 +25,8 @@ import java.util.UUID;
  * Async triage with a review chain: the fast primary model screens everything,
  * LOW verdicts below the confidence threshold are escalated to a stronger model,
  * and a fallback model covers primary outages. Photos use a vision model directly.
- * Nothing is ever approved or rejected here; humans decide.
+ * Eligible reviews/replies/community content may use confident automatic decisions.
+ * Catalog text/images receive advice or high-confidence rejection only, never approval.
  */
 @Service
 @ConditionalOnProperty(prefix = "app.ai.triage", name = "enabled", havingValue = "true")
@@ -92,6 +93,14 @@ public class AiTriageService {
                 break;
             }
         }
+        for(var item:store.pendingDishes(properties.batchSize())) {
+            try {checked+=diagnosePendingDish(provider,item);}
+            catch(RuntimeException exception){LOG.error("AI dish triage deferred for {}",item.id(),exception);break;}
+        }
+        for(var item:store.pendingCatalogRejections(properties.autoRejectAbove(),properties.batchSize())) {
+            try {moderation.recordCatalogVerdict(item.type(),item.id(),item.verdict());}
+            catch(RuntimeException exception){LOG.error("AI catalog rejection deferred for {}",item.id(),exception);break;}
+        }
         for (var item : store.pendingCommunityPosts(properties.batchSize())) {
             try {
                 checked += diagnosePendingCommunityPost(provider, item);
@@ -143,6 +152,8 @@ public class AiTriageService {
                 store.pendingReview(event.submissionId()).ifPresent(item -> diagnosePendingReview(provider, item));
             } else if ("photo".equals(event.type())) {
                 store.pendingPhoto(event.submissionId()).ifPresent(item -> diagnosePendingPhoto(provider, item));
+            } else if ("dish".equals(event.type())) {
+                store.pendingDish(event.submissionId()).ifPresent(item -> diagnosePendingDish(provider,item));
             } else if ("community-post".equals(event.type())) {
                 store.pendingCommunityPost(event.submissionId()).ifPresent(item -> diagnosePendingCommunityPost(provider, item));
             } else if ("dish-review-reply".equals(event.type())) {
@@ -186,7 +197,8 @@ public class AiTriageService {
 
     /**
      * Hard verdicts execute immediately: confident LOW approves, confident HIGH rejects.
-     * Photos and uncertain calls stay human. Races with a human decision are absorbed.
+     * Catalog/photo decisions use the separate atomic rejection-only path below.
+     * Races with a human decision are absorbed.
      */
     private void maybeAutoDecide(AiVerdict verdict, String type, UUID submissionId) {
         if (!"review".equals(type) && !"community-post".equals(type) && !"community-comment".equals(type) && !"dish-review-reply".equals(type)) return;
@@ -209,22 +221,57 @@ public class AiTriageService {
         try {
             ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(item.imageUrl()));
             AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
-            return store.insert(UUID.randomUUID(), "photo", item.id(), verdict.riskLevel(),
-                    BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
-                    verdict.reason(), verdict.model());
+            return moderation.recordCatalogVerdict("photo",item.id(),verdict);
         } catch (AiUnavailableException exception) {
             LOG.warn("AI photo triage deferred for {}: {}", item.id(), exception.getCode());
             return 0;
         } catch (BusinessException missing) {
             if (!"IMAGE_NOT_FOUND".equals(missing.getCode())) throw missing;
             // Staging file lost (manual deletion or volume loss): flag it so a human rejects the submission.
-            return store.insert(UUID.randomUUID(), "photo", item.id(), "HIGH", BigDecimal.ONE,
-                    new String[] {"文件缺失"}, missing.getMessage() + "，无法完成审核", "system");
+            return moderation.recordCatalogVerdict("photo",item.id(),missingImage(missing));
         } catch (IOException exception) {
             LOG.warn("AI photo triage deferred for {}: staging file unreadable", item.id());
             return 0;
         }
     }
+
+    private int diagnosePendingDish(AiProvider provider,AiModerationStore.PendingDish item) {
+        try {
+            AiVerdict text=diagnoseCommunityText(provider,item.name()+"\n"+(item.content()==null?"":item.content()));
+            // A proven text violation is sufficient to reject; otherwise inspect the image too.
+            if("HIGH".equals(text.riskLevel())&&text.confidence()>=properties.autoRejectAbove())
+                return moderation.recordCatalogVerdict("dish",item.id(),new AiVerdict(text.riskLevel(),text.confidence(),text.labels(),"文字："+text.reason(),text.model()));
+            ImageStorageService.StagedFile file=images.stagedThumbnail(fileId(item.imageUrl()));
+            AiVerdict image=diagnosePhoto(provider,file.bytes(),file.contentType());
+            return moderation.recordCatalogVerdict("dish",item.id(),catalogVerdict(text,image));
+        } catch(AiUnavailableException unavailable) {
+            LOG.warn("AI dish triage deferred for {}: {}",item.id(),unavailable.getCode());return 0;
+        } catch(BusinessException missing) {
+            if(!"IMAGE_NOT_FOUND".equals(missing.getCode()))throw missing;
+            return moderation.recordCatalogVerdict("dish",item.id(),missingImage(missing));
+        } catch(IOException unreadable) {
+            LOG.warn("AI dish triage deferred for {}: staging file unreadable",item.id());return 0;
+        }
+    }
+
+    private static AiVerdict missingImage(BusinessException missing) {
+        // Infrastructure failure is advice for a human, never a model-issued rejection.
+        return new AiVerdict("HIGH",1.0,List.of("文件缺失"),missing.getMessage()+"，无法完成审核，请人工核对","system");
+    }
+
+    /** Keep the strongest risk; clean advice uses the weaker confidence of text and image. */
+    static AiVerdict catalogVerdict(AiVerdict text,AiVerdict image) {
+        AiVerdict chosen;
+        int t=riskOrder(text.riskLevel()),i=riskOrder(image.riskLevel());
+        if(t!=i)chosen=t>i?text:image;
+        else if(t==0)chosen=text.confidence()<=image.confidence()?text:image;
+        else chosen=text.confidence()>=image.confidence()?text:image;
+        var labels=new java.util.LinkedHashSet<String>();labels.addAll(text.labels());labels.addAll(image.labels());
+        String reason="文字（"+text.model()+"）："+text.reason()+"；图片（"+image.model()+"）："+image.reason();
+        int end=reason.offsetByCodePoints(0,Math.min(500,reason.codePointCount(0,reason.length())));
+        return new AiVerdict(chosen.riskLevel(),chosen.confidence(),labels.stream().limit(10).toList(),reason.substring(0,end),chosen.model());
+    }
+    private static int riskOrder(String risk){return switch(risk){case "HIGH"->2;case "MEDIUM"->1;default->0;};}
 
     /**
      * Community post: text goes through the review chain, every attached image

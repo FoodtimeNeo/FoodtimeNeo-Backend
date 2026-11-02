@@ -5,10 +5,13 @@
 | 路径 | 行为 |
 | --- | --- |
 | `GET /api/v1/admin/moderation?status=pending&page=1&size=20` | 评论、菜品、档口、图片及点评回复队列；status允许pending/approved/rejected |
+| `GET /api/v1/admin/moderation?status=pending&type=dish&page=1&size=20` | 可选type为review/dish/stall/photo/dish-review-reply；过滤后分页与计数；省略则保持原来的全部类型行为，非法类型400 |
 | `POST /api/v1/admin/moderation/{type}/{id}` | type为review/dish/stall/photo/dish-review-reply；body为 `{action:"approve或reject",reason:"审核说明",price:可选补齐价格}` |
 | `GET /api/v1/admin/moderation/logs?page=1&size=20` | 审核日志，只有管理员可见 |
 
-队列项 `id/type/targetId/userId/userDisplayName/name/content/price/imageUrl/rating/status/reason/createdAt` 来自已有提交表或关联对象。`userDisplayName` 取自投稿人当前昵称，供管理端直接展示，不再显示原始用户ID。`aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt` 为AI预检结论（未检出为null）；评论结论够硬时AI直接自动通过/驳回（阈值见配置），拿不准的才留给人工，详见[AI预检](../../ai-moderation.md)。`type`是表来源协议标识，不增加通用提交表。图片沿用dish_images，V4经用户确认补充审核字段与独立图片日志外键；文件上传不等于投稿。
+队列项 `id/type/targetId/userId/userEmail/userDisplayName/name/content/price/imageUrl/rating/status/reason/createdAt` 来自已有提交表或关联对象。管理端显示发布者邮箱、当前昵称、用户ID、内容和发布时间。`aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt` 为AI预检结论（未检出为null）；评论结论够硬时AI直接自动通过/驳回（阈值见配置），拿不准的才留给人工，详见[AI预检](../../ai-moderation.md)。`type`是表来源协议标识，不增加通用提交表。图片沿用dish_images，V4经用户确认补充审核字段与独立图片日志外键；文件上传不等于投稿。
+
+2026-11-02 确认并实现：新菜品投稿（dish）与独立菜品图片（photo）接入 AI 建议与高风险自动驳回（置信度达标直接 reject），但严格禁止 AI 自动通过，通过必须由管理员人工执行且菜品需确认价格。数据库增加 V35 约束确保 `reviewed_by_ai_model` 仅允许在 rejected 状态下存在。
 
 仅pending可审核，行锁保证并发只有一方成功，之后返回409。驳回须说明原因（沿用当前产品交互约定），不创建正式记录。通过时目标及父级须启用；菜品价格缺失须补齐，提交价格与正式价格一致。档口同一食堂名称冲突返回409，事务完全回滚。
 

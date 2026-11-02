@@ -168,3 +168,73 @@ Nginx 装本机即可（`worker_processes 2`），公网 443 同时转发页面�
 但生产默认关闭，上线前按 `ai-moderation.md` 走用户协议披露与审批再开。
 磁盘重点看 `/app/uploads` 与日志卷，`STORAGE_DISK_WARN_BYTES` 默认 1G 告警；
 首周盯 `monitoring.md` 的 p95、429 比例与 `hikaricp_connections_pending`（持续大于 0 再考虑加池）。
+
+## 图片上传与 Android 更新（部署检查清单）
+
+以下两项是 1.2.0 之后新增的行为，升级后端或发布新 APK 时按需核对。
+
+### 1. 图片上传上限提升到 50MB
+
+后端默认值已改为：单文件 50MB、整个 multipart 请求 60MB、字节级上限 60MB。
+如果服务器或容器显式设置了旧值，必须同步调大，否则上传仍会被 413 拒绝：
+
+```dotenv
+UPLOAD_MAX_FILE_SIZE=50MB
+UPLOAD_MAX_REQUEST_SIZE=60MB
+REQUEST_MAX_MULTIPART_BYTES=62914560
+```
+
+经过 Nginx 时还要放宽 `client_max_body_size`（默认 1MB），建议放在 `server` 或 `location` 块：
+
+```nginx
+client_max_body_size 60m;
+```
+
+行为说明：原图超过 10MB 时服务端会按比例降采样并重编码到 5MB 左右，
+其余图片处理后硬上限 10MB；解码时超过 2000 万像素也会降采样。
+缩略图仍是 480px、KB 级，前端展示不受影响。存储配额（`STORAGE_USER_BYTES` 等）按处理后的实际大小计算。
+
+### 2. Android 应用内更新与增量补丁
+
+`/api/v1/system/app-release` 仍由 `APP_RELEASE_*` 驱动，未配置则不提示：
+
+```dotenv
+APP_RELEASE_VERSION_CODE=10
+APP_RELEASE_VERSION_NAME=1.3.0
+APP_RELEASE_APK_URL=https://github.com/FoodtimeNeo/FoodtimeNeo-Android/releases/download/v1.3.0/app-release.apk
+APP_RELEASE_NOTES=本次更新说明……
+APP_RELEASE_MIN_VERSION_CODE=0
+```
+
+- **增量下载的前提**：`APP_RELEASE_APK_URL` 指向 GitHub Release 的 APK 资产，且与 `manifest.json` 位于同一目录。
+  客户端会请求 `manifest.json`，匹配当前安装版本号的 bsdiff 补丁并只下载补丁（通常 1–3MB）；
+  拿不到 manifest、没有对应补丁或补丁校验失败时，自动回退下载完整 APK，不需要人工干预。
+- Android CD 在 `main` 发布时会为**最近三个正式版本**生成补丁，并上传
+  `app-release.apk`、`app-release.apk.sha256`、`manifest.json` 与 `app-release-<旧>-<新>.patch`。
+  使用其他下载地址（自建 CDN、网盘）时不会命中增量，只会走完整包下载。
+- `APP_RELEASE_MIN_VERSION_CODE` 大于当前安装版本时，更新弹窗不可跳过；更新弹窗会先于公告显示。
+- 客户端下载完成后会校验完整 APK 的 SHA-256 并直接调起系统安装器，
+  用户需要允许本应用「安装未知来源应用」。
+
+### 3. 迁移版本号变更（V35 → V36）
+
+`dev` 上曾同时存在两个 `V35` 迁移（访客账号与 AI 驳回）。为避免 Flyway 启动失败，
+较晚合入的 AI 迁移已改名为 `V36__catalog_ai_rejection_only.sql`。
+
+只有在 **2026-11-02 14:57 之后、该修复合并之前**部署过包含 AI 功能构建的数据库，
+才可能出现历史记录不匹配。上线前可检查：
+
+```sql
+SELECT version, description, success FROM foodtime.flyway_schema_history ORDER BY installed_rank;
+```
+
+若存在 `version='35' AND description='catalog ai rejection only'`，说明旧构建已执行过该迁移，
+需要先把历史记录改成 V36，再启动新版本（迁移内容不变，checksum 不变）：
+
+```sql
+UPDATE foodtime.flyway_schema_history
+SET version = '36'
+WHERE version = '35' AND description = 'catalog ai rejection only';
+```
+
+全新数据库或一直部署的是合并后的版本则无需处理。
