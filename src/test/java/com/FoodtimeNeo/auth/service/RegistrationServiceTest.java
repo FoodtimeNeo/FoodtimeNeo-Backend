@@ -32,8 +32,26 @@ class RegistrationServiceTest {
         when(verification.claim("123@bjtu.edu.cn", "012345")).thenReturn(claim);
         return new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(), verification, invitations,
                 new RegistrationGate(new RegistrationLimitsProperties(RegistrationMode.OPEN, Duration.ofMinutes(15),
-                        10, 10, 1000, "test:registration")), Clock.systemUTC());
+                        10, 10, 1000, "test:registration",
+                RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)), Clock.systemUTC());
     }
+    @Test
+    void nonMainstreamEmailIsRejectedBeforeClaimingTheCode() {
+        UserMapper users = mock(UserMapper.class);
+        RegistrationService service = new RegistrationService(users, new PasswordConfig().passwordEncoder(),
+                new DefaultDisplayNameGenerator(), verification, invitations,
+                new RegistrationGate(new RegistrationLimitsProperties(RegistrationMode.OPEN,
+                        Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
+                        RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
+                Clock.systemUTC());
+        assertThatThrownBy(() -> service.register(
+                new RegisterRequest("someone@example.com", "Abc12345", "012345", null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getCode())
+                .isEqualTo("EMAIL_DOMAIN_NOT_ALLOWED");
+        verifyNoInteractions(verification);
+    }
+
     @Test
     void nonSchoolEmailRegistersAsAReadOnlyVisitor() {
         UserMapper users = mock(UserMapper.class);
@@ -43,7 +61,8 @@ class RegistrationServiceTest {
                 .thenReturn(new VerificationClaim("someone@gmail.com", "claim-gmail"));
         RegistrationService service = new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(),
                 verification, invitations, new RegistrationGate(new RegistrationLimitsProperties(
-                        RegistrationMode.OPEN, Duration.ofMinutes(15), 10, 10, 1000, "test:registration")),
+                        RegistrationMode.OPEN, Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
+                RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
                 Clock.systemUTC());
 
         var response = service.register(new RegisterRequest("someone@gmail.com", "Abc12345", "012345", null));
