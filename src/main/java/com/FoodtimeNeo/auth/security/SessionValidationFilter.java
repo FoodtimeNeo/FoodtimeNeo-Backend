@@ -33,6 +33,11 @@ public class SessionValidationFilter extends OncePerRequestFilter {
                 UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
                 if (user != null) {
                     presence.touch(user.id());
+                    if (VisitorPolicy.blocked(user, request)) {
+                        errors.write(response, 403, "VISITOR_READ_ONLY",
+                                "访客账号只能浏览，绑定学校邮箱后可发布内容");
+                        return;
+                    }
                 }
             } catch (BusinessException exception) {
                 SecurityContextHolder.clearContext();

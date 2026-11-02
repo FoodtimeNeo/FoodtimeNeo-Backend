@@ -35,6 +35,45 @@ class RegistrationServiceTest {
                         10, 10, 1000, "test:registration")), Clock.systemUTC());
     }
     @Test
+    void nonSchoolEmailRegistersAsAReadOnlyVisitor() {
+        UserMapper users = mock(UserMapper.class);
+        PasswordEncoder encoder = new PasswordConfig().passwordEncoder();
+        when(users.insertRegisteredUser(any())).thenReturn(1);
+        when(verification.claim("someone@gmail.com", "012345"))
+                .thenReturn(new VerificationClaim("someone@gmail.com", "claim-gmail"));
+        RegistrationService service = new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(),
+                verification, invitations, new RegistrationGate(new RegistrationLimitsProperties(
+                        RegistrationMode.OPEN, Duration.ofMinutes(15), 10, 10, 1000, "test:registration")),
+                Clock.systemUTC());
+
+        var response = service.register(new RegisterRequest("someone@gmail.com", "Abc12345", "012345", null));
+
+        ArgumentCaptor<NewUser> inserted = ArgumentCaptor.forClass(NewUser.class);
+        verify(users).insertRegisteredUser(inserted.capture());
+        assertThat(inserted.getValue().role()).isEqualTo("visitor");
+        assertThat(inserted.getValue().schoolEmail()).isNull();
+        assertThat(inserted.getValue().schoolEmailVerifiedAt()).isNull();
+        assertThat(response.role()).isEqualTo("visitor");
+    }
+
+    @Test
+    void schoolEmailRegistersAsAUserWithTheMailboxBound() {
+        UserMapper users = mock(UserMapper.class);
+        PasswordEncoder encoder = new PasswordConfig().passwordEncoder();
+        when(users.insertRegisteredUser(any())).thenReturn(1);
+        RegistrationService service = service(users, encoder);
+
+        var response = service.register(new RegisterRequest("123@bjtu.edu.cn", "Abc12345", "012345", null));
+
+        ArgumentCaptor<NewUser> inserted = ArgumentCaptor.forClass(NewUser.class);
+        verify(users).insertRegisteredUser(inserted.capture());
+        assertThat(inserted.getValue().role()).isEqualTo("user");
+        assertThat(inserted.getValue().schoolEmail()).isEqualTo("123@bjtu.edu.cn");
+        assertThat(inserted.getValue().schoolEmailVerifiedAt()).isNotNull();
+        assertThat(response.role()).isEqualTo("user");
+    }
+
+    @Test
     void persistenceReceivesOnlyTheHashAndServerGeneratedDefaults() {
         UserMapper users = mock(UserMapper.class);
         PasswordEncoder encoder = new PasswordConfig().passwordEncoder();

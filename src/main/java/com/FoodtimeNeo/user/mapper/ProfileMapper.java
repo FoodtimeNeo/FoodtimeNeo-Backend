@@ -10,7 +10,8 @@ import java.util.UUID;
 @Mapper
 public interface ProfileMapper {
     @Select("""
-            SELECT u.id, u.email, u.display_name, u.role, u.avatar_url,
+            SELECT u.id, u.email, u.display_name, u.role, u.avatar_url, u.school_email,
+                   (u.school_email_verified_at IS NOT NULL) AS school_email_verified,
                    (SELECT count(*) FROM foodtime.user_follows f WHERE f.follower_id = u.id) AS following_count,
                    (SELECT count(*) FROM foodtime.user_follows f WHERE f.following_id = u.id) AS follower_count
             FROM foodtime.users u
