@@ -19,11 +19,11 @@ public class ModerationController {
     private final ModerationService moderation;
     public ModerationController(ModerationService moderation) { this.moderation = moderation; }
     @GetMapping
-    @Operation(summary = "管理员审核队列", description = "评论、菜品、档口及图片提交，按状态分页；type为表来源的协议标识")
+    @Operation(summary = "管理员审核队列", description = "按状态及可选type分页；type支持review、dish、stall、photo、dish-review-reply；省略时返回全部食堂投稿")
     public ApiResponse<PageResponse<ModerationItem>> queue(HttpServletRequest request,
             @RequestParam(defaultValue = "pending") String status, @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(moderation.queue(current(request),status,new PageRequest(page,size)));
+            @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) String type) {
+        return ApiResponse.success(moderation.queue(current(request),status,type,new PageRequest(page,size)));
     }
     @PostMapping("/{type}/{submissionId}")
     @Operation(summary = "通过或驳回提交", description = "仅处理pending；正式数据、状态和日志在同一事务中完成，重复审核409")
