@@ -37,7 +37,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handlePersistenceFailure(DataAccessException exception) {
-        LOG.error("Persistence unavailable: {}", exception.getClass().getSimpleName());
+        LOG.error("Persistence unavailable: {}", exception.getClass().getSimpleName(), exception);
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ApiResponse.error("DATA_UNAVAILABLE", "服务暂时不可用，请重试", null));
     }
