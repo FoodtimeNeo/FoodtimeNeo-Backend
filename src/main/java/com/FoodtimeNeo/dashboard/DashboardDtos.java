@@ -20,7 +20,7 @@ public final class DashboardDtos {
 
     public record DashboardResponse(
             @Schema(description = "累计注册用户数（status=active）") long registeredUsers,
-            @Schema(description = "当前有效会话数") long onlineUsers,
+            @Schema(description = "最近在线窗口（默认5分钟）内有已认证请求的去重用户数，同账号多端计一次") long onlineUsers,
             @Schema(description = "累计正式点评数") long reviews,
             @Schema(description = "累计点评回复数") long replies,
             @Schema(description = "累计已发布社区动态数") long posts,
