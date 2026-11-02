@@ -161,7 +161,8 @@ public class ModerationStore {
 
     public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
         boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post")
-                || item.type().equals("community-comment") || item.type().equals("dish-review-reply");
+                || item.type().equals("community-comment") || item.type().equals("dish-review-reply")
+                || item.type().equals("dish") || item.type().equals("photo");
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
         String ai = aiReviewed ? ",reviewed_by_ai_model = ?" : "";
         var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));

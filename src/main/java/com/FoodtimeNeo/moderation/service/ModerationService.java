@@ -2,6 +2,9 @@ package com.FoodtimeNeo.moderation.service;
 
 import com.FoodtimeNeo.common.api.*;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.ai.dto.AiVerdict;
+import com.FoodtimeNeo.ai.mapper.AiModerationStore;
+import com.FoodtimeNeo.config.properties.AiTriageProperties;
 import com.FoodtimeNeo.community.mapper.CommunityStore;
 import com.FoodtimeNeo.moderation.dto.*;
 import com.FoodtimeNeo.moderation.mapper.ModerationStore;
@@ -27,9 +30,13 @@ public class ModerationService {
     private final CatalogSubmissionMapper catalog;
     private final CommunityStore community;
     private final ReviewAccessService reviewAccess;
+    private final AiModerationStore ai;
+    private final AiTriageProperties aiProperties;
     public ModerationService(ModerationStore store, PublishedReviewMapper reviews, CatalogSubmissionMapper catalog,
-                             CommunityStore community, ReviewAccessService reviewAccess) {
+                             CommunityStore community, ReviewAccessService reviewAccess,
+                             AiModerationStore ai, AiTriageProperties aiProperties) {
         this.store = store; this.reviews = reviews; this.catalog = catalog; this.community = community; this.reviewAccess=reviewAccess;
+        this.ai=ai;this.aiProperties=aiProperties;
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
@@ -63,18 +70,42 @@ public class ModerationService {
     }
 
     /**
-     * AI automatic decision: reviews and community posts are eligible, catalog and photos stay human.
+     * Catalog uploads are rejection-only, irrespective of approval thresholds or model mode.
      * Races with a human decision surface as ALREADY_REVIEWED for the caller to absorb.
      */
     @Transactional
     public ModerationResult autoDecide(String type, UUID id, com.FoodtimeNeo.ai.dto.AiVerdict verdict, boolean approve) {
-        if (!Set.of("review", "community-post", "community-comment", "dish-review-reply").contains(type)) throw bad("AI自动审核仅支持评论与社区动态");
+        boolean catalogUpload=Set.of("dish","photo").contains(type);
+        if (!Set.of("review", "community-post", "community-comment", "dish-review-reply","dish","photo").contains(type)) throw bad("AI自动审核类型不合法");
+        if(catalogUpload&&approve)throw bad("菜品与菜品图片必须由管理员人工通过");
+        if(catalogUpload&&!catalogRejectable(verdict))throw bad("仅可对高置信度高风险菜品或图片执行AI驳回");
         ModerationItem item = store.lock(type,id);
         if(type.startsWith("community-") && !community.aiPending(type,id))
             throw new BusinessException("ALREADY_REVIEWED","内容已转人工审核或已处理",HttpStatus.CONFLICT);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
-        return decide(type, item, approve ? "approve" : "reject", verdict.reason(), null, null, "ai", verdict.model());
+        return decide(type, item, approve ? "approve" : "reject", verdict.reason(), item.price(), null, "ai", verdict.model());
+    }
+
+    private boolean catalogRejectable(AiVerdict verdict) {
+        return "HIGH".equals(verdict.riskLevel())&&Double.isFinite(verdict.confidence())
+                &&verdict.confidence()>=aiProperties.autoRejectAbove()&&verdict.confidence()<=1
+                &&!"system".equals(verdict.model());
+    }
+
+    /** AI calls happen outside this transaction. Record and optional rejection commit together;
+     * locking the submission first serializes competing workers and human decisions. */
+    @Transactional
+    public int recordCatalogVerdict(String type,UUID id,AiVerdict verdict) {
+        if(!Set.of("dish","photo").contains(type))throw bad("非菜品上传的AI结论");
+        ModerationItem item=store.lock(type,id);
+        if(item==null||!item.status().equals("pending"))return 0;
+        int inserted=ai.insert(UUID.randomUUID(),type,id,verdict.riskLevel(),BigDecimal.valueOf(verdict.confidence()),
+                verdict.labels().toArray(String[]::new),verdict.reason(),verdict.model());
+        AiVerdict canonical=inserted==1?verdict:ai.catalogVerdict(type,id).orElseThrow();
+        if(catalogRejectable(canonical))
+            decide(type,item,"reject",canonical.reason(),item.price(),null,"ai",canonical.model());
+        return inserted;
     }
 
     private ModerationResult decide(String type, ModerationItem item, String action, String reason,

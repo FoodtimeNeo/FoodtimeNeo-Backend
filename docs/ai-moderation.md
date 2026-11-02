@@ -4,8 +4,8 @@
 
 ## 范围与触发
 
-- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）、`dish_images`（图片投稿）
-  与 `community_posts`（社区动态，文本类型 `community-post`、配图逐张 `community-image`）、`community_comments`及`dish_review_replies`（点评回复，类型`dish-review-reply`）。菜品/档口投稿暂不送检。
+- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）、`dish_images`（图片投稿）、`dish_submissions`（新菜品投稿，类型 `dish`）
+  与 `community_posts`（社区动态，文本类型 `community-post`、配图逐张 `community-image`）、`community_comments`及`dish_review_replies`（点评回复，类型`dish-review-reply`）。档口投稿暂不送检。
 - 即时：投稿创建事务提交后，`SubmissionDiagnoseEvent` 经有界线程池（核心 4、最大 8 线程，队列 500，满了丢弃）异步诊断，通常几秒内出结论；请求线程绝不等 AI，AI 再慢也不影响发帖返回。
 - 兜底：短周期扫批（默认每 30 秒一批，启动后 5 秒首跑，最多 10 条）只处理漏网的（崩溃重启、线程池满丢弃）；每条投稿最多检一次（`uq_ai_moderation_result` 保证，即使并发也不重复）。
 - 传输故障（超时、鉴权失败、返回无法解析）不写结论行，下个周期重试；日志只记ID与错误类型，不记原文和图片字节。
@@ -58,7 +58,12 @@
 
 自动决定走与人工审核同一事务路径（发布正式记录、更新投稿状态、记审核日志），
 只是日志记 `actor='ai'` + 模型名，与人工（`actor='human'` + 管理员）分开存放，
-核验时在审核日志里一眼区分。图片投稿暂不自动拍板，只做分诊参考。
+核验时在审核日志里一眼区分。
+
+新菜品投稿（dish）与独立菜品图片（photo）实行**严格仅支持自动驳回（Rejection-Only）**：
+- 严禁任何模型自动通过（数据库级约束 V35 限制 `reviewed_by_ai_model` 仅允许在 `status='rejected'` 存在）。
+- HIGH 且置信度 ≥ `auto-reject-above`（默认 0.9，菜品图文综合评估）自动驳回，保存用户提交价格与 AI 原因；
+- LOW/MEDIUM 作为审核员参考建议，必须由人工在后台补齐或确认价格后点击通过。
 自动与人工撞单（人先点了）按 `ALREADY_REVIEWED` 吸收，不报错。
 
 ## 待调优（用户记录，策略未定）

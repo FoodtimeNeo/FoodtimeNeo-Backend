@@ -11,7 +11,7 @@
 
 队列项 `id/type/targetId/userId/userEmail/userDisplayName/name/content/price/imageUrl/rating/status/reason/createdAt` 来自已有提交表或关联对象。管理端显示发布者邮箱、当前昵称、用户ID、内容和发布时间。`aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt` 为AI预检结论（未检出为null）；评论结论够硬时AI直接自动通过/驳回（阈值见配置），拿不准的才留给人工，详见[AI预检](../../ai-moderation.md)。`type`是表来源协议标识，不增加通用提交表。图片沿用dish_images，V4经用户确认补充审核字段与独立图片日志外键；文件上传不等于投稿。
 
-2026-11-02 核对：新菜品与菜品图片均禁止 AI 自动通过，即便直接调用自动决定服务且置信度为1也不得发布。新菜品目前不送 AI，图片只记录 AI 建议；扩展建议／自动驳回的适用类型待用户确认，暂不改动既有自动审核策略。
+2026-11-02 确认并实现：新菜品投稿（dish）与独立菜品图片（photo）接入 AI 建议与高风险自动驳回（置信度达标直接 reject），但严格禁止 AI 自动通过，通过必须由管理员人工执行且菜品需确认价格。数据库增加 V35 约束确保 `reviewed_by_ai_model` 仅允许在 rejected 状态下存在。
 
 仅pending可审核，行锁保证并发只有一方成功，之后返回409。驳回须说明原因（沿用当前产品交互约定），不创建正式记录。通过时目标及父级须启用；菜品价格缺失须补齐，提交价格与正式价格一致。档口同一食堂名称冲突返回409，事务完全回滚。
 
