@@ -22,11 +22,13 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.UUID;
 import java.time.Clock;
+import java.time.Instant;
 
 @Service
 @Validated
 public class RegistrationService {
     private static final Logger LOG = LoggerFactory.getLogger(RegistrationService.class);
+    static final String SCHOOL_EMAIL_SUFFIX = "@bjtu.edu.cn";
     private final UserMapper users;
     private final PasswordEncoder passwords;
     private final DefaultDisplayNameGenerator names;
@@ -61,12 +63,17 @@ public class RegistrationService {
                 if (request.invitationCode() != null) {
                     invitationCodeId = invitations.consume(request.invitationCode());
                 }
+                // 校园邮箱注册即拥有发布权限；其他邮箱先以只读访客身份进入。
+                boolean school = request.email().endsWith(SCHOOL_EMAIL_SUFFIX);
+                Instant now = clock.instant();
                 NewUser user = new NewUser(UUID.randomUUID(), request.email(),
-                        passwords.encode(request.password()), names.generate(), clock.instant(), invitationCodeId);
+                        passwords.encode(request.password()), names.generate(),
+                        school ? "user" : "visitor", now, invitationCodeId,
+                        school ? request.email() : null, school ? now : null);
                 // PostgreSQL remains the final authority for uniqueness, including concurrent claims.
                 if (users.insertRegisteredUser(user) == 0) { throw duplicateEmail(); }
                 registered = true;
-                return new RegisterResponse(user.id(), user.email(), user.displayName(), "user");
+                return new RegisterResponse(user.id(), user.email(), user.displayName(), user.role());
             } finally {
                 verification.finish(claim, registered);
             }

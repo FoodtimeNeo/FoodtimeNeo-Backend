@@ -39,7 +39,7 @@ class EmailVerificationControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"abc@bjtu.edu.cn", "123@outside.example", "123@bjtu.edu.cn.evil.test", "123\r\nBcc:attacker@example.com"})
+    @ValueSource(strings = {"not-an-email", "123@example", "123@.com", "123 @example.com", "123\r\nBcc:attacker@example.com"})
     void invalidAddressesNeverReachTheMailSender(String email) throws Exception {
         mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("email", email))))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));

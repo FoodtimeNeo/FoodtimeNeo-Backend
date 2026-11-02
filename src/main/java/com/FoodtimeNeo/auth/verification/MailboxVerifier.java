@@ -39,6 +39,7 @@ public class MailboxVerifier {
     private final StringRedisTemplate redis;
     private final boolean enabled;
     private final String host;
+    private final String emailDomain;
     private final int port;
     private final int timeoutMillis;
     private final Duration cacheTtl;
@@ -47,6 +48,7 @@ public class MailboxVerifier {
     public MailboxVerifier(StringRedisTemplate redis,
             @Value("${app.email-verification.mailbox.enabled:false}") boolean enabled,
             @Value("${app.email-verification.mailbox.host:smg.bjtu.edu.cn}") String host,
+            @Value("${app.email-verification.mailbox.email-domain:bjtu.edu.cn}") String emailDomain,
             @Value("${app.email-verification.mailbox.port:465}") int port,
             @Value("${app.email-verification.mailbox.timeout:PT3S}") Duration timeout,
             @Value("${app.email-verification.mailbox.cache-ttl:PT10M}") Duration cacheTtl,
@@ -54,6 +56,8 @@ public class MailboxVerifier {
         this.redis = redis;
         this.enabled = enabled;
         this.host = host == null ? "" : host.strip();
+        this.emailDomain = emailDomain == null || emailDomain.isBlank()
+                ? "bjtu.edu.cn" : emailDomain.strip().toLowerCase(Locale.ROOT);
         this.port = port >= 1 && port <= 65535 ? port : 465;
         long millis = timeout == null ? 3000 : timeout.toMillis();
         this.timeoutMillis = (int) Math.max(500, Math.min(10000, millis));
@@ -68,6 +72,10 @@ public class MailboxVerifier {
             return Result.UNKNOWN;
         }
         String normalized = email.strip().toLowerCase(Locale.ROOT);
+        // 预检只服务于校园邮箱；其他域名没有可用的校内 SMTP，交给验证码投递兜底。
+        if (!normalized.endsWith("@" + emailDomain)) {
+            return Result.UNKNOWN;
+        }
         Result cached = cached(normalized);
         if (cached != null) {
             return cached;

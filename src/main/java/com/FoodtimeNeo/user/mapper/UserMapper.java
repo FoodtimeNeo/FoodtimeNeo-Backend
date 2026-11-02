@@ -19,8 +19,11 @@ public interface UserMapper {
 
     /** Returns 0 for an email conflict, including races after the existence check. */
     @Insert("""
-            INSERT INTO foodtime.users (id, email, password_hash, display_name, role, status, email_verified_at, invited_by_code_id)
-            VALUES (#{id,jdbcType=OTHER}, #{email}, #{passwordHash}, #{displayName}, 'user', 'active', #{emailVerifiedAt}, #{invitedByCodeId,jdbcType=OTHER})
+            INSERT INTO foodtime.users (id, email, password_hash, display_name, role, status, email_verified_at,
+                                        invited_by_code_id, school_email, school_email_verified_at)
+            VALUES (#{id,jdbcType=OTHER}, #{email}, #{passwordHash}, #{displayName}, #{role}, 'active',
+                    #{emailVerifiedAt}, #{invitedByCodeId,jdbcType=OTHER},
+                    #{schoolEmail,jdbcType=VARCHAR}, #{schoolEmailVerifiedAt,jdbcType=TIMESTAMP})
             ON CONFLICT (lower(btrim(email))) DO NOTHING
             """)
     int insertRegisteredUser(NewUser user);
@@ -52,6 +55,23 @@ public interface UserMapper {
             FROM foodtime.users WHERE id = #{id,jdbcType=OTHER}
             """)
     UserProfile findProfile(UUID id);
+
+    /** 学校邮箱是否已被其他账号占用（本人重复绑定不算冲突）。 */
+    @Select("""
+            SELECT EXISTS (SELECT 1 FROM foodtime.users
+                           WHERE lower(school_email) = #{email} AND id <> #{userId,jdbcType=OTHER})
+            """)
+    boolean schoolEmailBoundElsewhere(@Param("email") String email, @Param("userId") UUID userId);
+
+    /** 绑定成功后访客升级为普通用户；已是更高角色保持不变。 */
+    @Update("""
+            UPDATE foodtime.users
+            SET school_email = #{email}, school_email_verified_at = now(),
+                role = CASE WHEN role = 'visitor' THEN 'user' ELSE role END,
+                updated_at = now()
+            WHERE id = #{userId,jdbcType=OTHER} AND status = 'active'
+            """)
+    int bindSchoolEmail(@Param("userId") UUID userId, @Param("email") String email);
 
     /** Detect concurrent password changes or disablement before granting a session. */
     @Update("""
