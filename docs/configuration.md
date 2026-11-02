@@ -44,7 +44,7 @@
 | `REDIS_CONNECT_TIMEOUT` / `REDIS_TIMEOUT` | `3s` / `3s` | Redis 建连 / 命令超时 |
 | `REDIS_POOL_MAX_ACTIVE` | `8` | Redis 连接池最大连接数 |
 | `CORS_ALLOWED_ORIGINS` | localhost:5173、localhost:3000 的 HTTP origin | 逗号分隔的完整 origin；生产默认为空；禁止通配符和带路径的 URL |
-| `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | `10MB` / `20MB` | multipart单文件 / 整个请求上限；图片上传业务已实现，另有JPEG/PNG、10MiB与2000万像素业务校验 |
+| `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` / `REQUEST_MAX_MULTIPART_BYTES` | `50MB` / `60MB` / `62914560` | multipart单文件 / 整个请求 / 字节级请求上限，三者需同时调大；业务层只接受 JPEG/PNG，原图超过 10MiB 时会自动压缩到 5MiB 左右，其余图片硬上限 10MiB，超过 2000 万像素按整数倍降采样解码 |
 | `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
 | `AUTH_DEVICE_SECRET` / `AUTH_DEVICE_COOKIE_NAME` / `AUTH_DEVICE_COOKIE_MAX_AGE` | 复用`EMAIL_VERIFICATION_SECRET` / `foodtime_device` / `P365D` | 注册与发码的签名匿名设备Cookie；不采集指纹，仅用于限流。更换密钥会使旧Cookie失效 |
@@ -59,12 +59,13 @@
 | `LOG_FILE` | `logs/foodtime-neo-backend.log` | 日志文件路径 |
 | `FORWARD_HEADERS_STRATEGY` | `none` | 受信任反向代理统一设置转发头时可改为 `framework` |
 | `POSTGRES_DB` / `POSTGRES_PORT` | `foodtime_neo` / `5432` | 仅供 Compose 初始化与本机端口映射 |
+| `APP_RELEASE_VERSION_CODE` / `APP_RELEASE_VERSION_NAME` / `APP_RELEASE_APK_URL` / `APP_RELEASE_NOTES` / `APP_RELEASE_MIN_VERSION_CODE` | 未设置（关闭更新提示） | Android 应用内更新信息。`APP_RELEASE_APK_URL` 指向 GitHub Release 资产时，客户端会读取同目录 `manifest.json` 优先走 bsdiff 增量补丁，缺失或校验失败自动回退完整包；`MIN_VERSION_CODE` 大于当前版本时弹窗不可跳过。详见[生产部署](deployment.md) |
 
 其他共享设置：优雅停机等待 30 秒，SQL 超时 10 秒，日志按 10MB 滚动、保留 14 天、总量上限 200MB；业务时间使用 `Instant`，数据库连接使用 UTC；API 使用 ISO 8601 时间。跨域配置仅应用于 `/api/**`，仅对明确配置的受信任来源允许Cookie凭据。
 
 ## 文件存储
 
-`ImageStorageService` 读取 `app.storage.directory`，默认是进程工作目录下的 `uploads`。可通过启动参数 `--app.storage.directory=/var/lib/foodtime/uploads` 指定持久化目录；需保证运行账号可读写。调大multipart配置不会取消存储服务的10MiB和2000万像素业务限制。
+`ImageStorageService` 读取 `app.storage.directory`，默认是进程工作目录下的 `uploads`。可通过启动参数 `--app.storage.directory=/var/lib/foodtime/uploads` 指定持久化目录；需保证运行账号可读写。调大multipart配置不会取消业务层限制：单图最多 50MiB，超过 10MiB 会压缩到 5MiB 左右，解码后超过 2000 万像素按整数倍降采样。
 
 数据库迁移不会创建图片字节。V5菜单图片、V6食堂封面及 `.properties` 元数据的铺放方式见 [种子数据与图片部署](seed-data.md)。容器挂载见 [部署说明](deployment.md)。
 
@@ -74,7 +75,7 @@
 
 注册和发码请求共同按邮箱/设备/IP计数，默认15分钟每邮箱10次、每设备10次、每IP1000次，独立于发码冷却和发送配额；Redis不可用时拒绝请求。发码另按邮箱5次、每设备5次、每IP200次计数。参数见`.env.example`中的`REGISTRATION_*`和`EMAIL_SEND_*`。
 
-上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。处理后仍不超过10MB；并发上传/首次缩略图解码默认最多2项，繁忙返回429。
+上传图片统一解码重编码，移除EXIF/GPS、注释及尾部附加内容；JPEG按EXIF方向修正像素，PNG保留透明度。上传上限 50MB；超过 10MB 的原图会按比例降采样并重编码到 5MB 左右，其余图片处理后硬上限 10MB，缩略图仍为 480px、KB 级。并发上传/首次缩略图解码默认最多2项，繁忙返回429。
 
 磁盘文件实时计入配额，默认每用户100MiB、上传目录总计10GiB、磁盘预留1GiB。包含原图、缩略图及元数据；全局还计入孤儿文件。超用户配额返回413，全局容量或磁盘余量不足返回503。可用`STORAGE_USER_BYTES`、`STORAGE_TOTAL_BYTES`、`STORAGE_MIN_FREE_BYTES`调整；不会删除已有图片。现有旧图片的元数据不追溯改写，新增上传才进行清理。
 
