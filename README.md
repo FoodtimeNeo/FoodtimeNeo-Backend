@@ -38,7 +38,7 @@ docker compose up -d --wait
 
 已有 PostgreSQL / Redis 时，可以跳过 Compose，编辑 `.env` 指向对应服务。数据库需要事先创建，数据库账号需要有 `foodtime` schema 的创建权限及迁移所需的 DDL 权限。
 
-当前迁移到V15。种子目录和媒体引用由Flyway写入，图片还需单独铺入实际上传目录；脚本用途、自定义路径及容器说明见 [种子数据与图片部署](docs/ops/seed-data.md)。
+当前迁移到 **V37**；餐厅与档口独立点评见 [模块说明](docs/modules/venue-reviews.md)。种子目录和媒体引用由Flyway写入，图片还需单独铺入实际上传目录；脚本用途、自定义路径及容器说明见 [种子数据与图片部署](docs/ops/seed-data.md)。
 
 `.env` 通过 Spring Config Import 加载，也由 Compose 读取；启动时工作目录必须为本 Backend 目录。文件使用 UTF-8 的 `KEY=value` 格式，不加 `export` 或引号。示例仅包含本地开发凭据，真实配置不会进入 Git。复杂密码和生产凭据建议由系统环境变量或部署平台注入。
 

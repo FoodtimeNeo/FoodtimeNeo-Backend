@@ -32,11 +32,12 @@ public class ModerationService {
     private final ReviewAccessService reviewAccess;
     private final AiModerationStore ai;
     private final AiTriageProperties aiProperties;
+    private final com.FoodtimeNeo.venue.VenueReviewService venues;
     public ModerationService(ModerationStore store, PublishedReviewMapper reviews, CatalogSubmissionMapper catalog,
                              CommunityStore community, ReviewAccessService reviewAccess,
-                             AiModerationStore ai, AiTriageProperties aiProperties) {
+                             AiModerationStore ai, AiTriageProperties aiProperties, com.FoodtimeNeo.venue.VenueReviewService venues) {
         this.store = store; this.reviews = reviews; this.catalog = catalog; this.community = community; this.reviewAccess=reviewAccess;
-        this.ai=ai;this.aiProperties=aiProperties;
+        this.ai=ai;this.aiProperties=aiProperties;this.venues=venues;
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
@@ -48,13 +49,14 @@ public class ModerationService {
     public PageResponse<ModerationItem> queue(UserProfile actor, String status, String type, PageRequest page) {
         guard(actor);
         if (!Set.of("pending","approved","rejected").contains(status)) throw bad("审核状态不合法");
-        if (type!=null&&!Set.of("review","dish","stall","photo","dish-review-reply").contains(type)) throw bad("审核类型不合法");
+        if (type!=null&&!com.FoodtimeNeo.venue.VenueReviewService.isType(type)&&!Set.of("review","dish","stall","photo","dish-review-reply").contains(type)) throw bad("审核类型不合法");
         return PageResponse.of(store.page(status,type,page.size(),page.offset()),store.count(status,type),page);
     }
 
     @Transactional
     public ModerationResult moderate(UserProfile actor, String type, UUID id, @Valid ModerationRequest request) {
         guard(actor);
+        if(com.FoodtimeNeo.venue.VenueReviewService.isType(type))return venues.moderate(actor,type,id,request);
         if (!Set.of("review","dish","stall","photo","community-post","community-comment","dish-review-reply").contains(type)) throw bad("审核类型不合法");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);

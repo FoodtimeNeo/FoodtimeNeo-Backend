@@ -43,17 +43,18 @@ public class AiTriageService {
     private final AiTriageProperties properties;
     private final SingleModerationProperties single;
     private final SingleKeyModerationProvider singleKey;
+    private final com.FoodtimeNeo.venue.VenueReviewService venues;
 
     public AiTriageService(AiModerationStore store, OpenAiCompatibleProvider openai, FakeAiProvider fake,
                            ImageStorageService images, ModerationService moderation, CommunityStore community,
                            @org.springframework.beans.factory.annotation.Qualifier("aiTriageExecutor")
                            java.util.concurrent.Executor triageExecutor,
                            AiModelRouter models, AiTriageProperties properties,
-                           SingleModerationProperties single, SingleKeyModerationProvider singleKey) {
+                           SingleModerationProperties single, SingleKeyModerationProvider singleKey, com.FoodtimeNeo.venue.VenueReviewService venues) {
         this.store = store; this.openai = openai; this.fake = fake;
         this.images = images; this.moderation = moderation; this.community = community;
         this.triageExecutor = triageExecutor; this.models = models; this.properties = properties;
-        this.single = single; this.singleKey = singleKey;
+        this.single = single; this.singleKey = singleKey;this.venues=venues;
     }
 
     /** 单 key 模式启动确认：明确当前生效的是直判还是旧链路。 */
@@ -125,6 +126,9 @@ public class AiTriageService {
             try { checked += diagnosePendingReviewReply(provider,item); }
             catch (RuntimeException e) { LOG.error("AI reply triage deferred for {}",item.id(),e); break; }
         }
+        for(var item:venues.pending(properties.batchSize(),null)) {
+            try {checked+=diagnoseVenue(provider,item);}catch(RuntimeException e){LOG.warn("AI venue triage deferred for {}",item.id(),e);}
+        }
         if (checked > 0) LOG.info("AI triage diagnosed {} submissions", checked);
         return checked;
     }
@@ -148,7 +152,9 @@ public class AiTriageService {
     private void diagnoseAsync(SubmissionDiagnoseEvent event) {
         try {
             AiProvider provider = pick();
-            if ("review".equals(event.type())) {
+            if (com.FoodtimeNeo.venue.VenueReviewService.isType(event.type())) {
+                venues.pending(1,event.submissionId()).stream().findFirst().ifPresent(item->diagnoseVenue(provider,item));
+            } else if ("review".equals(event.type())) {
                 store.pendingReview(event.submissionId()).ifPresent(item -> diagnosePendingReview(provider, item));
             } else if ("photo".equals(event.type())) {
                 store.pendingPhoto(event.submissionId()).ifPresent(item -> diagnosePendingPhoto(provider, item));
@@ -170,6 +176,10 @@ public class AiTriageService {
         }
     }
 
+    private int diagnoseVenue(AiProvider provider,com.FoodtimeNeo.venue.VenueModels.Pending item) {
+        AiVerdict verdict=item.type().endsWith("-reply")?diagnoseCommunityText(provider,item.content()):diagnoseReview(provider,item.rating(),item.content());
+        return venues.recordVerdict(item,verdict);
+    }
     private AiProvider pick() {
         if (single.enabled()) return singleKey;
         return "fake".equals(properties.provider()) ? fake : openai;
