@@ -26,6 +26,19 @@ final class ImageSanitizer {
     private static final long MAX_DECLARED_PIXELS = 300_000_000L;
 
     record Image(byte[] bytes, String contentType, int width, int height) { }
+    static Image sanitizeAvatar(byte[] bytes) throws IOException {
+        Image source=sanitize(bytes);
+        if(source.width()!=source.height())throw bad("头像必须为1:1方形，请先裁剪");
+        BufferedImage pixels=ImageIO.read(new ByteArrayInputStream(source.bytes()));
+        var output=new BufferedImage(512,512,BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics=output.createGraphics();
+        try{graphics.setColor(new Color(0xfffaf0));graphics.fillRect(0,0,512,512);
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.drawImage(pixels,0,0,512,512,null);
+        }finally{graphics.dispose();pixels.flush();}
+        var encoded=new ByteArrayOutputStream();ImageIO.write(output,"jpeg",encoded);output.flush();
+        return new Image(encoded.toByteArray(),"image/jpeg",512,512);
+    }
 
     static Image sanitize(byte[] bytes) throws IOException {
         try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
