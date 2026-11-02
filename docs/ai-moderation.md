@@ -16,7 +16,7 @@
 - 评论：评分数字 + 正文文本。
 - 文字只做合规判定，不要求与食堂/菜品相关：与食堂无关但无害的测试、闲聊等内容可以判 LOW；HIGH/MEDIUM 只表示合规风险（广告引流、人身攻击、低俗、违法等）。
 - 图片：480px 缩略图字节（复用 `?size=thumb` 的生成逻辑，不传原图），MIME 随原格式。
-- 图片只做合规判定，不要求实拍实物：插画、图标、表情包、卡通图、截图等，只要不含色情/暴力/政治敏感/广告引流/违法内容即可判 LOW；MEDIUM 表示需要人工确认的合规风险，HIGH 会按阈值自动驳回。
+- 图片只做合规判定，不要求实拍实物：插画、图标、表情包、卡通图、截图等，只要不含色情/暴力/政治敏感/广告引流/违法内容即可判 LOW；MEDIUM 表示需要人工确认的合规风险。独立菜品图片目前只记录建议，社区配图的 HIGH 可按阈值导致所属食记自动驳回。
 - 使用外部模型即把用户原文与图片发往第三方服务：生产启用前须在用户协议或公告中说明，并走正式审批；测试/开发用 `fake` 提供方，不产生真实外发。
 
 ## 提供方
@@ -84,7 +84,7 @@
 
 ## 结论表与展示
 
-结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回（自动拍板的不进队列）。
+结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回。自动决定后离开待审队列，仍可按已通过／已驳回筛选查看。
 
 ## 开关与配额
 

@@ -34,9 +34,15 @@ public class ModerationService {
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public PageResponse<ModerationItem> queue(UserProfile actor, String status, PageRequest page) {
+        return queue(actor,status,null,page);
+    }
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
+    public PageResponse<ModerationItem> queue(UserProfile actor, String status, String type, PageRequest page) {
         guard(actor);
         if (!Set.of("pending","approved","rejected").contains(status)) throw bad("审核状态不合法");
-        return PageResponse.of(store.page(status,page.size(),page.offset()),store.count(status),page);
+        if (type!=null&&!Set.of("review","dish","stall","photo","dish-review-reply").contains(type)) throw bad("审核类型不合法");
+        return PageResponse.of(store.page(status,type,page.size(),page.offset()),store.count(status,type),page);
     }
 
     @Transactional

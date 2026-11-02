@@ -65,9 +65,19 @@ public class ModerationStore {
     }
 
     public List<ModerationItem> page(String status, int size, long offset) {
-        return jdbc.query("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE status = ? ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?", ROW, status, size, offset);
+        return page(status,null,size,offset);
     }
-    public long count(String status) { return jdbc.queryForObject("SELECT COUNT(*) FROM (" + ITEMS + ") q WHERE status = ?", Long.class, status); }
+    public List<ModerationItem> page(String status,String type,int size,long offset) {
+        String where=type==null?"status = ?":"status = ? AND type = ?";
+        Object[] args=type==null?new Object[]{status,size,offset}:new Object[]{status,type,size,offset};
+        return jdbc.query("SELECT * FROM ("+ITEMS_WITH_AI+") q WHERE "+where+" ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?",ROW,args);
+    }
+    public long count(String status) { return count(status,null); }
+    public long count(String status,String type) {
+        String where=type==null?"status = ?":"status = ? AND type = ?";
+        Object[] args=type==null?new Object[]{status}:new Object[]{status,type};
+        return jdbc.queryForObject("SELECT COUNT(*) FROM ("+ITEMS+") q WHERE "+where,Long.class,args);
+    }
 
     public ModerationItem lock(String type, UUID id) {
         if (type.equals("dish-review-reply")) {

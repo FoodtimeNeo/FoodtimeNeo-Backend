@@ -25,7 +25,9 @@ import java.util.UUID;
  * Async triage with a review chain: the fast primary model screens everything,
  * LOW verdicts below the confidence threshold are escalated to a stronger model,
  * and a fallback model covers primary outages. Photos use a vision model directly.
- * Nothing is ever approved or rejected here; humans decide.
+ * Eligible reviews/replies/community content may use confident automatic decisions.
+ * New dishes are not diagnosed by this service; dish photos only receive suggestions.
+ * Catalog uploads and dish photos cannot be automatically approved.
  */
 @Service
 @ConditionalOnProperty(prefix = "app.ai.triage", name = "enabled", havingValue = "true")
