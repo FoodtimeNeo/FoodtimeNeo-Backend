@@ -34,7 +34,7 @@ class ProfileIT extends IntegrationApiSupport {
     @Test
     void updateNicknameAndOwnAvatar() throws Exception {
         Browser browser = login(owner);
-        String imageUrl = body(browser.upload(png())).path("data").path("imageUrl").asString();
+        String imageUrl = body(browser.upload(png(),"/uploads/avatars")).path("data").path("imageUrl").asString();
         var response = browser.call("PUT", "/api/v1/users/me/profile",
                 Map.of("displayName", "干饭达人", "avatarUrl", imageUrl));
         assertThat(response.statusCode()).isEqualTo(200);
@@ -88,7 +88,7 @@ class ProfileIT extends IntegrationApiSupport {
 
     private byte[] png() throws Exception {
         var out = new ByteArrayOutputStream();
-        ImageIO.write(new BufferedImage(20, 10, BufferedImage.TYPE_INT_RGB), "png", out);
+        ImageIO.write(new BufferedImage(20, 20, BufferedImage.TYPE_INT_RGB), "png", out);
         return out.toByteArray();
     }
 

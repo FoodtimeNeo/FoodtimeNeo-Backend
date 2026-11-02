@@ -23,7 +23,8 @@ public class ProfileService {
     }
     public ProfileResponse update(UUID userId, UpdateProfileRequest body) {
         String displayName = body.displayName().trim();
-        if (body.avatarUrl() != null) images.requireOwnedReference(body.avatarUrl(), userId);
+        // Existing avatars remain usable when changing only the name; every new reference is checked independently.
+        if (body.avatarUrl() != null && !body.avatarUrl().equals(current(userId).avatarUrl())) images.requireAvatarReference(body.avatarUrl(), userId);
         int updated = profiles.update(userId, displayName, body.avatarUrl());
         if (updated == 0) throw new BusinessException("UNAUTHENTICATED", "请重新登录", HttpStatus.UNAUTHORIZED);
         return current(userId);
