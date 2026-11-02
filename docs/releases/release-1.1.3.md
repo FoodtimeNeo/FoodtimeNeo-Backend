@@ -9,6 +9,6 @@
 - 补齐两种管理员的 HTTP 集成回归，验证帖子隐藏、一级评论删除保留回复、评论计数及审计字段。
 - 核查现有个人昵称与头像更新接口、公告创建设置接口及角色权限，保留 v1.1.2 的注册保护、客户端标识与请求限制。
 
-接口见 [社区管理](community-management.md)。本次复用现有表结构和软删除能力，不新增数据库迁移。普通验证为 `mvnw -B -ntp verify`；完整 PostgreSQL / Redis 验证为 `mvnw -B -ntp -Pintegration verify`，在 GitHub CI 的隔离依赖环境运行。
+接口见 [社区管理](../modules/community-management.md)。本次复用现有表结构和软删除能力，不新增数据库迁移。普通验证为 `mvnw -B -ntp verify`；完整 PostgreSQL / Redis 验证为 `mvnw -B -ntp -Pintegration verify`，在 GitHub CI 的隔离依赖环境运行。
 
 本仓库 CD 仍未启用，合并 main 不会更新生产服务器。部署时需保留现有数据库、上传文件和生产配置。

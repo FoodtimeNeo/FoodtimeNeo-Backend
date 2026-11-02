@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 平台数据看板：仅超管可读，趋势按 Asia/Shanghai 自然日对齐，无数据日期补零。
- * 口径定义见 docs/admin-dashboard.md。
+ * 口径定义见 docs/modules/admin-dashboard.md。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"app.rating-summary.refresh-enabled=false"})
@@ -35,7 +35,7 @@ class AdminDashboardIT extends IntegrationApiSupport {
             assertThat(day.path("onlinePeak").asLong()).isGreaterThanOrEqualTo(0);
         }
         // 在线数只断言为非负数：集成测试环境的 sessions 命名空间覆盖对会话存储不生效
-        // （会话实际落在默认命名空间，见 docs/admin-dashboard.md），精确计数逻辑由单测覆盖。
+        // （会话实际落在默认命名空间，见 docs/modules/admin-dashboard.md），精确计数逻辑由单测覆盖。
         assertThat(data.path("onlineUsers").asLong()).isGreaterThanOrEqualTo(0);
     }
 

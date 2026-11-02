@@ -2,7 +2,7 @@
 
 日期：2026-10-20。基线：后端 dev f9b5d78 / 数据库 V14，Web develop 439d4a9，Android dev de351f2。
 
-本稿保留V14基线的审查记录，已按后续开发指令拆分实现为Flyway V15（实时评分）、V16（点评点赞）、V17（回复）、V18（回复点赞）。当前字段与接口以[数据库设计](../database-design.md)和[互动契约](../api/dish/review-interactions.md)为准；[SQL草案](dish-review-interactions-v3.sql)不可与正式迁移叠加执行。
+本稿保留V14基线的审查记录，已按后续开发指令拆分实现为Flyway V15（实时评分）、V16（点评点赞）、V17（回复）、V18（回复点赞）。当前字段与接口以[数据库设计](../architecture/database-design.md)和[互动契约](../api/dish/review-interactions.md)为准；[SQL草案](dish-review-interactions-v3.sql)不可与正式迁移叠加执行。
 
 ## 1. 范围与建议规则
 

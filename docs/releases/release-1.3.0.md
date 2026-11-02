@@ -16,7 +16,7 @@
 - `V35__visitor_accounts.sql`：角色约束加入 `visitor`，新增 `school_email` / `school_email_verified_at` 与唯一索引，并为存量 `@bjtu.edu.cn` 用户补绑学校邮箱。
 - `V36__catalog_ai_rejection_only.sql`：AI 驳回相关内容（原 V35 重编号，避免与访客迁移冲突）。
 
-Flyway 自动执行，不手工修改版本表。**只有在 2026-11-02 14:57 之后、V35/V36 重编号修复之前部署过 AI 构建的数据库**，才需要按[部署检查清单](deployment.md#3-迁移版本号变更v35--v36)修正 `flyway_schema_history`。
+Flyway 自动执行，不手工修改版本表。**只有在 2026-11-02 14:57 之后、V35/V36 重编号修复之前部署过 AI 构建的数据库**，才需要按[部署检查清单](../ops/deployment.md#3-迁移版本号变更v35--v36)修正 `flyway_schema_history`。
 
 ## 部署注意
 

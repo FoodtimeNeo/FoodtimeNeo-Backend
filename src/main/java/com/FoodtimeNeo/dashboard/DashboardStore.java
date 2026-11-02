@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * 看板读模型：全部一次性聚合查询，不写库。
- * 趋势口径见 docs/admin-dashboard.md；日期一律按 Asia/Shanghai 业务时区切分。
+ * 趋势口径见 docs/modules/admin-dashboard.md；日期一律按 Asia/Shanghai 业务时区切分。
  */
 @Repository
 public class DashboardStore {

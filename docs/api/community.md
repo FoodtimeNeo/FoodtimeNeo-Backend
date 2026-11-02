@@ -3,7 +3,7 @@
 登录后可用；写请求需当前Cookie及CSRF。动态与评论走与点评相同的AI即审链
 （文本用 `community-post` 类型按评论阈值，配图用 `community-image` 类型按图片链逐张诊断；
 任一 HIGH 达线即驳回，文本 LOW 达线且配图全 LOW 达线才通过，其余留给人工），
-人工队列与审核日志与点评共用语义（`actor` 区分 AI/人工），详见[AI预检](../../ai-moderation.md)。
+人工队列与审核日志与点评共用语义（`actor` 区分 AI/人工），详见[AI预检](../modules/ai-moderation.md)。
 
 | 路径 | 行为 |
 | --- | --- |

@@ -1,13 +1,13 @@
 # 配置说明
 
-修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；注册与发码额外使用签名匿名设备 Cookie，按邮箱/设备/IP三层计数，见[邮箱验证码](api/auth/email-verification.md)。反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
+修改密码限流独立于登录限流，默认每用户15分钟5次、每IP15分钟500次；可通过 `PASSWORD_CHANGE_WINDOW`、`PASSWORD_CHANGE_USER_LIMIT`、`PASSWORD_CHANGE_IP_LIMIT`、`PASSWORD_CHANGE_REDIS_NAMESPACE` 配置，规则见 [修改密码接口](../api/user/password.md)。登录限流默认每账号15分钟10次、每IP15分钟1000次。每IP配额按校园网统一出口放大，单人滥用由用户级配额兜住；注册与发码额外使用签名匿名设备 Cookie，按邮箱/设备/IP三层计数，见[邮箱验证码](../api/auth/email-verification.md)。反向代理部署须配合 `FORWARD_HEADERS_STRATEGY`，否则全校共用一份IP配额，见[生产部署](deployment.md)。
 
 `application.yml` 保存共享配置；`application-dev.yml` 保存本地默认值；`application-prod.yml` 要求显式提供连接信息并关闭 API 文档。默认启用 `dev`；可通过环境变量 `SPRING_PROFILES_ACTIVE=prod` 或启动参数切换。系统环境变量可覆盖 `.env` 值。
 
 | 环境变量 | 开发默认值 | 说明 |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `dev` | 环境选择：dev / prod |
-| `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](api/auth/invitation-codes.md) |
+| `INVITATION_SECRET` | 空 | 邀请码HMAC密钥，至少32位随机字符；为空时邀请码创建与带码注册返回503，不填邀请码不受影响。详见[邀请码](../api/auth/invitation-codes.md) |
 | `SUBMISSION_WINDOW` / `SUBMISSION_USER_LIMIT` / `SUBMISSION_IP_LIMIT` / `SUBMISSION_REDIS_NAMESPACE` | `PT15M` / `20` / `2000` / `foodtime:content:submissions` | 点评与三类投稿共用限流；窗口为60秒至30天的正整数秒 |
 | `UPLOAD_WINDOW` / `UPLOAD_USER_LIMIT` / `UPLOAD_IP_LIMIT` / `UPLOAD_REDIS_NAMESPACE` | `PT1H` / `10` / `1000` / `foodtime:content:uploads` | 图片上传限流；窗口同上 |
 | `COMMUNITY_ACTION_WINDOW` / `COMMUNITY_ACTION_USER_LIMIT` / `COMMUNITY_ACTION_IP_LIMIT` / `COMMUNITY_ACTION_REDIS_NAMESPACE` | `PT1M` / `100` / `1000` / `foodtime:community:actions` | 社区点赞/收藏/转发的轻量动作限流；与投稿限流独立计数 |
@@ -45,7 +45,7 @@
 | `REDIS_POOL_MAX_ACTIVE` | `8` | Redis 连接池最大连接数 |
 | `CORS_ALLOWED_ORIGINS` | localhost:5173、localhost:3000 的 HTTP origin | 逗号分隔的完整 origin；生产默认为空；禁止通配符和带路径的 URL |
 | `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` / `REQUEST_MAX_MULTIPART_BYTES` | `50MB` / `60MB` / `62914560` | multipart单文件 / 整个请求 / 字节级请求上限，三者需同时调大；业务层只接受 JPEG/PNG，原图超过 10MiB 时会自动压缩到 5MiB 左右，其余图片硬上限 10MiB，超过 2000 万像素按整数倍降采样解码 |
-| `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](api/auth/login.md) |
+| `AUTH_SESSION_TTL` | `P7D` | 登录会话期限，见[登录与会话](../api/auth/login.md) |
 | `AUTH_COOKIE_SECURE` | dev为`false`，prod为`true` | 生产拒绝关闭Secure Cookie；需要HTTPS入口 |
 | `AUTH_DEVICE_SECRET` / `AUTH_DEVICE_COOKIE_NAME` / `AUTH_DEVICE_COOKIE_MAX_AGE` | 复用`EMAIL_VERIFICATION_SECRET` / `foodtime_device` / `P365D` | 注册与发码的签名匿名设备Cookie；不采集指纹，仅用于限流。更换密钥会使旧Cookie失效 |
 | `EMAIL_SEND_DEVICE_LIMIT` / `EMAIL_SEND_IP_LIMIT` | `5` / `200` | 每浏览器设备 / 每来源IP发码配额；IP只做高上限兜底，避免校园NAT下正常用户互相挤占 |
