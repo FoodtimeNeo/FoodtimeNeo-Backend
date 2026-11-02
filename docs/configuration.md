@@ -50,6 +50,7 @@
 | `AUTH_DEVICE_SECRET` / `AUTH_DEVICE_COOKIE_NAME` / `AUTH_DEVICE_COOKIE_MAX_AGE` | 复用`EMAIL_VERIFICATION_SECRET` / `foodtime_device` / `P365D` | 注册与发码的签名匿名设备Cookie；不采集指纹，仅用于限流。更换密钥会使旧Cookie失效 |
 | `EMAIL_SEND_DEVICE_LIMIT` / `EMAIL_SEND_IP_LIMIT` | `5` / `200` | 每浏览器设备 / 每来源IP发码配额；IP只做高上限兜底，避免校园NAT下正常用户互相挤占 |
 | `REGISTRATION_MODE` | `open` | 注册策略：`open` 正常注册；`invitation` 额外要求有效邀请码；`closed` 同时拒绝注册与发码，避免继续消耗发信配额 |
+| `REGISTRATION_EMAIL_DOMAINS` | QQ/Foxmail/163/126/新浪/搜狐/移动/电信/联通/阿里/Gmail/Outlook/Hotmail/Live/iCloud/Yahoo/Proton/学校邮箱等 | 注册邮箱域名白名单，逗号分隔，允许子域（如 `vip.qq.com`）。不在名单内的邮箱在发码和注册阶段返回 `EMAIL_DOMAIN_NOT_ALLOWED`；登录、找回密码与绑定学校邮箱不受影响 |
 | `CLIENT_HEADER_MODE` / `CLIENT_HEADER_NAME` / `CLIENT_HEADER_ALLOWED` / `CLIENT_HEADER_PATHS` | `observe` / `X-Foodtime-Client` / `web,android` / 注册与发码路径 | 官方客户端标识头。`observe` 仅记录未知客户端，`enforce` 才拒绝；这是抬高脚本成本的门槛，不是身份证明 |
 | `REGISTRATION_ACCOUNT_LIMIT` / `REGISTRATION_DEVICE_LIMIT` / `REGISTRATION_IP_LIMIT` | `10` / `10` / `1000` | 发码与注册共用的邮箱 / 设备 / IP尝试配额 |
 | `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |

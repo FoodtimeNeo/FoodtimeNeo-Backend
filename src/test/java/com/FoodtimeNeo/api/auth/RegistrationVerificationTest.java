@@ -47,7 +47,8 @@ class RegistrationVerificationTest {
                 new com.FoodtimeNeo.auth.service.RegistrationGate(
                         new com.FoodtimeNeo.config.properties.RegistrationLimitsProperties(
                                 com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
-                                Duration.ofMinutes(15), 10, 10, 1000, "test:registration")),
+                                Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
+                com.FoodtimeNeo.config.properties.RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
                 Clock.systemUTC());
         return MockMvcBuilders.standaloneSetup(new RegistrationController(registration,
                         mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
