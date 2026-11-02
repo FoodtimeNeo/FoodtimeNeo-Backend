@@ -10,7 +10,7 @@
 bash ./mvnw -B -ntp -Pintegration verify
 ```
 
-1.0.0 起，`RegistrationIT` 使用不依赖本机 DNS 的 loopback SMTP 夹具，已恢复到完整 CI。该测试验证真实邮件传输、注册及失败回滚；CI 成功不代表外部邮件供应商实际投递通过。完整本机回归见 [1.0.0 发布验收](release-1.0.0.md)。
+1.0.0 起，`RegistrationIT` 使用不依赖本机 DNS 的 loopback SMTP 夹具，已恢复到完整 CI。该测试验证真实邮件传输、注册及失败回滚；CI 成功不代表外部邮件供应商实际投递通过。完整本机回归见 [1.0.0 发布验收](../releases/release-1.0.0.md)。
 
 第三方 Actions 固定到官方发布对应的完整提交 SHA。CI 默认只拥有仓库读取权限，不使用生产 Secrets。语法可通过 `actionlint .github/workflows/*.yml` 检查。
 

@@ -18,7 +18,7 @@
 
 ## 磁盘与错误盯防（无指标时的最小集合）
 
-- 暂存目录：每次清理任务记录实际字节数，超过 `STORAGE_DISK_WARN_BYTES`（默认1GiB）记 warn；见 [图片文件](api/dish/uploads.md)。
+- 暂存目录：每次清理任务记录实际字节数，超过 `STORAGE_DISK_WARN_BYTES`（默认1GiB）记 warn；见 [图片文件](../api/dish/uploads.md)。
 - 错误率：`code != OK` 且 HTTP 5xx 的响应体统一带 `requestId`，按 `grep -c '"code":"INTERNAL_ERROR"\|DATA_UNAVAILABLE' 日志` 即可做最简巡检；429 激增说明正在被刷，对照限流命名空间的 Redis 键确认来源。
 - 建议告警（采集端配置）：5xx 比例 > 1%（5分钟）、P95 延迟 > 2秒（10分钟）、`disk_free_bytes` 余量 < 20%、JVM堆使用 > 85%（10分钟）。
 

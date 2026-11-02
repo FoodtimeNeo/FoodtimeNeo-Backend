@@ -31,13 +31,13 @@ V15 新增 `dish_stats`，实时维护未删除正式点评的 `review_count` �
 
 后续 SQL 从 `V19__描述.sql` 起递增命名。已经执行的迁移文件不得修改，以新版本迁移演进数据库；校验默认开启，禁止 clean，禁止自动 baseline。不要将业务建表脚本放到 Compose 的初始化目录，以免与 Flyway 双重管理。
 
-当前设计保存在本仓库 `docs/database-design.md`，包含用户后续修订；现有接口的设计符合性、尚未实现的业务及验证结果见 [数据库设计核查报告](database-design-audit.md)。
+当前设计保存在本仓库 `docs/architecture/database-design.md`，包含用户后续修订；现有接口的设计符合性、尚未实现的业务及验证结果见 [数据库设计核查报告](database-design-audit.md)。
 
 业务分层及源码目录见 [项目目录与职责](architecture.md)。
 
 ## V16–V18 点评互动
 
-V16增加一级点评统计与点赞，V17增加审核回复和回复计数，V18增加回复独立统计与点赞。累计新增六张表，详见[字段约束](database-design.md)和[API契约](api/dish/review-interactions.md)。正式变更只通过Flyway V15–V18增量执行；提案SQL为V14基线的合并草案，不可在已升级环境重复运行。
+V16增加一级点评统计与点赞，V17增加审核回复和回复计数，V18增加回复独立统计与点赞。累计新增六张表，详见[字段约束](database-design.md)和[API契约](../api/dish/review-interactions.md)。正式变更只通过Flyway V15–V18增量执行；提案SQL为V14基线的合并草案，不可在已升级环境重复运行。
 
 升级需停止旧版本写入并停掉旧评分调度；迁移在事务内锁定所需表、一次性回填正式点评评分、初始化互动统计。应用新版本与迁移一起发布。上线前备份并在副本验证；回滚应用不能直接运行旧物化视图版本，不能通过删除迁移记录回退。
 
