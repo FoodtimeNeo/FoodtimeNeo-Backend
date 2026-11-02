@@ -60,6 +60,36 @@ class ImageSanitizerTest {
     }
 
     @Test
+    void largeUploadsAreCompressedBelowTheFiveMegabyteTarget() throws Exception {
+        var pixels = new BufferedImage(2400, 1600, BufferedImage.TYPE_INT_RGB);
+        var random = new java.util.Random(7);
+        for (int y = 0; y < pixels.getHeight(); y++)
+            for (int x = 0; x < pixels.getWidth(); x++) pixels.setRGB(x, y, random.nextInt(0x1000000));
+        var output = new ByteArrayOutputStream();
+        assertThat(ImageIO.write(pixels, "jpeg", output)).isTrue();
+        // 原始体积超过 10MB 时走大图压缩路径（这里用尾部填充模拟 11MB 上传）。
+        byte[] padded = java.util.Arrays.copyOf(output.toByteArray(), 11 * 1024 * 1024);
+        var result = ImageSanitizer.sanitize(padded);
+        assertThat(result.bytes().length).isLessThanOrEqualTo((int) ImageSanitizer.LARGE_TARGET);
+        assertThat(result.bytes().length).isLessThanOrEqualTo((int) ImageSanitizer.HARD_LIMIT);
+        assertThat(result.width()).isEqualTo(2400);
+        assertThat(result.height()).isEqualTo(1600);
+        assertThat(ImageIO.read(new ByteArrayInputStream(result.bytes()))).isNotNull();
+    }
+
+    @Test
+    void oversizedPixelCountsAreSubsampledInsteadOfRejected() throws Exception {
+        // 超过 2000 万像素的图片仍可上传：解码时按整数倍降采样，而不是直接拒绝。
+        var pixels = new BufferedImage(6000, 4000, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 200; y++) for (int x = 0; x < 6000; x++) pixels.setRGB(x, y, x % 255);
+        var output = new ByteArrayOutputStream();
+        assertThat(ImageIO.write(pixels, "jpeg", output)).isTrue();
+        var result = ImageSanitizer.sanitize(output.toByteArray());
+        assertThat((long) result.width() * result.height()).isLessThanOrEqualTo(20_000_000L);
+        assertThat(result.bytes().length).isLessThanOrEqualTo((int) ImageSanitizer.HARD_LIMIT);
+    }
+
+    @Test
     void malformedExifOffsetsAreDiscarded() {
         byte[] jpeg = withExif(new byte[]{(byte)255,(byte)216,(byte)255,(byte)217}, 6);
         ByteBuffer.wrap(jpeg).order(ByteOrder.LITTLE_ENDIAN).putInt(16, -1);
