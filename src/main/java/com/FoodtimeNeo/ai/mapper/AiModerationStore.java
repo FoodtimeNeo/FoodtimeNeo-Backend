@@ -9,6 +9,7 @@ import java.util.*;
 public class AiModerationStore {
     public record PendingReview(UUID id, int rating, String content) { }
     public record PendingPhoto(UUID id, String imageUrl) { }
+    public record PendingDish(UUID id,String name,String content,String imageUrl) { }
 
     private final JdbcTemplate jdbc;
     public AiModerationStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -31,6 +32,40 @@ public class AiModerationStore {
                     WHERE a.submission_type = 'photo' AND a.submission_id = i.id)
                 ORDER BY i.created_at ASC, i.id ASC LIMIT ?
                 """, (r, n) -> new PendingPhoto(r.getObject("id", UUID.class), r.getString("image_url")), limit);
+    }
+
+    private static final String PENDING_DISHES="""
+            SELECT s.id,s.name,s.description,s.image_url FROM foodtime.dish_submissions s
+            WHERE s.status='pending' AND NOT EXISTS (
+                SELECT 1 FROM foodtime.ai_moderation_results a
+                WHERE a.submission_type='dish' AND a.submission_id=s.id)
+            """;
+    private static final RowMapper<PendingDish> DISH=(r,n)->new PendingDish(r.getObject("id",UUID.class),r.getString("name"),r.getString("description"),r.getString("image_url"));
+    public List<PendingDish> pendingDishes(int limit) {
+        return jdbc.query(PENDING_DISHES+" ORDER BY s.created_at,s.id LIMIT ?",DISH,limit);
+    }
+    public Optional<PendingDish> pendingDish(UUID id) {
+        return jdbc.query(PENDING_DISHES+" AND s.id=?",DISH,id).stream().findFirst();
+    }
+
+    public record CatalogVerdict(String type,UUID id,com.FoodtimeNeo.ai.dto.AiVerdict verdict) { }
+    private static final RowMapper<CatalogVerdict> CATALOG_VERDICT=(r,n)->new CatalogVerdict(r.getString("submission_type"),r.getObject("submission_id",UUID.class),
+            new com.FoodtimeNeo.ai.dto.AiVerdict(r.getString("risk_level"),r.getBigDecimal("confidence").doubleValue(),
+                    List.of((String[])r.getArray("labels").getArray()),r.getString("reason"),r.getString("model")));
+    public Optional<com.FoodtimeNeo.ai.dto.AiVerdict> catalogVerdict(String type,UUID id) {
+        return jdbc.query("SELECT * FROM foodtime.ai_moderation_results WHERE submission_type=? AND submission_id=?",CATALOG_VERDICT,type,id)
+                .stream().findFirst().map(CatalogVerdict::verdict);
+    }
+    /** Apply the new rejection-only policy to already diagnosed pending uploads too. */
+    public List<CatalogVerdict> pendingCatalogRejections(double threshold,int limit) {
+        return jdbc.query("""
+                SELECT a.* FROM foodtime.ai_moderation_results a JOIN (
+                    SELECT 'dish' AS type,id FROM foodtime.dish_submissions WHERE status='pending'
+                    UNION ALL SELECT 'photo',id FROM foodtime.dish_images WHERE status='pending'
+                ) p ON p.type=a.submission_type AND p.id=a.submission_id
+                WHERE a.risk_level='HIGH' AND a.confidence>=? AND a.model<>'system'
+                ORDER BY a.checked_at,a.submission_id LIMIT ?
+                """,CATALOG_VERDICT,BigDecimal.valueOf(threshold),limit);
     }
 
     /** Single pending review without a verdict yet; empty when already diagnosed, decided or gone. */

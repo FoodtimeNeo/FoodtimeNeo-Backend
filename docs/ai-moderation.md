@@ -4,8 +4,8 @@
 
 ## 范围与触发
 
-- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）、`dish_images`（图片投稿）
-  与 `community_posts`（社区动态，文本类型 `community-post`、配图逐张 `community-image`）、`community_comments`及`dish_review_replies`（点评回复，类型`dish-review-reply`）。菜品/档口投稿暂不送检。
+- 对象：状态为 `pending` 的 `dish_review_submissions`（评论）、`dish_images`（图片投稿）、`dish_submissions`（新菜品投稿，类型 `dish`）
+  与 `community_posts`（社区动态，文本类型 `community-post`、配图逐张 `community-image`）、`community_comments`及`dish_review_replies`（点评回复，类型`dish-review-reply`）。档口投稿暂不送检。
 - 即时：投稿创建事务提交后，`SubmissionDiagnoseEvent` 经有界线程池（核心 4、最大 8 线程，队列 500，满了丢弃）异步诊断，通常几秒内出结论；请求线程绝不等 AI，AI 再慢也不影响发帖返回。
 - 兜底：短周期扫批（默认每 30 秒一批，启动后 5 秒首跑，最多 10 条）只处理漏网的（崩溃重启、线程池满丢弃）；每条投稿最多检一次（`uq_ai_moderation_result` 保证，即使并发也不重复）。
 - 传输故障（超时、鉴权失败、返回无法解析）不写结论行，下个周期重试；日志只记ID与错误类型，不记原文和图片字节。
@@ -16,7 +16,7 @@
 - 评论：评分数字 + 正文文本。
 - 文字只做合规判定，不要求与食堂/菜品相关：与食堂无关但无害的测试、闲聊等内容可以判 LOW；HIGH/MEDIUM 只表示合规风险（广告引流、人身攻击、低俗、违法等）。
 - 图片：480px 缩略图字节（复用 `?size=thumb` 的生成逻辑，不传原图），MIME 随原格式。
-- 图片只做合规判定，不要求实拍实物：插画、图标、表情包、卡通图、截图等，只要不含色情/暴力/政治敏感/广告引流/违法内容即可判 LOW；MEDIUM 表示需要人工确认的合规风险，HIGH 会按阈值自动驳回。
+- 图片只做合规判定，不要求实拍实物：插画、图标、表情包、卡通图、截图等，只要不含色情/暴力/政治敏感/广告引流/违法内容即可判 LOW；MEDIUM 表示需要人工确认的合规风险。独立菜品图片目前只记录建议，社区配图的 HIGH 可按阈值导致所属食记自动驳回。
 - 使用外部模型即把用户原文与图片发往第三方服务：生产启用前须在用户协议或公告中说明，并走正式审批；测试/开发用 `fake` 提供方，不产生真实外发。
 
 ## 提供方
@@ -58,7 +58,12 @@
 
 自动决定走与人工审核同一事务路径（发布正式记录、更新投稿状态、记审核日志），
 只是日志记 `actor='ai'` + 模型名，与人工（`actor='human'` + 管理员）分开存放，
-核验时在审核日志里一眼区分。图片投稿暂不自动拍板，只做分诊参考。
+核验时在审核日志里一眼区分。
+
+新菜品投稿（dish）与独立菜品图片（photo）实行**严格仅支持自动驳回（Rejection-Only）**：
+- 严禁任何模型自动通过（数据库级约束 V35 限制 `reviewed_by_ai_model` 仅允许在 `status='rejected'` 存在）。
+- HIGH 且置信度 ≥ `auto-reject-above`（默认 0.9，菜品图文综合评估）自动驳回，保存用户提交价格与 AI 原因；
+- LOW/MEDIUM 作为审核员参考建议，必须由人工在后台补齐或确认价格后点击通过。
 自动与人工撞单（人先点了）按 `ALREADY_REVIEWED` 吸收，不报错。
 
 ## 待调优（用户记录，策略未定）
@@ -84,7 +89,7 @@
 
 ## 结论表与展示
 
-结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回（自动拍板的不进队列）。
+结论存 `foodtime.ai_moderation_results`（`database-design.md#ai_moderation_resultsAI预检结论表`）：类型+投稿ID唯一、`risk_level`、`confidence`（0–1三位小数）、`labels` 数组、`reason`、`model`、`checked_at`。管理审核队列（`GET /api/v1/admin/moderation`）的每条目附带 `aiRiskLevel/aiConfidence/aiLabels/aiReason/aiCheckedAt`，未检出为null；前端展示风险与置信度，pending 的仍须人工点通过/驳回。自动决定后离开待审队列，仍可按已通过／已驳回筛选查看。
 
 ## 开关与配额
 

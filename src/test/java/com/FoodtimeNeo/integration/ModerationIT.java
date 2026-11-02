@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ModerationIT extends IntegrationApiSupport {
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.FoodtimeNeo.moderation.service.ModerationService moderation;
     private static final Path STORAGE = Path.of(System.getProperty("java.io.tmpdir"), "moderation-test-" + UUID.randomUUID());
     @DynamicPropertySource static void directory(DynamicPropertyRegistry properties) { properties.add("app.storage.directory", STORAGE::toString); }
 
@@ -43,6 +45,22 @@ class ModerationIT extends IntegrationApiSupport {
         assertThat(mine.path("userId").asString()).isEqualTo(owner.id().toString());
         assertThat(mine.path("content").asString()).isEqualTo("named review");
         assertThat(mine.path("createdAt").asString()).isNotBlank();
+    }
+
+    @Test
+    void queueFiltersTypesOnServerBeforePaginationAndValidatesTheFilter() throws Exception {
+        UUID review=review(login(owner),"type filter review");
+        UUID submitted=UUID.randomUUID();
+        jdbc.update("INSERT INTO foodtime.dish_submissions(id,stall_id,submitted_by_user_id,name,description,image_url) VALUES (?,?,?,'筛选菜品','筛选正文','/api/v1/media/local-filter')",submitted,stall,owner.id());
+        Browser admin=login(account("admin"));
+        var filtered=body(admin.call("GET","/api/v1/admin/moderation?status=pending&type=dish&size=1",null)).path("data");
+        assertThat(filtered.path("total").asLong()).isGreaterThanOrEqualTo(1);
+        for(var item:filtered.path("items"))assertThat(item.path("type").asString()).isEqualTo("dish");
+        var reviews=body(admin.call("GET","/api/v1/admin/moderation?status=pending&type=review&size=100",null)).path("data").path("items");
+        assertThat(java.util.stream.StreamSupport.stream(reviews.spliterator(),false).anyMatch(row->row.path("id").asString().equals(review.toString()))).isTrue();
+        for(var item:reviews)assertThat(item.path("type").asString()).isEqualTo("review");
+        assertThat(admin.call("GET","/api/v1/admin/moderation?type=unknown",null).statusCode()).isEqualTo(400);
+        assertThat(login(other).call("GET","/api/v1/admin/moderation?type=dish",null).statusCode()).isEqualTo(403);
     }
 
     @Test
@@ -122,6 +140,25 @@ class ModerationIT extends IntegrationApiSupport {
         assertThat(jdbc.queryForObject("SELECT price FROM foodtime.dishes WHERE id = ?",java.math.BigDecimal.class,formal)).isEqualByComparingTo("8.20");
         assertThat(jdbc.queryForObject("SELECT image_url FROM foodtime.dish_images WHERE dish_id = ? AND status = 'approved'",String.class,formal)).isEqualTo(image);
         assertThat(login(other).image(image).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void aiCannotApproveDishUploadsOrDishPhotosEvenWhenConfidenceIsOne() throws Exception {
+        Browser student=login(owner);
+        String image=image(student);
+        var dishSubmission=student.call("POST","/api/v1/stalls/"+stall+"/submissions",Map.of("name","AI cannot publish","imageUrl",image,"price",8));
+        UUID dishId=UUID.fromString(body(dishSubmission).path("data").path("id").asString());
+        var photoSubmission=student.call("POST",dishPath("/image-submissions"),Map.of("imageUrl",image));
+        UUID photoId=UUID.fromString(body(photoSubmission).path("data").path("id").asString());
+        var verdict=new com.FoodtimeNeo.ai.dto.AiVerdict("LOW",1.0,java.util.List.of(),"Low risk suggestion","local-test");
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->moderation.autoDecide("dish",dishId,verdict,true))
+                .isInstanceOf(com.FoodtimeNeo.common.exception.BusinessException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->moderation.autoDecide("photo",photoId,verdict,true))
+                .isInstanceOf(com.FoodtimeNeo.common.exception.BusinessException.class);
+        assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_submissions WHERE id=?",String.class,dishId)).isEqualTo("pending");
+        assertThat(jdbc.queryForObject("SELECT status FROM foodtime.dish_images WHERE id=?",String.class,photoId)).isEqualTo("pending");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.dishes WHERE stall_id=?",Long.class,stall)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.content_moderation_logs WHERE dish_submission_id=? OR dish_image_id=?",Long.class,dishId,photoId)).isZero();
     }
 
     @Test

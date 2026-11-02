@@ -65,9 +65,19 @@ public class ModerationStore {
     }
 
     public List<ModerationItem> page(String status, int size, long offset) {
-        return jdbc.query("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE status = ? ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?", ROW, status, size, offset);
+        return page(status,null,size,offset);
     }
-    public long count(String status) { return jdbc.queryForObject("SELECT COUNT(*) FROM (" + ITEMS + ") q WHERE status = ?", Long.class, status); }
+    public List<ModerationItem> page(String status,String type,int size,long offset) {
+        String where=type==null?"status = ?":"status = ? AND type = ?";
+        Object[] args=type==null?new Object[]{status,size,offset}:new Object[]{status,type,size,offset};
+        return jdbc.query("SELECT * FROM ("+ITEMS_WITH_AI+") q WHERE "+where+" ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?",ROW,args);
+    }
+    public long count(String status) { return count(status,null); }
+    public long count(String status,String type) {
+        String where=type==null?"status = ?":"status = ? AND type = ?";
+        Object[] args=type==null?new Object[]{status}:new Object[]{status,type};
+        return jdbc.queryForObject("SELECT COUNT(*) FROM ("+ITEMS+") q WHERE "+where,Long.class,args);
+    }
 
     public ModerationItem lock(String type, UUID id) {
         if (type.equals("dish-review-reply")) {
@@ -151,7 +161,8 @@ public class ModerationStore {
 
     public void complete(ModerationItem item, UUID moderator, String aiModel, String status, String reason, UUID approvedId, BigDecimal price) {
         boolean aiReviewed = item.type().equals("review") || item.type().equals("community-post")
-                || item.type().equals("community-comment") || item.type().equals("dish-review-reply");
+                || item.type().equals("community-comment") || item.type().equals("dish-review-reply")
+                || item.type().equals("dish") || item.type().equals("photo");
         String extra = item.type().equals("dish") ? ", approved_dish_id = ?,price = ?" : item.type().equals("stall") ? ", approved_stall_id = ?" : "";
         String ai = aiReviewed ? ",reviewed_by_ai_model = ?" : "";
         var args = new java.util.ArrayList<Object>(java.util.Arrays.asList(status,moderator));

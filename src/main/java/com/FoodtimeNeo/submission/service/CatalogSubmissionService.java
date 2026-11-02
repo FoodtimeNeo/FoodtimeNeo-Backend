@@ -5,6 +5,8 @@ import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.media.service.ImageStorageService;
 import com.FoodtimeNeo.submission.dto.*;
 import com.FoodtimeNeo.submission.mapper.CatalogSubmissionMapper;
+import com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,8 +19,9 @@ import java.util.UUID;
 public class CatalogSubmissionService {
     private final CatalogSubmissionMapper submissions;
     private final ImageStorageService images;
-    public CatalogSubmissionService(CatalogSubmissionMapper submissions, ImageStorageService images) {
-        this.submissions = submissions; this.images = images;
+    private final ApplicationEventPublisher events;
+    public CatalogSubmissionService(CatalogSubmissionMapper submissions, ImageStorageService images, ApplicationEventPublisher events) {
+        this.submissions = submissions; this.images = images;this.events=events;
     }
 
     @Transactional
@@ -27,6 +30,7 @@ public class CatalogSubmissionService {
         images.requireOwnedReference(body.imageUrl(), userId);
         UUID id = UUID.randomUUID();
         submissions.submitDish(id, stallId, userId, new SubmitDishRequest(body.name().strip(), body.description(), body.price(), body.imageUrl()));
+        events.publishEvent(new SubmissionDiagnoseEvent("dish",id));
         return submissions.createdDish(id);
     }
 
