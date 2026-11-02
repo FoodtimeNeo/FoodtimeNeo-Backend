@@ -8,7 +8,7 @@
 #   sudo scripts/security/set-ai-single-key.sh --skip-test  # 跳过在线自检（离线/受限网络）
 #
 # 环境变量覆盖：ENV_FILE / SERVICE / BASE_URL / MODEL / HEALTH_URL / CRED_DIR
-# 前置条件与原理见 docs/secrets.md。
+# 前置条件与原理见 docs/ops/secrets.md。
 set -euo pipefail
 
 usage() {
@@ -46,7 +46,7 @@ command -v systemd-creds >/dev/null || { echo "需要 systemd-creds（systemd >=
 [ -f "$ENV_FILE" ] || { echo "找不到 $ENV_FILE" >&2; exit 1; }
 if ! systemctl cat "$SERVICE" 2>/dev/null | grep -q "LoadCredentialEncrypted=${CRED_NAME}:"; then
     echo "错误：$SERVICE 未配置 LoadCredentialEncrypted=${CRED_NAME}，应用读不到该密钥。" >&2
-    echo "请先按 docs/secrets.md 配置 systemd 单元；或加 --no-restart 仅写凭据。" >&2
+    echo "请先按 docs/ops/secrets.md 配置 systemd 单元；或加 --no-restart 仅写凭据。" >&2
     exit 1
 fi
 

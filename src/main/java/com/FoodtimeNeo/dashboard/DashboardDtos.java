@@ -15,7 +15,7 @@ public final class DashboardDtos {
             @Schema(description = "当日新增点评提交数") long newReviews,
             @Schema(description = "当日新增回复数") long newReplies,
             @Schema(description = "当日新增社区动态数") long newPosts,
-            @Schema(description = "当日活跃用户数（有任一行为的去重用户，见 docs/admin-dashboard.md）") long onlinePeak) {
+            @Schema(description = "当日活跃用户数（有任一行为的去重用户，见 docs/modules/admin-dashboard.md）") long onlinePeak) {
     }
 
     public record DashboardResponse(

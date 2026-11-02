@@ -2,7 +2,7 @@
 
 配服的人按 `scripts/canteen-refresh/apply-one-click-2.sh` 走即可；
 本页说明做了什么、每步看到什么算正常、出问题回滚到哪里。
-第一批（明湖）见 `docs/canteen-refresh.md`，两批脚本独立，互不影响。
+第一批（明湖）见 `canteen-refresh.md`，两批脚本独立，互不影响。
 
 ## 变更内容
 

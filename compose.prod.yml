@@ -33,7 +33,7 @@ services:
       JAVA_OPTS: -Xms768m -Xmx1280m -XX:+UseG1GC -XX:MaxGCPauseMillis=200
       FORWARD_HEADERS_STRATEGY: framework
     ports:
-      # 仅本机，公网流量走 Nginx（覆写 X-Forwarded-For，见 docs/deployment.md）
+      # 仅本机，公网流量走 Nginx（覆写 X-Forwarded-For，见 docs/ops/deployment.md）
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     volumes:
       - prod-uploads:/app/uploads

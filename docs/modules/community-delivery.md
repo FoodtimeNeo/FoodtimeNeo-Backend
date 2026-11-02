@@ -30,7 +30,7 @@
 - PUT/DELETE 明确设置点赞和收藏状态，数据库唯一键、外键、事务锁和触发器维护计数。
 - 社区图片每次请求校验当前可见性并使用 `no-store`；公开目录图片保留原有缓存策略。
 
-六张主表的真实字段和约束见 [community-schema.md](community-schema.md)，请求格式见 [community-api.md](community-api.md)。新增 V19–V23 迁移复用原有用户、AI 结论和审核日志。
+六张主表的真实字段和约束见 [community-schema.md](../architecture/community-schema.md)，请求格式见 [community-api.md](community-api.md)。新增 V19–V23 迁移复用原有用户、AI 结论和审核日志。
 
 ## 验证方式
 

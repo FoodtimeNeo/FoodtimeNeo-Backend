@@ -17,7 +17,7 @@ import java.util.Map;
 
 /**
  * 平台数据看板：仅 superadmin 可读，读多写少，全走一次性聚合。
- * 在线口径（与前后端契约一致，见 docs/admin-dashboard.md）：
+ * 在线口径（与前后端契约一致，见 docs/modules/admin-dashboard.md）：
  * onlineUsers = 最近 presence TTL 内有过已认证请求的去重用户数（默认 5 分钟）；
  * onlinePeak(day) = 当日去重活跃用户数。
  */

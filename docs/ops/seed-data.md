@@ -17,9 +17,9 @@
 .\scripts\place-seed-images.ps1
 ```
 
-[脚本](../scripts/place-seed-images.ps1) 遍历各版本目录，将每个 `<uuid>.jpg` 写为 `uploads/<uuid>.img`，同时生成 `<uuid>.properties`，其中包含文件归属和 `image/jpeg` 类型。只复制 JPG 而不生成元数据，媒体接口不能正常读取。重复执行会覆盖同 UUID 的种子文件及其元数据，不会清空其他上传文件。
+[脚本](../../scripts/place-seed-images.ps1) 遍历各版本目录，将每个 `<uuid>.jpg` 写为 `uploads/<uuid>.img`，同时生成 `<uuid>.properties`，其中包含文件归属和 `image/jpeg` 类型。只复制 JPG 而不生成元数据，媒体接口不能正常读取。重复执行会覆盖同 UUID 的种子文件及其元数据，不会清空其他上传文件。
 
-随后按 [README](../README.md) 启动应用，Flyway只应用未执行的迁移。不要修改已执行迁移或手工重复执行整份SQL来“修复”图片文件。
+随后按 [README](../../README.md) 启动应用，Flyway只应用未执行的迁移。不要修改已执行迁移或手工重复执行整份SQL来“修复”图片文件。
 
 脚本固定写入 Backend 根目录的 `uploads`。应用的 `app.storage.directory` 默认相对于进程工作目录；若使用自定义目录或从其他目录启动，需要将上述文件及元数据放到实际配置的位置。例如：
 

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 平台数据看板：仅平台管理员（superadmin）可读，普通管理员无权。
- * 口径定义见 docs/admin-dashboard.md。
+ * 口径定义见 docs/modules/admin-dashboard.md。
  */
 @RestController
 @RequestMapping("/api/v1/admin/dashboard")

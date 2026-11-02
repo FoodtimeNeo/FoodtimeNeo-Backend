@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-当前版本 **1.3.0**；发布范围与部署要求见 [1.3.0 发布说明](docs/release-1.3.0.md)，管理删除接口与权限见 [社区管理](docs/community-management.md)。
+当前版本 **1.3.0**；发布范围与部署要求见 [1.3.0 发布说明](docs/releases/release-1.3.0.md)，管理删除接口与权限见 [社区管理](docs/modules/community-management.md)。
 
 校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
 
@@ -38,7 +38,7 @@ docker compose up -d --wait
 
 已有 PostgreSQL / Redis 时，可以跳过 Compose，编辑 `.env` 指向对应服务。数据库需要事先创建，数据库账号需要有 `foodtime` schema 的创建权限及迁移所需的 DDL 权限。
 
-当前迁移到V15。种子目录和媒体引用由Flyway写入，图片还需单独铺入实际上传目录；脚本用途、自定义路径及容器说明见 [种子数据与图片部署](docs/seed-data.md)。
+当前迁移到V15。种子目录和媒体引用由Flyway写入，图片还需单独铺入实际上传目录；脚本用途、自定义路径及容器说明见 [种子数据与图片部署](docs/ops/seed-data.md)。
 
 `.env` 通过 Spring Config Import 加载，也由 Compose 读取；启动时工作目录必须为本 Backend 目录。文件使用 UTF-8 的 `KEY=value` 格式，不加 `export` 或引号。示例仅包含本地开发凭据，真实配置不会进入 Git。复杂密码和生产凭据建议由系统环境变量或部署平台注入。
 
@@ -91,13 +91,13 @@ java -jar target/foodtime-neo-backend.jar
 
 | 内容 | 文档 |
 | --- | --- |
-| 目录、分层职责与测试组织 | [项目目录与职责](docs/architecture.md) |
-| 环境、连接、CORS与运行配置 | [配置说明](docs/configuration.md) |
-| 数据库表、迁移与评分汇总 | [数据库说明](docs/database.md) |
-| 当前数据库字段、约束与业务规则 | [数据库设计](docs/database-design.md) |
-| 现有接口与数据库设计的核查结果 | [数据库设计核查](docs/database-design-audit.md) |
-| 生产环境与容器运行 | [部署说明](docs/deployment.md) |
-| GitHub Actions 检查与发布范围 | [CI/CD](docs/ci-cd.md) |
+| 目录、分层职责与测试组织 | [项目目录与职责](docs/architecture/architecture.md) |
+| 环境、连接、CORS与运行配置 | [配置说明](docs/ops/configuration.md) |
+| 数据库表、迁移与评分汇总 | [数据库说明](docs/architecture/database.md) |
+| 当前数据库字段、约束与业务规则 | [数据库设计](docs/architecture/database-design.md) |
+| 现有接口与数据库设计的核查结果 | [数据库设计核查](docs/architecture/database-design-audit.md) |
+| 生产环境与容器运行 | [部署说明](docs/ops/deployment.md) |
+| GitHub Actions 检查与发布范围 | [CI/CD](docs/ops/ci-cd.md) |
 | 登录、注册与邮箱验证码 | [接口文档](docs/api/README.md) |
 | 认证完整调用顺序 | [HTTP联调请求](docs/api/auth.http) |
 | 修改密码与重新登录 | [修改密码接口](docs/api/user/password.md) |
