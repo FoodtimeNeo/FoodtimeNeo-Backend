@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -35,22 +36,25 @@ public class DashboardService {
         this.presence = presence;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public DashboardDtos.DashboardResponse overview(UserProfile actor, int days) {
         guard(actor);
         if (days < 1 || days > MAX_DAYS) {
             throw new BusinessException("VALIDATION_ERROR", "days 取值范围为 1 到 31",
                     HttpStatus.BAD_REQUEST);
         }
-        LocalDate end = LocalDate.now(BUSINESS_ZONE);
+        Instant generatedAt = Instant.now();
+        LocalDate end = generatedAt.atZone(BUSINESS_ZONE).toLocalDate();
         LocalDate start = end.minusDays(days - 1);
         Instant from = start.atStartOfDay(BUSINESS_ZONE).toInstant();
         Instant to = end.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
         DashboardStore.Totals totals;
         Map<String, Map<String, Long>> counts;
         Map<String, Long> peaks;
+        long cumulativeUsers;
         try {
             totals = store.totals();
+            cumulativeUsers = store.totalUsersBefore(from);
             counts = store.dailyNewCounts(from, to);
             peaks = store.dailyActiveUsers(from, to);
         } catch (DataAccessException exception) {
@@ -62,16 +66,17 @@ public class DashboardService {
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
             String key = day.toString();
             Map<String, Long> row = counts.getOrDefault(key, Map.of());
-            trend.add(new DashboardDtos.TrendDay(key,
+            cumulativeUsers += row.getOrDefault("newUsers", 0L);
+            trend.add(new DashboardDtos.TrendDay(key, cumulativeUsers,
                     row.getOrDefault("newUsers", 0L),
                     row.getOrDefault("newReviews", 0L),
                     row.getOrDefault("newReplies", 0L),
                     row.getOrDefault("newPosts", 0L),
                     peaks.getOrDefault(key, 0L)));
         }
-        return new DashboardDtos.DashboardResponse(totals.users(), onlineUsers(), totals.reviews(),
+        return new DashboardDtos.DashboardResponse(totals.totalUsers(), totals.users(), onlineUsers(), totals.reviews(),
                 totals.replies(), totals.posts(), totals.halls(), totals.stalls(), totals.dishes(),
-                Instant.now(), trend);
+                generatedAt, trend);
     }
 
     private void guard(UserProfile actor) {

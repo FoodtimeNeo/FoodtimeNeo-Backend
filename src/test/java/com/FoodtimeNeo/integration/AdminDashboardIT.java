@@ -23,7 +23,7 @@ class AdminDashboardIT extends IntegrationApiSupport {
     void superadminSeesFullShapeWithSevenDayTrend() throws Exception {
         var superadmin = login(account("superadmin"));
         var data = body(superadmin.call("GET", "/api/v1/admin/dashboard?days=7", null)).path("data");
-        for (String key : new String[]{"registeredUsers", "onlineUsers", "reviews", "replies",
+        for (String key : new String[]{"totalUsers", "registeredUsers", "onlineUsers", "reviews", "replies",
                 "posts", "halls", "stalls", "dishes", "generatedAt", "trend"}) {
             assertThat(data.has(key)).as("missing key %s", key).isTrue();
         }
@@ -31,12 +31,42 @@ class AdminDashboardIT extends IntegrationApiSupport {
         String today = LocalDate.now(ZONE).toString();
         assertThat(data.path("trend").get(6).path("day").asText()).isEqualTo(today);
         for (var day : data.path("trend")) {
+            assertThat(day.has("totalUsers")).isTrue();
             assertThat(day.path("newUsers").asLong()).isGreaterThanOrEqualTo(0);
             assertThat(day.path("onlinePeak").asLong()).isGreaterThanOrEqualTo(0);
         }
         // 在线数只断言为非负数：集成测试环境的 sessions 命名空间覆盖对会话存储不生效
         // （会话实际落在默认命名空间，见 docs/modules/admin-dashboard.md），精确计数逻辑由单测覆盖。
         assertThat(data.path("onlineUsers").asLong()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void totalUsersIncludeDisabledAccountsAndDailyTotalsRespectShanghaiBoundaries() throws Exception {
+        var superadmin = login(account("superadmin"));
+        var inactive = account("user");
+        var start = LocalDate.now(ZONE).minusDays(29).atStartOfDay(ZONE).toInstant();
+        jdbc.update("UPDATE foodtime.users SET created_at = ? WHERE id = ?",
+                Timestamp.from(start.minusSeconds(1)), inactive.id());
+        var atBoundary = account("user");
+        jdbc.update("UPDATE foodtime.users SET created_at = ? WHERE id = ?",
+                Timestamp.from(start), atBoundary.id());
+        var before = body(superadmin.call("GET", "/api/v1/admin/dashboard?days=30", null)).path("data");
+        jdbc.update("UPDATE foodtime.users SET status = 'disabled' WHERE id = ?", inactive.id());
+        var after = body(superadmin.call("GET", "/api/v1/admin/dashboard?days=30", null)).path("data");
+        assertThat(after.path("totalUsers").asLong()).isEqualTo(before.path("totalUsers").asLong());
+        assertThat(after.path("registeredUsers").asLong()).isEqualTo(before.path("registeredUsers").asLong() - 1);
+        long cumulative = jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.users WHERE created_at < ?",
+                Long.class, Timestamp.from(start));
+        for (var point : after.path("trend")) {
+            cumulative += point.path("newUsers").asLong();
+            assertThat(point.path("totalUsers").asLong()).isEqualTo(cumulative);
+        }
+        assertThat(after.path("trend").get(29).path("totalUsers").asLong())
+                .isEqualTo(after.path("totalUsers").asLong());
+        var week = body(superadmin.call("GET", "/api/v1/admin/dashboard?days=7", null)).path("data").path("trend");
+        for (int i = 0; i < 7; i++) {
+            assertThat(week.get(i)).isEqualTo(after.path("trend").get(23 + i));
+        }
     }
 
     @Test

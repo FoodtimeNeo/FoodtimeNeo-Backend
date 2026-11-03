@@ -11,6 +11,7 @@ public final class DashboardDtos {
 
     public record TrendDay(
             @Schema(description = "业务日期（Asia/Shanghai），格式 yyyy-MM-dd") String day,
+            @Schema(description = "截至当日的累计注册账号数，含停用账号") long totalUsers,
             @Schema(description = "当日新注册用户数") long newUsers,
             @Schema(description = "当日新增点评提交数") long newReviews,
             @Schema(description = "当日新增回复数") long newReplies,
@@ -19,6 +20,7 @@ public final class DashboardDtos {
     }
 
     public record DashboardResponse(
+            @Schema(description = "全部注册账号总量，含停用账号") long totalUsers,
             @Schema(description = "累计注册用户数（status=active）") long registeredUsers,
             @Schema(description = "最近在线窗口（默认5分钟）内有已认证请求的去重用户数，同账号多端计一次") long onlineUsers,
             @Schema(description = "累计正式点评数") long reviews,

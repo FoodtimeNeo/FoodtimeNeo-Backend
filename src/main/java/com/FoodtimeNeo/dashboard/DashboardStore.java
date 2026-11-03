@@ -44,20 +44,28 @@ public class DashboardStore {
         this.jdbc = jdbc;
     }
 
-    public record Totals(long users, long reviews, long replies, long posts, long halls, long stalls, long dishes) {
+    public record Totals(long totalUsers, long users, long reviews, long replies, long posts,
+                         long halls, long stalls, long dishes) {
     }
 
     public Totals totals() {
         return jdbc.queryForObject("""
-                SELECT (SELECT COUNT(*) FROM foodtime.users WHERE status = 'active') AS users,
+                SELECT (SELECT COUNT(*) FROM foodtime.users) AS total_users,
+                       (SELECT COUNT(*) FROM foodtime.users WHERE status = 'active') AS users,
                        (SELECT COUNT(*) FROM foodtime.dish_reviews) AS reviews,
                        (SELECT COUNT(*) FROM foodtime.dish_review_replies) AS replies,
                        (SELECT COUNT(*) FROM foodtime.community_posts WHERE status = 'approved' AND deleted_at IS NULL) AS posts,
                        (SELECT COUNT(*) FROM foodtime.dining_halls WHERE status = 'active') AS halls,
                        (SELECT COUNT(*) FROM foodtime.stalls WHERE status = 'active') AS stalls,
                        (SELECT COUNT(*) FROM foodtime.dishes WHERE status = 'active') AS dishes
-                """, (r, i) -> new Totals(r.getLong("users"), r.getLong("reviews"), r.getLong("replies"),
+                """, (r, i) -> new Totals(r.getLong("total_users"), r.getLong("users"), r.getLong("reviews"), r.getLong("replies"),
                         r.getLong("posts"), r.getLong("halls"), r.getLong("stalls"), r.getLong("dishes")));
+    }
+
+    /** 趋势开始前的全部注册账号数；停用不抹去历史注册记录。 */
+    public long totalUsersBefore(Instant before) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.users WHERE created_at < ?",
+                Long.class, Timestamp.from(before));
     }
 
     /**
