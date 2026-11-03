@@ -293,6 +293,30 @@ app:
   monitoring:
     scrape-ip: ${MONITORING_SCRAPE_IP:127.0.0.1}
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
+  recommendation:
+    daily:
+      algorithm-version: ${RECOMMENDATION_ALGORITHM_VERSION:FT-HybridRec-v2}
+      target-size: ${RECOMMENDATION_TARGET_SIZE:10}
+      cooldown-days: ${RECOMMENDATION_COOLDOWN_DAYS:30}
+      history-days: ${RECOMMENDATION_HISTORY_DAYS:90}
+      recent-days: ${RECOMMENDATION_RECENT_DAYS:7}
+      smoothing-prior: ${RECOMMENDATION_SMOOTHING_PRIOR:10}
+      max-per-stall: ${RECOMMENDATION_MAX_PER_STALL:2}
+      max-per-hall: ${RECOMMENDATION_MAX_PER_HALL:4}
+      minimum-halls: ${RECOMMENDATION_MINIMUM_HALLS:3}
+      cache-ttl: ${RECOMMENDATION_CACHE_TTL:P2D}
+      cron: ${RECOMMENDATION_CRON:0 5 0 * * *}
+      zone: ${RECOMMENDATION_ZONE:Asia/Shanghai}
+      cold-weights:
+        quality: 0.10
+        heat: 0.05
+        rotation: 0.55
+        exposure: 0.30
+      mature-weights:
+        quality: 0.40
+        heat: 0.15
+        rotation: 0.25
+        exposure: 0.20
   release:
     # Android 应用内更新检查；version-code 为 0 表示未配置，客户端不会提示更新。
     version-code: ${APP_RELEASE_VERSION_CODE:0}
