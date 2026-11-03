@@ -46,12 +46,15 @@ class DashboardServiceTest {
 
     @Test
     void assemblesTotalsTrendAndOnlineCount() {
-        when(store.totals()).thenReturn(new DashboardStore.Totals(10, 20, 30, 40, 1, 2, 3));
+        when(store.totals()).thenReturn(new DashboardStore.Totals(12, 10, 20, 30, 40, 1, 2, 3));
+        when(store.totalUsersBefore(any(Instant.class))).thenReturn(12L);
         when(store.dailyNewCounts(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(store.dailyActiveUsers(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(presence.count()).thenReturn(4L);
         DashboardDtos.DashboardResponse response = service.overview(user("superadmin"), 7);
         assertThat(response.registeredUsers()).isEqualTo(10);
+        assertThat(response.totalUsers()).isEqualTo(12);
+        assertThat(response.trend()).extracting(DashboardDtos.TrendDay::totalUsers).containsOnly(12L);
         assertThat(response.onlineUsers()).isEqualTo(4);
         assertThat(response.trend()).hasSize(7);
         assertThat(response.trend().get(0).newUsers()).isZero();
@@ -60,7 +63,7 @@ class DashboardServiceTest {
 
     @Test
     void onlineUsersComesFromPresenceCount() {
-        when(store.totals()).thenReturn(new DashboardStore.Totals(0, 0, 0, 0, 0, 0, 0));
+        when(store.totals()).thenReturn(new DashboardStore.Totals(0, 0, 0, 0, 0, 0, 0, 0));
         when(store.dailyNewCounts(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(store.dailyActiveUsers(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(presence.count()).thenReturn(2L);
@@ -69,7 +72,7 @@ class DashboardServiceTest {
 
     @Test
     void emptyTrendDaysAreZeroFilledInOrder() {
-        when(store.totals()).thenReturn(new DashboardStore.Totals(0, 0, 0, 0, 0, 0, 0));
+        when(store.totals()).thenReturn(new DashboardStore.Totals(0, 0, 0, 0, 0, 0, 0, 0));
         when(store.dailyNewCounts(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(store.dailyActiveUsers(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
         when(presence.count()).thenReturn(0L);
@@ -78,5 +81,22 @@ class DashboardServiceTest {
         List<String> days = response.trend().stream().map(DashboardDtos.TrendDay::day).toList();
         assertThat(days).isSorted();
         assertThat(response.onlineUsers()).isZero();
+    }
+
+    @Test
+    void thirtyDaysKeepHistoricalTotalsAndZeroFillGaps() {
+        var today = java.time.LocalDate.now(DashboardService.BUSINESS_ZONE);
+        when(store.totals()).thenReturn(new DashboardStore.Totals(105, 100, 0, 0, 0, 0, 0, 0));
+        when(store.totalUsersBefore(any(Instant.class))).thenReturn(100L);
+        when(store.dailyNewCounts(any(Instant.class), any(Instant.class))).thenReturn(Map.of(
+                today.minusDays(29).toString(), Map.of("newUsers", 2L),
+                today.toString(), Map.of("newUsers", 3L)));
+        when(store.dailyActiveUsers(any(Instant.class), any(Instant.class))).thenReturn(Map.of());
+        var response = service.overview(user("superadmin"), 30);
+        assertThat(response.trend()).hasSize(30);
+        assertThat(response.trend().getFirst().totalUsers()).isEqualTo(102);
+        assertThat(response.trend().get(28).totalUsers()).isEqualTo(102);
+        assertThat(response.trend().getLast().totalUsers()).isEqualTo(105);
+        assertThat(response.trend().getLast().newUsers()).isEqualTo(3);
     }
 }
