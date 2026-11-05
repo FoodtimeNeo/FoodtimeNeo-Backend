@@ -4,5 +4,26 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /** Database projection; display status and ordering remain server-controlled. */
-public record DiningHall(UUID id, String name, String coverImageUrl, String description,
-                         BigDecimal latitude, BigDecimal longitude, String status, int sortOrder) { }
+public record DiningHall(
+    UUID id,
+    String name,
+    String coverImageUrl,
+    String description,
+    BigDecimal latitude,
+    BigDecimal longitude,
+    String status,
+    int sortOrder,
+    BigDecimal averageScore,
+    long reviewCount) {
+  public DiningHall(
+      UUID id,
+      String name,
+      String coverImageUrl,
+      String description,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      String status,
+      int sortOrder) {
+    this(id, name, coverImageUrl, description, latitude, longitude, status, sortOrder, null, 0);
+  }
+}

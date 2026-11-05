@@ -56,6 +56,27 @@ class CatalogAdminIT extends IntegrationApiSupport {
     }
 
     @Test
+    void administratorCatalogListsHallsByConfiguredSortOrder() throws Exception {
+        Browser admin = login(account("admin"));
+        var laterResponse = admin.call("POST", "/api/v1/admin/catalog/dining-halls",
+                Map.of("name", "z-sort-later", "sortOrder", -100));
+        var firstResponse = admin.call("POST", "/api/v1/admin/catalog/dining-halls",
+                Map.of("name", "a-sort-first", "sortOrder", -200));
+        assertThat(laterResponse.statusCode()).isEqualTo(201);
+        assertThat(firstResponse.statusCode()).isEqualTo(201);
+        UUID later = UUID.fromString(body(laterResponse).path("data").path("id").asString());
+        UUID first = UUID.fromString(body(firstResponse).path("data").path("id").asString());
+        additionalHalls.add(later);
+        additionalHalls.add(first);
+
+        var listed = admin.call("GET", "/api/v1/admin/catalog/dining-halls?size=2", null);
+        assertThat(listed.statusCode()).isEqualTo(200);
+        var items = body(listed).path("data").path("items");
+        assertThat(items.get(0).path("id").asString()).isEqualTo(first.toString());
+        assertThat(items.get(1).path("id").asString()).isEqualTo(later.toString());
+    }
+
+    @Test
     void disablingCatalogChangesPublicVisibilityAndKeepsAdminAccess() throws Exception {
         Browser admin = login(account("admin")), student = login(owner);
         assertThat(admin.call("PUT","/api/v1/admin/catalog/dining-halls/" + hall,Map.of("name","integration hall","status","inactive")).statusCode()).isEqualTo(200);

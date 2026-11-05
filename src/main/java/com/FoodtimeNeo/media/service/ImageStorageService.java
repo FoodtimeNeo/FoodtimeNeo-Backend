@@ -31,12 +31,23 @@ public class ImageStorageService {
     }
 
     public UploadedImage upload(MultipartFile file, UserProfile user) {
+        return upload(file,user,false);
+    }
+    public static final long MAX_AVATAR_BYTES=10L*1024*1024;
+    public UploadedImage uploadAvatar(MultipartFile file,UserProfile user){return upload(file,user,true);}
+    private UploadedImage upload(MultipartFile file, UserProfile user,boolean avatar) {
+        if(avatar && file.getSize()>MAX_AVATAR_BYTES)throw avatarTooLarge();
         if (file.isEmpty() || file.getSize() > ImageSanitizer.MAX_INPUT) throw bad("图片不能为空且不能超过50MB");
+
         if (!uploads.tryAcquire()) throw new UploadBusyException();
         UUID id = UUID.randomUUID();
         Path image = directory.resolve(id + ".img"), metadata = directory.resolve(id + ".properties");
         try {
-            var normalized = ImageSanitizer.sanitize(file.getBytes());
+            var normalized = avatar ? ImageSanitizer.sanitizeAvatar(file.getBytes()) : ImageSanitizer.sanitize(file.getBytes());
+            if(avatar){
+                if(normalized.bytes().length>MAX_AVATAR_BYTES)throw avatarTooLarge();
+                if(normalized.width()!=normalized.height())throw bad("头像必须为1:1方形，请先裁剪");
+            }
             return budget.write(user.id(), normalized.bytes().length + 1024L, () -> {
                 try {
                     Files.write(image, normalized.bytes(), StandardOpenOption.CREATE_NEW);
@@ -104,6 +115,27 @@ public class ImageStorageService {
             if (!reference.equals(reference(id)) || !userId.toString().equals(metadata(id).getProperty("owner"))) throw bad("请使用本人上传的图片");
         } catch (IllegalArgumentException failure) { throw bad("图片引用不合法"); }
     }
+
+    /** Applies to every new profile reference, including references from the general upload route. */
+    public void requireAvatarReference(String reference,UUID userId){
+        requireOwnedReference(reference,userId);
+        UUID id=UUID.fromString(reference.substring("/api/v1/media/".length()));
+        Path file=directory.resolve(id+".img");
+        try{
+            if(Files.size(file)>MAX_AVATAR_BYTES)throw avatarTooLarge();
+            try(var input=ImageIO.createImageInputStream(file.toFile())){
+                if(input==null)throw bad("头像图片无法读取");
+                var readers=ImageIO.getImageReaders(input);if(!readers.hasNext())throw bad("头像图片无法读取");
+                var reader=readers.next();
+                try{
+                    reader.setInput(input);String format=reader.getFormatName();int width=reader.getWidth(0),height=reader.getHeight(0);
+                    if(!(format.equalsIgnoreCase("png")||format.equalsIgnoreCase("jpeg")||format.equalsIgnoreCase("jpg"))||width<1||(width!=512||height!=512)||(long)width*height>20_000_000)
+                        throw bad("头像须为512×512的JPEG或PNG图片，请先裁剪");
+                }finally{reader.dispose();}
+            }
+        }catch(IOException e){throw bad("头像图片无法读取，请重新上传");}
+    }
+    private static BusinessException avatarTooLarge(){return new BusinessException("AVATAR_TOO_LARGE","头像不能超过10MB（10,485,760字节）",HttpStatus.PAYLOAD_TOO_LARGE);}
 
     public UploadedImage ownedImage(String reference,UUID userId) {
         requireOwnedReference(reference,userId);

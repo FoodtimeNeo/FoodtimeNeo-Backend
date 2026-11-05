@@ -1,0 +1,22 @@
+{
+  "algorithmVersion": "FT-HybridRec-v2",
+  "catalogueSize": 1200,
+  "configHash": "53acb924c2cfd5bbaa5874bd38d76c6d592037aed2001dfbb4f98cab4f5fa303",
+  "coverage90Days": 0.75,
+  "days": 90,
+  "exploreRatio": 1.0,
+  "hallCoverageMean": 5.366666666666666,
+  "hallCoverageMin": 4,
+  "qualityRatio": 0.0,
+  "recommendationsPerDishDistribution": {
+    "0": 300,
+    "1": 900
+  },
+  "repeatWithin30Count": 0,
+  "repeatWithin30Rate": 0.0,
+  "selected": 900,
+  "stallCoverageMean": 10.0,
+  "stallCoverageMin": 10,
+  "uniqueDishes": 900,
+  "unratedRatio": 0.6677777777777778
+}

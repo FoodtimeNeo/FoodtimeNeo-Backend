@@ -36,6 +36,22 @@ public class ModerationStore {
             FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id
             JOIN foodtime.dishes d ON d.id=r.dish_id JOIN foodtime.users u ON u.id=c.user_id
             WHERE c.deleted_at IS NULL
+            UNION ALL
+            SELECT v.id,CASE WHEN t.stall_id IS NULL THEN 'hall-review' ELSE 'stall-review' END,
+            COALESCE(t.stall_id,t.dining_hall_id),r.user_id,u.display_name,COALESCE(st.name,h.name),v.content,
+            NULL::numeric,NULL::text,v.rating::integer,v.status,v.review_reason,v.submitted_at
+            FROM foodtime.venue_review_submissions v JOIN foodtime.venue_reviews r ON r.id=v.review_id
+            JOIN foodtime.venue_review_targets t ON t.id=r.target_id LEFT JOIN foodtime.stalls st ON st.id=t.stall_id
+            JOIN foodtime.dining_halls h ON h.id=COALESCE(t.dining_hall_id,st.dining_hall_id) JOIN foodtime.users u ON u.id=r.user_id
+            WHERE v.invalidated_at IS NULL AND (v.status<>'pending' OR r.deleted_at IS NULL)
+            UNION ALL
+            SELECT c.id,CASE WHEN t.stall_id IS NULL THEN 'hall-review-reply' ELSE 'stall-review-reply' END,
+            r.id,c.user_id,u.display_name,COALESCE(st.name,h.name),c.content,NULL::numeric,NULL::text,NULL::integer,
+            c.status,c.review_reason,c.created_at
+            FROM foodtime.venue_review_replies c JOIN foodtime.venue_reviews r ON r.id=c.review_id
+            JOIN foodtime.venue_review_targets t ON t.id=r.target_id LEFT JOIN foodtime.stalls st ON st.id=t.stall_id
+            JOIN foodtime.dining_halls h ON h.id=COALESCE(t.dining_hall_id,st.dining_hall_id) JOIN foodtime.users u ON u.id=c.user_id
+            WHERE c.deleted_at IS NULL AND (c.status<>'pending' OR r.deleted_at IS NULL)
             """;
     private static final String ITEMS_WITH_AI =
             "SELECT q.*, u.email AS user_email, a.risk_level AS ai_risk_level, a.confidence AS ai_confidence,"
@@ -188,15 +204,15 @@ public class ModerationStore {
 
     public List<ModerationLogResponse> logs(int size, long offset) {
         return jdbc.query("""
-                SELECT l.id,COALESCE(l.review_submission_id,l.dish_submission_id,l.stall_submission_id,l.dish_image_id,l.community_post_id,l.community_comment_id,l.dish_review_reply_id) AS submission_id,
-                       CASE WHEN l.review_submission_id IS NOT NULL THEN 'review' WHEN l.dish_submission_id IS NOT NULL THEN 'dish' WHEN l.stall_submission_id IS NOT NULL THEN 'stall' WHEN l.dish_image_id IS NOT NULL THEN 'photo' WHEN l.community_post_id IS NOT NULL THEN 'community-post' WHEN l.community_comment_id IS NOT NULL THEN 'community-comment' ELSE 'dish-review-reply' END AS type,
+                SELECT l.id,COALESCE(l.review_submission_id,l.dish_submission_id,l.stall_submission_id,l.dish_image_id,l.community_post_id,l.community_comment_id,l.dish_review_reply_id,l.venue_review_submission_id,l.venue_review_reply_id) AS submission_id,
+                       CASE WHEN l.review_submission_id IS NOT NULL THEN 'review' WHEN l.dish_submission_id IS NOT NULL THEN 'dish' WHEN l.stall_submission_id IS NOT NULL THEN 'stall' WHEN l.dish_image_id IS NOT NULL THEN 'photo' WHEN l.community_post_id IS NOT NULL THEN 'community-post' WHEN l.community_comment_id IS NOT NULL THEN 'community-comment' WHEN l.dish_review_reply_id IS NOT NULL THEN 'dish-review-reply' WHEN l.venue_review_submission_id IS NOT NULL THEN CASE WHEN vt.stall_id IS NULL THEN 'hall-review' ELSE 'stall-review' END ELSE CASE WHEN vt.stall_id IS NULL THEN 'hall-review-reply' ELSE 'stall-review-reply' END END AS type,
                        l.moderator_user_id,l.actor,l.ai_model,l.action,l.reason,l.created_at,
                        u.id AS user_id,u.email AS user_email,u.display_name AS user_display_name,
-                       COALESCE(ds.name,ss.name,p.title,d.name) AS name,
-                       COALESCE(rs.content,ds.description,ss.description,p.content,c.content,rr.content) AS content,
+                       COALESCE(ds.name,ss.name,p.title,d.name,vst.name,vh.name) AS name,
+                       COALESCE(rs.content,ds.description,ss.description,p.content,c.content,rr.content,vs.content,vc.content) AS content,
                        COALESCE(ds.image_url,ss.cover_image_url,i.image_url,
                            (SELECT image_url FROM foodtime.community_post_images WHERE post_id=p.id ORDER BY sort_order,id LIMIT 1)) AS image_url,
-                       COALESCE(rs.submitted_at,ds.created_at,ss.created_at,i.created_at,p.created_at,c.created_at,rr.created_at) AS submitted_at
+                       COALESCE(rs.submitted_at,ds.created_at,ss.created_at,i.created_at,p.created_at,c.created_at,rr.created_at,vs.submitted_at,vc.created_at) AS submitted_at
                 FROM foodtime.content_moderation_logs l
                 LEFT JOIN foodtime.dish_review_submissions rs ON rs.id=l.review_submission_id
                 LEFT JOIN foodtime.dish_submissions ds ON ds.id=l.dish_submission_id
@@ -205,8 +221,14 @@ public class ModerationStore {
                 LEFT JOIN foodtime.community_posts p ON p.id=l.community_post_id
                 LEFT JOIN foodtime.community_comments c ON c.id=l.community_comment_id
                 LEFT JOIN foodtime.dish_review_replies rr ON rr.id=l.dish_review_reply_id
+                LEFT JOIN foodtime.venue_review_submissions vs ON vs.id=l.venue_review_submission_id
+                LEFT JOIN foodtime.venue_review_replies vc ON vc.id=l.venue_review_reply_id
+                LEFT JOIN foodtime.venue_reviews vr ON vr.id=COALESCE(vs.review_id,vc.review_id)
+                LEFT JOIN foodtime.venue_review_targets vt ON vt.id=vr.target_id
+                LEFT JOIN foodtime.stalls vst ON vst.id=vt.stall_id
+                LEFT JOIN foodtime.dining_halls vh ON vh.id=COALESCE(vt.dining_hall_id,vst.dining_hall_id)
                 LEFT JOIN foodtime.dishes d ON d.id=COALESCE(rs.dish_id,i.dish_id)
-                LEFT JOIN foodtime.users u ON u.id=COALESCE(rs.user_id,ds.submitted_by_user_id,ss.submitted_by_user_id,i.uploaded_by_user_id,p.user_id,c.user_id,rr.user_id)
+                LEFT JOIN foodtime.users u ON u.id=COALESCE(rs.user_id,ds.submitted_by_user_id,ss.submitted_by_user_id,i.uploaded_by_user_id,p.user_id,c.user_id,rr.user_id,CASE WHEN vc.id IS NOT NULL THEN vc.user_id ELSE vr.user_id END)
                 ORDER BY l.created_at DESC,l.id ASC LIMIT ? OFFSET ?
                 """, (r,n) -> new ModerationLogResponse(r.getObject("id",UUID.class),r.getObject("submission_id",UUID.class),
                 r.getString("type"),r.getObject("moderator_user_id",UUID.class),r.getString("actor"),r.getString("ai_model"),r.getString("action"),r.getString("reason"),r.getTimestamp("created_at").toInstant(),

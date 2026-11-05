@@ -8,10 +8,10 @@ import java.util.List;
 @Mapper
 public interface DiningHallMapper {
     @Select("""
-            SELECT id, name, cover_image_url, description, latitude, longitude, status, sort_order
-            FROM foodtime.dining_halls
-            WHERE status = 'active'
-            ORDER BY sort_order ASC, id ASC
+            SELECT h.id, h.name, h.cover_image_url, h.description, h.latitude, h.longitude, h.status, h.sort_order,v.average_score,COALESCE(v.review_count,0) AS review_count
+            FROM foodtime.dining_halls h LEFT JOIN foodtime.venue_review_targets t ON t.dining_hall_id=h.id LEFT JOIN foodtime.venue_rating_summary v ON v.target_id=t.id
+            WHERE h.status = 'active'
+            ORDER BY h.sort_order ASC, h.id ASC
             """)
     List<DiningHall> findActive();
 }

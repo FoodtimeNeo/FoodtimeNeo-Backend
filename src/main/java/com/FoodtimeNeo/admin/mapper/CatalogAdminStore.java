@@ -19,7 +19,8 @@ public class CatalogAdminStore {
         String filter = parent == null || type.equals("dining-halls") ? "" : " WHERE " + parentColumn(type) + " = ?";
         var args = new ArrayList<Object>(); if (!filter.isEmpty()) args.add(parent);
         args.add(size); args.add(offset);
-        return jdbc.query(select(type) + filter + " ORDER BY t.name,t.id LIMIT ? OFFSET ?",ROW,args.toArray());
+        String order = type.equals("dishes") ? "t.name,t.id" : "t.sort_order,t.id";
+        return jdbc.query(select(type) + filter + " ORDER BY " + order + " LIMIT ? OFFSET ?",ROW,args.toArray());
     }
     public long count(String type, UUID parent) {
         if (parent == null || type.equals("dining-halls")) return jdbc.queryForObject("SELECT COUNT(*) FROM " + table(type),Long.class);

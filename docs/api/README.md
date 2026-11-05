@@ -31,6 +31,7 @@
 | 上传及读取图片文件 | `POST /api/v1/uploads/images`、`GET /api/v1/media/{id}` | [图片文件](dish/uploads.md) |
 | 独立图片投稿和个人记录 | POST/GET接口 | [图片投稿](dish/image-submissions.md) |
 | 已审核评论、评论提交、我的评论及评分快照 | 多个GET/POST/DELETE接口 | [评论与评分](dish/reviews.md) |
+| 获取全站每日统一推荐 | `GET /api/v1/recommendations/daily` | [每日推荐](recommendations.md) |
 | 管理审核队列、操作和日志 | GET/POST管理接口 | [管理审核](user/moderation.md) |
 | 社区动态、信息流与社区审核 | GET/POST社区及管理接口 | [社区动态](community.md) |
 | 管理基础数据与违规评论 | GET/POST/PUT/DELETE接口 | [数据管理](user/catalog-admin.md) |

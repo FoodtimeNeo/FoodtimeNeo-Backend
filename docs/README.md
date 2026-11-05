@@ -6,6 +6,8 @@
 
 ---
 
+餐厅与档口独立点评及完整互动：见 [功能与接口说明](modules/venue-reviews.md)。
+
 ## 1. 文档结构索引矩阵
 
 本仓库文档遵循四级核心分类，并保留接口规范与架构演进提案目录：
@@ -45,6 +47,7 @@ docs/
 | | [登录公告机制](modules/notices.md) | 登录弹窗规则、公告版本判定与阅读状态维护 |
 | | [公告管理后台](modules/notice-management.md) | 管理端公告发布、Markdown 渲染安全与启停状态 |
 | | [媒体资源缓存](modules/media-cache.md) | 服务端静态媒体资源缓存策略与 HTTP 协商缓存 |
+| | [每日智能推荐](modules/daily-recommendation.md) | Daily HybridRec V2 冷启动、快照、调度、缓存与降级 |
 | | [密码重置安全](modules/password-recovery-security.md) | 邮箱验证码找回密码安全防护与防爆破频率限制 |
 | | [审核提交者详情](modules/moderation-publisher-details.md) | 审核流中展示提交者基础信息与风控辅助数据 |
 | | [食堂数据刷新 Batch 1](modules/canteen-refresh.md) | 明湖食堂等第一批基础菜品数据刷新脚本说明 |

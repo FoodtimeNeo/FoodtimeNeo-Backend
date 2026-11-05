@@ -34,6 +34,13 @@ public class ImageStorageController {
         return ApiResponse.success(images.upload(file, user));
     }
 
+    @PostMapping(value = "/uploads/avatars", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary="上传头像",description="multipart字段file；原始与处理后文件均不超过10MB，JPEG/PNG且为1:1；登录和CSRF验证，返回本人暂存引用")
+    public ApiResponse<ImageStorageService.UploadedImage> uploadAvatar(@RequestPart("file") MultipartFile file,HttpServletRequest request){
+        UserProfile user=current(request);limiter.check(user,request.getRemoteAddr());
+        return ApiResponse.success(images.uploadAvatar(file,user));
+    }
     @GetMapping("/media/{imageId}")
     @Operation(summary = "读取授权图片", description = "size=thumb返回480px预览；目录图片长期缓存，公开社区图片和头像采用private,no-cache，每次复用先校验权限；暂存及待审预览no-store")
     public ResponseEntity<byte[]> read(@PathVariable UUID imageId,
