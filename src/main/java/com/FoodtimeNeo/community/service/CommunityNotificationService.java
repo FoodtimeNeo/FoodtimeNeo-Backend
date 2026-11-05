@@ -33,6 +33,7 @@ public class CommunityNotificationService {
         long count = total == null ? 0 : total;
         String category = post ? "LIKE_POST" : "LIKE_COMMENT";
         UUID commentId = post ? null : targetId;
+        UUID rootCommentId = post ? null : target.rootCommentId();
 
         if (count == 0) {
             jdbc.update("""
@@ -54,11 +55,11 @@ public class CommunityNotificationService {
 
         jdbc.update("""
                 INSERT INTO foodtime.messages
-                    (id,user_id,title,body,category,ref_type,ref_id,ref_comment_id,actor_count,is_read)
-                VALUES (?,?,?,?,?,'community-post',?,?,?,FALSE)
+                    (id,user_id,title,body,category,ref_type,ref_id,ref_comment_id,ref_root_comment_id,actor_count,is_read)
+                VALUES (?,?,?,?,?,'community-post',?,?,?,?,FALSE)
                 ON CONFLICT DO NOTHING
                 """, UUID.randomUUID(), target.ownerId(), title, body, category,
-                target.postId(), commentId, count);
+                target.postId(), commentId, rootCommentId, count);
         jdbc.update("""
                 UPDATE foodtime.messages
                 SET title=?, body=?, actor_count=?, is_read=FALSE, created_at=now()
@@ -85,31 +86,36 @@ public class CommunityNotificationService {
         String title = reply ? "你的评论收到新回复" : "你的食记收到新评论";
         String body = CommunityNotificationText.commentBody(comment.authorName(), comment.content(), reply);
         String category = reply ? "REPLY_COMMENT" : "COMMENT_POST";
+        UUID rootCommentId = comment.rootCommentId() == null ? commentId : comment.rootCommentId();
 
         jdbc.update("""
                 INSERT INTO foodtime.messages
-                    (id,user_id,title,body,category,ref_type,ref_id,ref_comment_id,actor_count,is_read)
-                VALUES (?,?,?,?,?,'community-post',?,?,1,FALSE)
+                    (id,user_id,title,body,category,ref_type,ref_id,ref_comment_id,ref_root_comment_id,actor_count,is_read)
+                VALUES (?,?,?,?,?,'community-post',?,?,?,1,FALSE)
                 ON CONFLICT DO NOTHING
                 """, UUID.randomUUID(), recipient, title, body, category,
-                comment.postId(), commentId);
+                comment.postId(), commentId, rootCommentId);
     }
 
     private Target postTarget(UUID id) {
         return jdbc.query("""
                 SELECT user_id,id FROM foodtime.community_posts
                 WHERE id=? AND status='approved' AND deleted_at IS NULL
-                """, (r, n) -> new Target(r.getObject(1, UUID.class), r.getObject(2, UUID.class)), id)
+                """, (r, n) -> new Target(r.getObject(1, UUID.class), r.getObject(2, UUID.class), null), id)
                 .stream().findFirst().orElse(null);
     }
 
     private Target commentTarget(UUID id) {
         return jdbc.query("""
-                SELECT c.user_id,c.post_id FROM foodtime.community_comments c
+                SELECT c.user_id,c.post_id,c.root_comment_id FROM foodtime.community_comments c
                 JOIN foodtime.community_posts p ON p.id=c.post_id
                 WHERE c.id=? AND c.status='approved' AND c.deleted_at IS NULL
                   AND p.status='approved' AND p.deleted_at IS NULL
-                """, (r, n) -> new Target(r.getObject(1, UUID.class), r.getObject(2, UUID.class)), id)
+                """, (r, n) -> {
+                    UUID root = r.getObject(3, UUID.class);
+                    return new Target(r.getObject(1, UUID.class), r.getObject(2, UUID.class),
+                            root == null ? id : root);
+                }, id)
                 .stream().findFirst().orElse(null);
     }
 
@@ -136,7 +142,7 @@ public class CommunityNotificationService {
                 .stream().findFirst().orElse(null);
     }
 
-    private record Target(UUID ownerId, UUID postId) { }
+    private record Target(UUID ownerId, UUID postId, UUID rootCommentId) { }
 
     private record CommentTarget(UUID authorId, UUID postId, UUID rootCommentId,
                                  UUID replyToUserId, String authorName, String content) { }

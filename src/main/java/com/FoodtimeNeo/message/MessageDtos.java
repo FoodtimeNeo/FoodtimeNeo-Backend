@@ -17,12 +17,13 @@ public final class MessageDtos {
             String refType,
             UUID refId,
             UUID refCommentId,
+            UUID refRootCommentId,
             int actorCount,
             boolean isRead,
             Instant createdAt) {
         public MessageResponse(UUID id, String title, String body, String category,
                                String refType, UUID refId, boolean isRead, Instant createdAt) {
-            this(id, title, body, category, refType, refId, null, 0, isRead, createdAt);
+            this(id, title, body, category, refType, refId, null, null, 0, isRead, createdAt);
         }
     }
 

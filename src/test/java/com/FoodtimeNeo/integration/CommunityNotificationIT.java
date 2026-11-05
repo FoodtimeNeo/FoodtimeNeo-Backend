@@ -34,6 +34,7 @@ class CommunityNotificationIT extends IntegrationApiSupport {
         assertThat(message.path("actorCount").asInt()).isEqualTo(3);
         assertThat(message.path("refType").asString()).isEqualTo("community-post");
         assertThat(message.path("refId").asString()).isEqualTo(post.toString());
+        assertThat(message.path("refRootCommentId").isNull()).isTrue();
         assertThat(message.path("body").asString()).contains("总计 3 人赞了你的食记");
         assertThat(message.path("body").asString()).contains("小刚").contains("小红");
 
@@ -56,6 +57,30 @@ class CommunityNotificationIT extends IntegrationApiSupport {
     }
 
     @Test
+    void commentLikesAggregateAndKeepTheThreadRootForFocus() throws Exception {
+        Browser author = login(owner), commenter = login(other);
+        Browser fan1 = login(account("user")), fan2 = login(account("user"));
+        UUID post = approvedPost(author, "评论点赞-" + UUID.randomUUID());
+        var created = commenter.call("POST", "/api/v1/community/posts/" + post + "/comments",
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "值得一试-" + UUID.randomUUID()));
+        assertThat(created.statusCode()).isEqualTo(202);
+        UUID comment = UUID.fromString(body(created).path("data").path("id").asString());
+        approveComment(comment);
+
+        assertThat(fan1.call("PUT", "/api/v1/community/comments/" + comment + "/like", Map.of())
+                .statusCode()).isEqualTo(200);
+        assertThat(fan2.call("PUT", "/api/v1/community/comments/" + comment + "/like", Map.of())
+                .statusCode()).isEqualTo(200);
+
+        JsonNode message = only(messages(commenter), "LIKE_COMMENT");
+        assertThat(message.path("actorCount").asInt()).isEqualTo(2);
+        assertThat(message.path("refId").asString()).isEqualTo(post.toString());
+        assertThat(message.path("refCommentId").asString()).isEqualTo(comment.toString());
+        assertThat(message.path("refRootCommentId").asString()).isEqualTo(comment.toString());
+        assertThat(message.path("body").asString()).contains("赞了你的评论");
+    }
+
+    @Test
     void approvedRootCommentAndReplyNotifyTheRightOwner() throws Exception {
         Browser author = login(owner), commenter = login(other);
         Account replierAccount = account("user");
@@ -74,6 +99,7 @@ class CommunityNotificationIT extends IntegrationApiSupport {
         JsonNode rootMessage = only(messages(author), "COMMENT_POST");
         assertThat(rootMessage.path("refId").asString()).isEqualTo(post.toString());
         assertThat(rootMessage.path("refCommentId").asString()).isEqualTo(root.toString());
+        assertThat(rootMessage.path("refRootCommentId").asString()).isEqualTo(root.toString());
         assertThat(rootMessage.path("body").asString()).contains("评论者").contains(rootContent);
 
         String replyContent = "我也觉得-" + UUID.randomUUID();
@@ -87,6 +113,7 @@ class CommunityNotificationIT extends IntegrationApiSupport {
         JsonNode replyMessage = only(messages(commenter), "REPLY_COMMENT");
         assertThat(replyMessage.path("refId").asString()).isEqualTo(post.toString());
         assertThat(replyMessage.path("refCommentId").asString()).isEqualTo(replyId.toString());
+        assertThat(replyMessage.path("refRootCommentId").asString()).isEqualTo(root.toString());
         assertThat(replyMessage.path("body").asString()).contains("回复者").contains("回复你").contains(replyContent);
     }
 
