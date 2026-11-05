@@ -45,6 +45,45 @@ class CommunityNotificationIT extends IntegrationApiSupport {
     }
 
     @Test
+    void deletingThePostClearsAllInteractionMessagesUnderIt() throws Exception {
+        Browser author = login(owner), fan = login(other);
+        UUID post = approvedPost(author, "删除清理-" + UUID.randomUUID());
+        assertThat(fan.call("PUT", "/api/v1/community/posts/" + post + "/like", Map.of())
+                .statusCode()).isEqualTo(200);
+        assertThat(only(messages(author), "LIKE_POST").path("refId").asString())
+                .isEqualTo(post.toString());
+
+        assertThat(author.call("DELETE", "/api/v1/community/posts/" + post, null).statusCode())
+                .isEqualTo(200);
+        for (JsonNode item : messages(author)) {
+            assertThat(item.path("refId").asString()).isNotEqualTo(post.toString());
+        }
+    }
+
+    @Test
+    void deletingACommentClearsItsOwnNotification() throws Exception {
+        Browser author = login(owner), commenter = login(other);
+        Browser fan = login(account("user"));
+        UUID post = approvedPost(author, "评论删除-" + UUID.randomUUID());
+        var created = commenter.call("POST", "/api/v1/community/posts/" + post + "/comments",
+                Map.of("clientRequestId", UUID.randomUUID(), "content", "待删除评论-" + UUID.randomUUID()));
+        assertThat(created.statusCode()).isEqualTo(202);
+        UUID comment = UUID.fromString(body(created).path("data").path("id").asString());
+        approveComment(comment);
+        assertThat(fan.call("PUT", "/api/v1/community/comments/" + comment + "/like", Map.of())
+                .statusCode()).isEqualTo(200);
+
+        assertThat(commenter.call("DELETE", "/api/v1/community/comments/" + comment, null)
+                .statusCode()).isEqualTo(200);
+        for (JsonNode item : messages(author)) {
+            assertThat(item.path("refCommentId").asString()).isNotEqualTo(comment.toString());
+        }
+        for (JsonNode item : messages(commenter)) {
+            assertThat(item.path("refCommentId").asString()).isNotEqualTo(comment.toString());
+        }
+    }
+
+    @Test
     void selfLikeOnFreshPostCreatesNoMessage() throws Exception {
         Browser author = login(owner);
         UUID post = approvedPost(author, "自赞-" + UUID.randomUUID());

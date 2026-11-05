@@ -27,8 +27,11 @@ public class CommunityModerationService {
     private final CommunityStore posts;
     private final ModerationService moderation;
     private final CommunityThreadStore threads;
-    public CommunityModerationService(CommunityStore posts, ModerationService moderation,CommunityThreadStore threads) {
+    private final CommunityNotificationService notifications;
+    public CommunityModerationService(CommunityStore posts, ModerationService moderation,
+                                       CommunityThreadStore threads, CommunityNotificationService notifications) {
         this.posts = posts; this.moderation = moderation;this.threads=threads;
+        this.notifications=notifications;
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +94,8 @@ public class CommunityModerationService {
         if(type.equals("posts"))changed=posts.remove(id,actor.id(),reason);
         else {UUID post=threads.postOf(id);if(post==null||!threads.lockPost(post))throw missing();changed=threads.remove(id,actor.id(),reason);}
         if(changed==0)throw missing();
+        if(type.equals("posts"))notifications.postRemoved(id);
+        else notifications.commentRemoved(id);
     }
     private BusinessException missing(){return new BusinessException("CONTENT_NOT_FOUND","社区内容不存在或已删除",HttpStatus.NOT_FOUND);}
 }

@@ -12,6 +12,8 @@ import java.util.UUID;
  */
 @Service
 public class CommunityNotificationService {
+    private static final String INTERACTION_CATEGORIES =
+            "'LIKE_POST','LIKE_COMMENT','COMMENT_POST','REPLY_COMMENT'";
     private final JdbcTemplate jdbc;
 
     public CommunityNotificationService(JdbcTemplate jdbc) {
@@ -95,6 +97,18 @@ public class CommunityNotificationService {
                 ON CONFLICT DO NOTHING
                 """, UUID.randomUUID(), recipient, title, body, category,
                 comment.postId(), commentId, rootCommentId);
+    }
+
+    /** 原帖被作者或管理员删除时，帖子下所有互动消息都失去目标。 */
+    public void postRemoved(UUID postId) {
+        jdbc.update("DELETE FROM foodtime.messages WHERE ref_type='community-post' AND ref_id=?"
+                + " AND category IN (" + INTERACTION_CATEGORIES + ")", postId);
+    }
+
+    /** 只清理指向该评论本身的消息；其回复仍可能以墓碑/平铺形式可见。 */
+    public void commentRemoved(UUID commentId) {
+        jdbc.update("DELETE FROM foodtime.messages WHERE ref_type='community-post' AND ref_comment_id=?"
+                + " AND category IN (" + INTERACTION_CATEGORIES + ")", commentId);
     }
 
     private Target postTarget(UUID id) {
