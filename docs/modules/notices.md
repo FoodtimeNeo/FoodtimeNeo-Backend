@@ -45,4 +45,15 @@ Web 刷新页面视为恢复会话；Android Activity 旋转重建复用本次�
 
 ## 消息兼容
 
-个人消息继续通过 /users/me/messages 分页、/unread-count 查询计数、/{id}/read 或 /read-all 标记已读。仅允许操作当前用户自己的消息。消息自动产生的业务流程不在本轮范围。
+个人消息继续通过 /users/me/messages 分页、/unread-count 查询计数、/{id}/read 或 /read-all 标记已读。仅允许操作当前用户自己的消息。
+
+社区互动会写入以下分类，`refType` 固定为 `community-post`：
+
+| category | 触发 | 收件人 | 聚合 |
+| --- | --- | --- | --- |
+| `LIKE_POST` | 食记被点赞/取消 | 食记作者 | 同一食记只保留一条，`actorCount` 为点赞人数；全部取消后删除 |
+| `LIKE_COMMENT` | 评论被点赞/取消 | 评论作者 | 同一评论只保留一条，`actorCount` 为点赞人数；全部取消后删除 |
+| `COMMENT_POST` | 根评论审核通过 | 食记作者 | 每条评论一条 |
+| `REPLY_COMMENT` | 回复审核通过 | 被回复者 | 每条回复一条 |
+
+字段约定：`refId` 为食记 ID，`refCommentId` 为目标评论，`refRootCommentId` 为所在楼层根评论（帖子级为空）。客户端据此跳转原帖并定位楼层/回复；自己的点赞和评论不产生消息。原帖被作者或管理员删除时，该帖下全部互动消息一并删除；评论被删除时只清理指向该评论本身的消息，其回复若仍以墓碑/平铺形式可见则保留通知。

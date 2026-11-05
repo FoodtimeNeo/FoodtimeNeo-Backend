@@ -30,9 +30,13 @@ public class CommunityPostService {
     private final SubmissionRateLimiter limiter;
     private final ApplicationEventPublisher events;
     private final boolean aiEnabled;
+    private final CommunityNotificationService notifications;
     public CommunityPostService(CommunityStore posts, ImageStorageService images,
-                                SubmissionRateLimiter limiter, ApplicationEventPublisher events, @org.springframework.beans.factory.annotation.Value("${app.ai.triage.enabled:false}") boolean aiEnabled) {
-        this.posts = posts; this.images = images; this.limiter = limiter; this.events = events; this.aiEnabled=aiEnabled;
+                                SubmissionRateLimiter limiter, ApplicationEventPublisher events,
+                                CommunityNotificationService notifications,
+                                @org.springframework.beans.factory.annotation.Value("${app.ai.triage.enabled:false}") boolean aiEnabled) {
+        this.posts = posts; this.images = images; this.limiter = limiter; this.events = events;
+        this.notifications = notifications; this.aiEnabled=aiEnabled;
     }
 
     @Transactional
@@ -93,5 +97,6 @@ public class CommunityPostService {
         if (posts.deleteOwned(id, userId) == 0) {
             throw new BusinessException("POST_NOT_FOUND", "动态不存在或不属于你", HttpStatus.NOT_FOUND);
         }
+        notifications.postRemoved(id);
     }
 }
