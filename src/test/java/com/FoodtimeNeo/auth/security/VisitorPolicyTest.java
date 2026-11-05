@@ -44,6 +44,19 @@ class VisitorPolicyTest {
     }
 
     @Test
+    void visitorsMayReadOrHideDirectMessagesButCannotSend() {
+        String id = "2f9b7c1e-3a4d-4e5f-8a9b-0c1d2e3f4a5b";
+        assertThat(VisitorPolicy.blocked(user("visitor"),
+                request("POST", "/api/v1/users/me/conversations/" + id + "/read"))).isFalse();
+        assertThat(VisitorPolicy.blocked(user("visitor"),
+                request("DELETE", "/api/v1/users/me/conversations/" + id))).isFalse();
+        assertThat(VisitorPolicy.blocked(user("visitor"),
+                request("POST", "/api/v1/users/me/conversations/" + id + "/messages"))).isTrue();
+        assertThat(VisitorPolicy.blocked(user("visitor"),
+                request("POST", "/api/v1/users/me/conversations"))).isTrue();
+    }
+
+    @Test
     void regularUsersAreNeverBlocked() {
         assertThat(VisitorPolicy.blocked(user("user"), request("POST", "/api/v1/community/posts"))).isFalse();
         assertThat(VisitorPolicy.blocked(user("admin"), request("POST", "/api/v1/community/posts"))).isFalse();
