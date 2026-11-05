@@ -33,11 +33,13 @@ public class ModerationService {
     private final AiModerationStore ai;
     private final AiTriageProperties aiProperties;
     private final com.FoodtimeNeo.venue.VenueReviewService venues;
+    private final com.FoodtimeNeo.community.service.CommunityNotificationService communityNotifications;
     public ModerationService(ModerationStore store, PublishedReviewMapper reviews, CatalogSubmissionMapper catalog,
                              CommunityStore community, ReviewAccessService reviewAccess,
-                             AiModerationStore ai, AiTriageProperties aiProperties, com.FoodtimeNeo.venue.VenueReviewService venues) {
+                             AiModerationStore ai, AiTriageProperties aiProperties, com.FoodtimeNeo.venue.VenueReviewService venues,
+                             com.FoodtimeNeo.community.service.CommunityNotificationService communityNotifications) {
         this.store = store; this.reviews = reviews; this.catalog = catalog; this.community = community; this.reviewAccess=reviewAccess;
-        this.ai=ai;this.aiProperties=aiProperties;this.venues=venues;
+        this.ai=ai;this.aiProperties=aiProperties;this.venues=venues;this.communityNotifications=communityNotifications;
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
@@ -136,6 +138,7 @@ public class ModerationService {
         store.complete(item,moderatorId,aiModel,status,reason,approved,price);
         if (type.equals("community-post") && action.equals("approve")) community.bumpRepostOf(item.id());
         store.log(item,moderatorId,actor,aiModel,action,reason);
+        if (type.equals("community-comment") && action.equals("approve")) communityNotifications.commentApproved(item.id());
         return new ModerationResult(item.id(),status,approved);
     }
 

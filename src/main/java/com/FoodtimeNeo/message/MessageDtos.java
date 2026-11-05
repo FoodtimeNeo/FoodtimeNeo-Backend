@@ -16,8 +16,15 @@ public final class MessageDtos {
             String category,
             String refType,
             UUID refId,
+            UUID refCommentId,
+            int actorCount,
             boolean isRead,
-            Instant createdAt) { }
+            Instant createdAt) {
+        public MessageResponse(UUID id, String title, String body, String category,
+                               String refType, UUID refId, boolean isRead, Instant createdAt) {
+            this(id, title, body, category, refType, refId, null, 0, isRead, createdAt);
+        }
+    }
 
     @Schema(description = "未读消息计数")
     public record UnreadCountResponse(long unreadCount) { }
