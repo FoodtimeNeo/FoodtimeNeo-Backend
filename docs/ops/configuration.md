@@ -53,6 +53,7 @@
 | `REGISTRATION_EMAIL_DOMAINS` | QQ/Foxmail/163/126/新浪/搜狐/移动/电信/联通/阿里/Gmail/Outlook/Hotmail/Live/iCloud/Yahoo/Proton/学校邮箱等 | 注册邮箱域名白名单，逗号分隔，允许子域（如 `vip.qq.com`）。不在名单内的邮箱在发码和注册阶段返回 `EMAIL_DOMAIN_NOT_ALLOWED`；登录、找回密码与绑定学校邮箱不受影响 |
 | `CLIENT_HEADER_MODE` / `CLIENT_HEADER_NAME` / `CLIENT_HEADER_ALLOWED` / `CLIENT_HEADER_PATHS` | `observe` / `X-Foodtime-Client` / `web,android` / 注册与发码路径 | 官方客户端标识头。`observe` 仅记录未知客户端，`enforce` 才拒绝；这是抬高脚本成本的门槛，不是身份证明 |
 | `REGISTRATION_ACCOUNT_LIMIT` / `REGISTRATION_DEVICE_LIMIT` / `REGISTRATION_IP_LIMIT` | `10` / `10` / `1000` | 发码与注册共用的邮箱 / 设备 / IP尝试配额 |
+| `DM_WINDOW` / `DM_USER_LIMIT` / `DM_IP_LIMIT` / `DM_REDIS_NAMESPACE` | `PT1M` / `30` / `300` / `foodtime:message:dm` | 一对一私信发送限流（用户 / IP）；访客不能发起会话或发送 |
 | `SESSION_REDIS_NAMESPACE` | `spring:session` | 会话Redis命名空间（映射到 `spring.session.data.redis.namespace`）；共享 Redis 时应改成独立前缀 |
 | `TOMCAT_MAX_THREADS` | `200` | Web 工作线程上限 |
 | `PROTECTION_ENABLED` / `PROTECTION_GLOBAL_MAX_CONCURRENCY` / `PROTECTION_EMAIL_CODE_MAX_CONCURRENCY` / `PROTECTION_REGISTRATION_MAX_CONCURRENCY` / `PROTECTION_LOGIN_MAX_CONCURRENCY` / `PROTECTION_RETRY_AFTER_SECONDS` | `true` / `100` / `30` / `12` / `12` / `2` | 应用层全局在途请求与发码/注册/登录并发上限；超限立即 429 `SERVER_BUSY`，不排队 |

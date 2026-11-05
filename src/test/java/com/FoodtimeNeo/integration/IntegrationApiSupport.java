@@ -140,6 +140,9 @@ abstract class IntegrationApiSupport {
             jdbc.update("DELETE FROM foodtime.dining_halls WHERE id = ?", hallId);
         }
         for (UUID user : users) { jdbc.update("DELETE FROM foodtime.messages WHERE user_id = ?", user); }
+        for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.conversations WHERE user_low = ? OR user_high = ?", user, user);
+        }
         for (UUID user : users) { jdbc.update("DELETE FROM foodtime.users WHERE id = ?", user); }
         Set<String> keys = redis.keys(PREFIX + ":*");
         if (keys != null && !keys.isEmpty()) { redis.delete(keys); }
