@@ -20,6 +20,7 @@ class ProfileIT extends IntegrationApiSupport {
         jdbc.update("UPDATE foodtime.users SET avatar_url = '/api/v1/media/0a3c0e9a-7405-585e-94ce-29d9275b1b6e' WHERE id = ?", owner.id());
         var response = browser.call("GET", "/api/v1/users/me/profile", null);
         assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
         assertThat(body(response).path("data").path("avatarUrl").asString()).isEqualTo("/api/v1/media/0a3c0e9a-7405-585e-94ce-29d9275b1b6e");
         assertThat(response.body()).doesNotContain("passwordHash", "passwordChangedAt", PASSWORD);
     }

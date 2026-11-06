@@ -273,6 +273,12 @@ app:
       user-limit: ${FOLLOW_ACTION_USER_LIMIT:60}
       ip-limit: ${FOLLOW_ACTION_IP_LIMIT:600}
       redis-namespace: ${FOLLOW_ACTION_REDIS_NAMESPACE:foodtime:follow:actions}
+  message:
+    dm:
+      window: ${DM_WINDOW:PT1M}
+      user-limit: ${DM_USER_LIMIT:30}
+      ip-limit: ${DM_IP_LIMIT:300}
+      redis-namespace: ${DM_REDIS_NAMESPACE:foodtime:message:dm}
   community:
     actions:
       window: ${COMMUNITY_ACTION_WINDOW:PT1M}

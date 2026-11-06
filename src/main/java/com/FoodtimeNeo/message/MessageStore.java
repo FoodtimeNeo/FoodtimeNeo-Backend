@@ -15,7 +15,7 @@ public class MessageStore {
 
     public List<MessageDtos.MessageResponse> page(UUID userId, int size, long offset) {
         return jdbc.query(
-                "SELECT id, title, body, category, ref_type, ref_id, is_read, created_at FROM foodtime.messages WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                "SELECT id, title, body, category, ref_type, ref_id, ref_comment_id, ref_root_comment_id, actor_count, is_read, created_at FROM foodtime.messages WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
                 (r, n) -> row(r), userId, size, offset);
     }
 
@@ -45,6 +45,8 @@ public class MessageStore {
         return new MessageDtos.MessageResponse(
                 r.getObject("id", UUID.class), r.getString("title"), r.getString("body"),
                 r.getString("category"), r.getString("ref_type"), r.getObject("ref_id", UUID.class),
+                r.getObject("ref_comment_id", UUID.class), r.getObject("ref_root_comment_id", UUID.class),
+                r.getInt("actor_count"),
                 r.getBoolean("is_read"), r.getTimestamp("created_at").toInstant());
     }
 }

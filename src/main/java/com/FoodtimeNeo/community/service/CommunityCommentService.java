@@ -20,7 +20,8 @@ public class CommunityCommentService {
  private final SubmissionRateLimiter limiter;
  private final ApplicationEventPublisher events;
  private final boolean ai;
- public CommunityCommentService(CommunityStore posts,CommunityThreadStore threads,SubmissionRateLimiter limiter,ApplicationEventPublisher events,@Value("${app.ai.triage.enabled:false}") boolean ai){this.posts=posts;this.threads=threads;this.limiter=limiter;this.events=events;this.ai=ai;}
+ private final CommunityNotificationService notifications;
+ public CommunityCommentService(CommunityStore posts,CommunityThreadStore threads,SubmissionRateLimiter limiter,ApplicationEventPublisher events,CommunityNotificationService notifications,@Value("${app.ai.triage.enabled:false}") boolean ai){this.posts=posts;this.threads=threads;this.limiter=limiter;this.events=events;this.notifications=notifications;this.ai=ai;}
  @Transactional public CommunityCommentResponse submit(UUID user,UUID post,@Valid CreateCommentRequest body,String address){
   UUID prior=threads.retry(user,post,body);
   if(prior!=null)return requireComment(prior,user);
@@ -60,6 +61,7 @@ public class CommunityCommentService {
  @Transactional public void delete(UUID id,UUID user){
   UUID post=threads.postOf(id);
   if(post==null||!threads.lockPost(post)||threads.delete(id,user)==0)throw missing();
+  notifications.commentRemoved(id);
  }
  private BusinessException missing(){return new BusinessException("COMMENT_NOT_FOUND","帖子或评论不存在或暂不可见",HttpStatus.NOT_FOUND);}
 }

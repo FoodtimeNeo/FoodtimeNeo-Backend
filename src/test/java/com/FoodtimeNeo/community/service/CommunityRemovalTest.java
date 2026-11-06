@@ -18,7 +18,8 @@ class CommunityRemovalTest {
     private final CommunityStore posts = mock(CommunityStore.class);
     private final CommunityThreadStore threads = mock(CommunityThreadStore.class);
     private final CommunityModerationService service =
-            new CommunityModerationService(posts, mock(ModerationService.class), threads);
+            new CommunityModerationService(posts, mock(ModerationService.class), threads,
+                    mock(CommunityNotificationService.class));
     private final UUID id = UUID.randomUUID();
 
     private UserProfile actor(String role, String status) {
