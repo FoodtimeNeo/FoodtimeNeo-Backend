@@ -58,6 +58,7 @@ docs/
 | | [v1.1.3 发布说明](releases/release-1.1.3.md) | 资料维护与超级管理员权限补齐 |
 | | [v1.2.0 发布说明](releases/release-1.2.0.md) | 菜品上传 AI 审核判定与筛选过滤优化 |
 | | [v1.3.0 发布说明](releases/release-1.3.0.md) | 访客账号、邮箱白名单、50MB 上传压缩与 AI 分诊 |
+| | [v1.4.0 发布说明](releases/release-1.4.0.md) | 社区互动消息、一对一私信与私有 API 缓存加固 |
 | | [测试用例与验证](releases/testing-verification.md) | 单元与集成测试用例清单及执行结果 |
 | | [历史工程验收记录](releases/verification.md) | 真实环境端到端验证证据与生产交付报告 |
 | **接口与提案** | [API 文档中心](api/README.md) | 完整 RESTful 接口文档与 HTTP 联调脚本 |
