@@ -18,7 +18,7 @@ import java.util.UUID;
 public class ImageStorageService {
     public record UploadedImage(UUID id, String imageUrl, int width, int height) { }
     public record StoredImage(byte[] bytes, String contentType, boolean cacheable, long lastModified) { }
-    public enum CachePolicy { PUBLIC_IMMUTABLE, PRIVATE_REVALIDATE, NO_STORE }
+    public enum CachePolicy { PUBLIC_IMMUTABLE, PRIVATE_COMMUNITY, PRIVATE_REVALIDATE, NO_STORE }
     public record ImageInfo(UUID id, String contentType, CachePolicy policy, long lastModified) { }
     private final Path directory;
     private final JdbcTemplate jdbc;
@@ -95,6 +95,7 @@ public class ImageStorageService {
             Path file = directory.resolve(id + ".img");
             if (!Files.isRegularFile(file)) throw missing();
             CachePolicy policy = publication.catalog() ? CachePolicy.PUBLIC_IMMUTABLE
+                    : publication.community() ? CachePolicy.PRIVATE_COMMUNITY
                     : published ? CachePolicy.PRIVATE_REVALIDATE : CachePolicy.NO_STORE;
             return new ImageInfo(id, metadata.getProperty("contentType"), policy,
                     Files.getLastModifiedTime(file).toMillis());

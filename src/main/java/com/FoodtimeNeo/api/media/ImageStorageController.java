@@ -42,7 +42,7 @@ public class ImageStorageController {
         return ApiResponse.success(images.uploadAvatar(file,user));
     }
     @GetMapping("/media/{imageId}")
-    @Operation(summary = "读取授权图片", description = "size=thumb返回480px预览；目录图片长期缓存，公开社区图片和头像采用private,no-cache，每次复用先校验权限；暂存及待审预览no-store")
+    @Operation(summary = "读取授权图片", description = "size=thumb返回480px预览；目录图片长期缓存，已公开社区图片允许同一会话缓存5分钟，过期重新校验权限；头像每次校验，暂存及待审预览no-store")
     public ResponseEntity<byte[]> read(@PathVariable UUID imageId,
                                        @RequestParam(defaultValue = "full") String size,
                                        HttpServletRequest request) {
@@ -52,6 +52,7 @@ public class ImageStorageController {
         var image = images.inspect(imageId, current(request));
         CacheControl cache = switch (image.policy()) {
             case PUBLIC_IMMUTABLE -> CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable();
+            case PRIVATE_COMMUNITY -> CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePrivate().mustRevalidate();
             case PRIVATE_REVALIDATE -> CacheControl.noCache().cachePrivate();
             case NO_STORE -> CacheControl.noStore();
         };
@@ -63,7 +64,10 @@ public class ImageStorageController {
             headers.setLastModified(image.lastModified());
         }
         headers.set("X-Content-Type-Options", "nosniff");
-        if (image.policy() == ImageStorageService.CachePolicy.PRIVATE_REVALIDATE) headers.setVary(java.util.List.of("Cookie"));
+        if (image.policy() == ImageStorageService.CachePolicy.PRIVATE_REVALIDATE
+                || image.policy() == ImageStorageService.CachePolicy.PRIVATE_COMMUNITY) {
+            headers.setVary(java.util.List.of("Cookie"));
+        }
         String condition = request.getHeader(HttpHeaders.IF_NONE_MATCH);
         boolean unchanged = condition != null && java.util.Arrays.stream(condition.split(","))
                 .map(String::trim).map(value -> value.startsWith("W/") ? value.substring(2) : value)
