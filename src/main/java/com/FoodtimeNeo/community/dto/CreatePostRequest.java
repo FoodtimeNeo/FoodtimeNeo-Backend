@@ -25,7 +25,9 @@ public record CreatePostRequest(
              @Pattern(regexp = MediaReference.PATTERN, message = MediaReference.MESSAGE) String> imageUrls,
 
         @Schema(description = "转发来源动态ID；原创不填", nullable = true)
-        UUID repostOfId) {
+        UUID repostOfId,
+        @Schema(description = "可选关联菜品ID", nullable = true)
+        UUID dishId) {
 
     public CreatePostRequest {
         title = title == null ? null : title.strip();
@@ -35,6 +37,6 @@ public record CreatePostRequest(
 
     /** Internal reposts retain the original endpoint without bypassing the public title contract. */
     public CreatePostRequest(String content,List<String> images,UUID repostOfId) {
-        this(content==null?null:content.strip().substring(0,Math.min(50,content.strip().length())),UUID.randomUUID(),content,images,repostOfId);
+        this(content==null?null:content.strip().substring(0,Math.min(50,content.strip().length())),UUID.randomUUID(),content,images,repostOfId,null);
     }
 }

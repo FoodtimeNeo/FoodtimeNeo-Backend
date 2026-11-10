@@ -3,6 +3,7 @@ package com.FoodtimeNeo.message;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.safety.SafetyStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +23,19 @@ public class DirectMessageService {
     private static final int MAX_PAGE_SIZE = 100;
     private final DirectMessageStore store;
     private final DirectMessageRateLimiter limiter;
+    private final SafetyStore safety;
 
-    public DirectMessageService(DirectMessageStore store, DirectMessageRateLimiter limiter) {
+    public DirectMessageService(DirectMessageStore store, DirectMessageRateLimiter limiter, SafetyStore safety) {
         this.store = store;
         this.limiter = limiter;
+        this.safety = safety;
     }
 
     @Transactional
     public DirectMessageDtos.ConversationResponse start(UUID me, UUID other) {
         if (me.equals(other)) throw bad("SELF_CONVERSATION", "不能给自己发私信");
         if (!store.activeUser(other)) throw notFound();
+        ensureCanMessage(me, other);
         UUID low = lower(me, other), high = me.equals(low) ? other : me;
         DirectMessageStore.ConversationRow conversation = store.findPair(low, high).orElse(null);
         if (conversation == null) {
@@ -74,6 +78,8 @@ public class DirectMessageService {
                                                   @Valid DirectMessageDtos.SendMessageRequest request,
                                                   String remoteAddress) {
         DirectMessageStore.ConversationRow conversation = requireMember(conversationId, me);
+        UUID other = me.equals(conversation.userLow()) ? conversation.userHigh() : conversation.userLow();
+        ensureCanMessage(me, other);
         String content = request.content().strip();
         if (content.isEmpty()) throw bad("VALIDATION_ERROR", "消息不能为空");
         limiter.check(me, remoteAddress);
@@ -111,6 +117,13 @@ public class DirectMessageService {
 
     private DirectMessageStore.ConversationRow requireMember(UUID conversationId, UUID me) {
         return store.find(conversationId).filter(row -> row.includes(me)).orElseThrow(DirectMessageService::notFound);
+    }
+
+    private void ensureCanMessage(UUID me, UUID other) {
+        safety.lockPair(me, other);
+        if (safety.blockedBetween(me, other)) {
+            throw new BusinessException("DIRECT_MESSAGE_UNAVAILABLE", "当前无法向此用户发送私信", HttpStatus.FORBIDDEN);
+        }
     }
 
     private DirectMessageStore.ConversationRow requireVisible(UUID conversationId, UUID me) {

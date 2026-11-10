@@ -2,8 +2,10 @@ package com.FoodtimeNeo.community.service;
 
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
+import com.FoodtimeNeo.common.api.CursorPageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
+import com.FoodtimeNeo.community.dto.CommunityAuthorResponse;
 import com.FoodtimeNeo.community.dto.CreatePostRequest;
 import com.FoodtimeNeo.community.mapper.CommunityStore;
 import com.FoodtimeNeo.media.service.ImageStorageService;
@@ -14,9 +16,11 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.validation.annotation.Validated;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Community posts: submit (pending) → AI instant triage → auto or human decision.
@@ -52,6 +56,9 @@ public class CommunityPostService {
         if (body.repostOfId() != null && !posts.repostTargetVisible(body.repostOfId())) {
             throw new BusinessException("REPOST_TARGET_UNAVAILABLE", "转发的动态不存在或已不可见", HttpStatus.NOT_FOUND);
         }
+        if (body.dishId() != null && !posts.lockVisibleDish(body.dishId())) {
+            throw new BusinessException("DISH_NOT_FOUND", "关联菜品不存在或暂不可用", HttpStatus.NOT_FOUND);
+        }
         UUID id = posts.create(userId,body,verified,aiEnabled);
         if(id==null) return retry(posts.request(userId,body.clientRequestId()),body);
         if(aiEnabled) events.publishEvent(new com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent("community-post", id));
@@ -63,14 +70,29 @@ public class CommunityPostService {
         return Map.of("id",id);
     }
 
-    @Transactional(readOnly=true)
-    public com.FoodtimeNeo.common.api.CursorPageResponse<CommunityPostResponse> feedCursor(UUID viewerId,int size,String cursor) {
-        size=Math.max(1,Math.min(100,size));
-        var rows=new java.util.ArrayList<>(posts.feedAfter(viewerId,size+1,CommunityCursor.parse(cursor,"feed")));
-        boolean more=rows.size()>size;if(more) rows.removeLast();
-        var last=rows.isEmpty()?null:rows.getLast();
-        return new com.FoodtimeNeo.common.api.CursorPageResponse<>(rows,posts.feedCount(),more,
-                more?new CommunityCursor(last.createdAt(),last.id()).encode("feed"):null);
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public CursorPageResponse<CommunityPostResponse> feedCursor(UUID viewerId, int size, String cursor,
+                                                                 UUID authorId, boolean following, String query) {
+        String keyword = query.strip();
+        if (keyword.length() > 50) {
+            throw new BusinessException("VALIDATION_ERROR", "食记关键词最多50个字符", HttpStatus.BAD_REQUEST);
+        }
+        if (authorId != null) author(authorId);
+        String scope = authorId != null ? "author:" + authorId : following ? "following:" + viewerId : "feed";
+        if (!keyword.isEmpty()) scope += ":" + UUID.nameUUIDFromBytes(keyword.getBytes(StandardCharsets.UTF_8));
+        size = Math.max(1, Math.min(100, size));
+        var rows = new java.util.ArrayList<>(posts.feedAfter(viewerId, size + 1,
+                CommunityCursor.parse(cursor, scope), authorId, following, keyword));
+        boolean more = rows.size() > size;
+        if (more) rows.removeLast();
+        String next = more ? new CommunityCursor(rows.getLast().createdAt(), rows.getLast().id()).encode(scope) : null;
+        return new CursorPageResponse<>(rows, posts.feedCount(viewerId, authorId, following, keyword), more, next);
+    }
+
+    public CommunityAuthorResponse author(UUID id) {
+        var author = posts.author(id);
+        if (author == null) throw new BusinessException("AUTHOR_NOT_FOUND", "该作者不存在或暂不可见", HttpStatus.NOT_FOUND);
+        return author;
     }
 
     @Transactional(readOnly = true)

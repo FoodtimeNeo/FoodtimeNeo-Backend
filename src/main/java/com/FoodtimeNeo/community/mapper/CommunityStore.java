@@ -2,6 +2,9 @@ package com.FoodtimeNeo.community.mapper;
 
 import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
+import com.FoodtimeNeo.community.dto.CommunityAuthorResponse;
+import com.FoodtimeNeo.community.service.CommunityCursor;
+import com.FoodtimeNeo.dish.mapper.DishSearchMapper;
 import org.springframework.jdbc.core.*;
 import org.springframework.stereotype.Repository;
 import java.sql.Array;
@@ -22,12 +25,16 @@ public class CommunityStore {
             (SELECT COALESCE(array_agg(image_url ORDER BY sort_order, id), '{}') FROM foodtime.community_post_images WHERE post_id = p.id) AS images,
             (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'url',image_url,'width',width,'height',height,'sortOrder',sort_order) ORDER BY sort_order,id),'[]')::text FROM foodtime.community_post_images WHERE post_id=p.id) AS image_details,
             r.content AS repost_content, ru.display_name AS repost_author,
+            d.id AS linked_dish_id, d.name AS linked_dish_name, ds.id AS linked_stall_id, dh.id AS linked_hall_id,
             a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
             a.reason AS ai_reason, a.checked_at AS ai_checked_at""";
     private static final String POST_JOINS = """
             FROM foodtime.community_posts p JOIN foodtime.users u ON u.id = p.user_id
             LEFT JOIN foodtime.community_posts r ON r.id = p.repost_of_id AND r.status='approved' AND r.deleted_at IS NULL
             LEFT JOIN foodtime.users ru ON ru.id = r.user_id
+            LEFT JOIN foodtime.dishes d ON d.id=p.dish_id AND d.status='active'
+            LEFT JOIN foodtime.stalls ds ON ds.id=d.stall_id AND ds.status='active'
+            LEFT JOIN foodtime.dining_halls dh ON dh.id=ds.dining_hall_id AND dh.status='active'
             LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-post' AND a.submission_id = p.id""";
 
     private final JdbcTemplate jdbc;
@@ -39,15 +46,23 @@ public class CommunityStore {
     }
 
     public boolean sameRequest(UUID id, com.FoodtimeNeo.community.dto.CreatePostRequest body) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT title=? AND content=? AND repost_of_id IS NOT DISTINCT FROM ? FROM foodtime.community_posts WHERE id=?",
-                Boolean.class,body.title(),body.content(),body.repostOfId(),id)) && imageUrls(id).equals(body.imageUrls());
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT title=? AND content=? AND repost_of_id IS NOT DISTINCT FROM ?
+                       AND dish_id IS NOT DISTINCT FROM ? FROM foodtime.community_posts WHERE id=?
+                """, Boolean.class,body.title(),body.content(),body.repostOfId(),body.dishId(),id)) && imageUrls(id).equals(body.imageUrls());
+    }
+
+    public boolean lockVisibleDish(UUID dishId) {
+        return !jdbc.query("SELECT d.id " + DishSearchMapper.CATALOG
+                + " WHERE d.id=? AND d.status='active' FOR SHARE OF d,s,h",
+                (row, index) -> row.getObject(1, UUID.class), dishId).isEmpty();
     }
 
     public UUID create(UUID userId, com.FoodtimeNeo.community.dto.CreatePostRequest body,
             List<com.FoodtimeNeo.media.service.ImageStorageService.UploadedImage> images, boolean aiEnabled) {
         UUID id=UUID.randomUUID();
-        int inserted=jdbc.update("INSERT INTO foodtime.community_posts(id,user_id,title,content,repost_of_id,client_request_id,review_stage,manual_review_reason) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_request_id) DO NOTHING",
-                id,userId,body.title(),body.content(),body.repostOfId(),body.clientRequestId(),aiEnabled?"ai_pending":"manual_pending",aiEnabled?null:"ai_disabled");
+        int inserted=jdbc.update("INSERT INTO foodtime.community_posts(id,user_id,title,content,repost_of_id,client_request_id,review_stage,manual_review_reason,dish_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_request_id) DO NOTHING",
+                id,userId,body.title(),body.content(),body.repostOfId(),body.clientRequestId(),aiEnabled?"ai_pending":"manual_pending",aiEnabled?null:"ai_disabled",body.dishId());
         if(inserted==0) return null;
         for(int i=0;i<images.size();i++) {
             var image=images.get(i);
@@ -82,6 +97,13 @@ public class CommunityStore {
 
     public long feedCount() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_posts WHERE status = 'approved' AND deleted_at IS NULL", Long.class);
+    }
+
+    public CommunityAuthorResponse author(UUID id) {
+        return jdbc.query("""
+                SELECT id, display_name, avatar_url FROM foodtime.users WHERE id=? AND status='active'
+                """, (row, index) -> new CommunityAuthorResponse(row.getObject("id", UUID.class),
+                row.getString("display_name"), row.getString("avatar_url")), id).stream().findFirst().orElse(null);
     }
 
     public CommunityPostResponse find(UUID id, UUID viewerId) {
@@ -269,6 +291,10 @@ public class CommunityStore {
         CommunityPostResponse.RepostPreview preview = repostOf == null ? null
                 : new CommunityPostResponse.RepostPreview(repostOf, r.getString("repost_author"), snippet(r.getString("repost_content")));
         Array labels = r.getArray("ai_labels");
+        UUID linkedHall = r.getObject("linked_hall_id", UUID.class);
+        var linkedDish = linkedHall == null ? null : new CommunityPostResponse.LinkedDish(
+                r.getObject("linked_dish_id", UUID.class), r.getString("linked_dish_name"),
+                r.getObject("linked_stall_id", UUID.class), linkedHall);
         return new CommunityPostResponse(r.getObject("id", UUID.class), r.getObject("user_id", UUID.class),
                 r.getString("user_display_name"), r.getString("content"), urls,
                 r.getLong("like_count"), r.getLong("comment_count"), r.getInt("repost_count"),
@@ -278,7 +304,7 @@ public class CommunityStore {
                 labels == null ? null : List.of((String[]) labels.getArray()),
                 r.getString("ai_reason"), instant(r, "ai_checked_at"), r.getTimestamp("created_at").toInstant(),
                 r.getString("title"),r.getString("user_avatar_url"),readImages(r.getString("image_details")),
-                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"));
+                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"),linkedDish);
     }
 
     private List<CommunityPostResponse.PostImage> readImages(String value) {
@@ -286,16 +312,46 @@ public class CommunityStore {
                 new tools.jackson.core.type.TypeReference<List<CommunityPostResponse.PostImage>>(){});
     }
 
-    public List<CommunityPostResponse> feedAfter(UUID viewerId, int size, com.FoodtimeNeo.community.service.CommunityCursor cursor) {
+    public List<CommunityPostResponse> feedAfter(UUID viewerId, int size, CommunityCursor cursor,
+                                                UUID authorId, boolean following, String keyword) {
         var args=new ArrayList<Object>(List.of(viewerId,viewerId));
-        String condition="";
-        if(cursor!=null){ condition=" AND (p.created_at,p.id)<(?,?)";args.add(Timestamp.from(cursor.time()));args.add(cursor.id()); }
+        String condition = feedConditions(viewerId, authorId, following, keyword, args);
+        if(cursor!=null){ condition+=" AND (p.created_at,p.id)<(?,?)";args.add(Timestamp.from(cursor.time()));args.add(cursor.id()); }
         args.add(size);
         return jdbc.query("SELECT "+POST_COLUMNS
                 +",EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id=? AND post_id=p.id) AS liked"
                 +",EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) AS favorited "
                 +POST_JOINS+" WHERE p.status='approved' AND p.deleted_at IS NULL"+condition+" ORDER BY p.created_at DESC,p.id DESC LIMIT ?",
                 (r,n)->row(r,viewerId),args.toArray());
+    }
+
+    public long feedCount(UUID viewerId, UUID authorId, boolean following, String keyword) {
+        if (authorId == null && !following && keyword.isEmpty()) return feedCount();
+        List<Object> args = new ArrayList<>();
+        String condition = feedConditions(viewerId, authorId, following, keyword, args);
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM foodtime.community_posts p JOIN foodtime.users u ON u.id=p.user_id
+                WHERE p.status='approved' AND p.deleted_at IS NULL
+                """ + condition, Long.class, args.toArray());
+    }
+
+    private String feedConditions(UUID viewerId, UUID authorId, boolean following, String keyword, List<Object> args) {
+        StringBuilder where = new StringBuilder();
+        if (authorId != null) {
+            where.append(" AND p.user_id=? AND u.status='active'");
+            args.add(authorId);
+        }
+        if (following) {
+            where.append(" AND u.status='active' AND EXISTS(SELECT 1 FROM foodtime.user_follows f"
+                    + " WHERE f.follower_id=? AND f.following_id=p.user_id)");
+            args.add(viewerId);
+        }
+        if (!keyword.isEmpty()) {
+            where.append(" AND (strpos(lower(p.title), lower(?))>0 OR strpos(lower(p.content), lower(?))>0)");
+            args.add(keyword);
+            args.add(keyword);
+        }
+        return where.toString();
     }
 
     private static String snippet(String content) {
