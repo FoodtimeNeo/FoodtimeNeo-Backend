@@ -52,6 +52,9 @@ public class CommunityPostService {
         if (body.repostOfId() != null && !posts.repostTargetVisible(body.repostOfId())) {
             throw new BusinessException("REPOST_TARGET_UNAVAILABLE", "转发的动态不存在或已不可见", HttpStatus.NOT_FOUND);
         }
+        if (body.dishId() != null && !posts.lockVisibleDish(body.dishId())) {
+            throw new BusinessException("DISH_NOT_FOUND", "关联菜品不存在或暂不可用", HttpStatus.NOT_FOUND);
+        }
         UUID id = posts.create(userId,body,verified,aiEnabled);
         if(id==null) return retry(posts.request(userId,body.clientRequestId()),body);
         if(aiEnabled) events.publishEvent(new com.FoodtimeNeo.ai.service.SubmissionDiagnoseEvent("community-post", id));
