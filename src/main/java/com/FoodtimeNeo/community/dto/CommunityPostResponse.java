@@ -17,7 +17,9 @@ public record CommunityPostResponse(UUID id, UUID userId, String userDisplayName
                                     String aiRiskLevel, BigDecimal aiConfidence, List<String> aiLabels,
                                     String aiReason, Instant aiCheckedAt, Instant createdAt,
                                     String title, String userAvatarUrl, List<PostImage> images,
-                                    long favoriteCount, String reviewStage, String manualReviewReason) {
+                                    long favoriteCount, String reviewStage, String manualReviewReason,
+                                    LinkedDish linkedDish) {
     public record PostImage(UUID id,String url,Integer width,Integer height,int sortOrder) { }
     public record RepostPreview(UUID id, String userDisplayName, String content) { }
+    public record LinkedDish(UUID id, String name, UUID stallId, UUID diningHallId) { }
 }
