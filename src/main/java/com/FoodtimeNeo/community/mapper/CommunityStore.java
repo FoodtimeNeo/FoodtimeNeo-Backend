@@ -2,6 +2,8 @@ package com.FoodtimeNeo.community.mapper;
 
 import com.FoodtimeNeo.community.dto.CommunityCommentResponse;
 import com.FoodtimeNeo.community.dto.CommunityPostResponse;
+import com.FoodtimeNeo.community.dto.CommunityAuthorResponse;
+import com.FoodtimeNeo.community.service.CommunityCursor;
 import com.FoodtimeNeo.dish.mapper.DishSearchMapper;
 import org.springframework.jdbc.core.*;
 import org.springframework.stereotype.Repository;
@@ -95,6 +97,13 @@ public class CommunityStore {
 
     public long feedCount() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.community_posts WHERE status = 'approved' AND deleted_at IS NULL", Long.class);
+    }
+
+    public CommunityAuthorResponse author(UUID id) {
+        return jdbc.query("""
+                SELECT id, display_name, avatar_url FROM foodtime.users WHERE id=? AND status='active'
+                """, (row, index) -> new CommunityAuthorResponse(row.getObject("id", UUID.class),
+                row.getString("display_name"), row.getString("avatar_url")), id).stream().findFirst().orElse(null);
     }
 
     public CommunityPostResponse find(UUID id, UUID viewerId) {
@@ -303,16 +312,46 @@ public class CommunityStore {
                 new tools.jackson.core.type.TypeReference<List<CommunityPostResponse.PostImage>>(){});
     }
 
-    public List<CommunityPostResponse> feedAfter(UUID viewerId, int size, com.FoodtimeNeo.community.service.CommunityCursor cursor) {
+    public List<CommunityPostResponse> feedAfter(UUID viewerId, int size, CommunityCursor cursor,
+                                                UUID authorId, boolean following, String keyword) {
         var args=new ArrayList<Object>(List.of(viewerId,viewerId));
-        String condition="";
-        if(cursor!=null){ condition=" AND (p.created_at,p.id)<(?,?)";args.add(Timestamp.from(cursor.time()));args.add(cursor.id()); }
+        String condition = feedConditions(viewerId, authorId, following, keyword, args);
+        if(cursor!=null){ condition+=" AND (p.created_at,p.id)<(?,?)";args.add(Timestamp.from(cursor.time()));args.add(cursor.id()); }
         args.add(size);
         return jdbc.query("SELECT "+POST_COLUMNS
                 +",EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id=? AND post_id=p.id) AS liked"
                 +",EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) AS favorited "
                 +POST_JOINS+" WHERE p.status='approved' AND p.deleted_at IS NULL"+condition+" ORDER BY p.created_at DESC,p.id DESC LIMIT ?",
                 (r,n)->row(r,viewerId),args.toArray());
+    }
+
+    public long feedCount(UUID viewerId, UUID authorId, boolean following, String keyword) {
+        if (authorId == null && !following && keyword.isEmpty()) return feedCount();
+        List<Object> args = new ArrayList<>();
+        String condition = feedConditions(viewerId, authorId, following, keyword, args);
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM foodtime.community_posts p JOIN foodtime.users u ON u.id=p.user_id
+                WHERE p.status='approved' AND p.deleted_at IS NULL
+                """ + condition, Long.class, args.toArray());
+    }
+
+    private String feedConditions(UUID viewerId, UUID authorId, boolean following, String keyword, List<Object> args) {
+        StringBuilder where = new StringBuilder();
+        if (authorId != null) {
+            where.append(" AND p.user_id=? AND u.status='active'");
+            args.add(authorId);
+        }
+        if (following) {
+            where.append(" AND u.status='active' AND EXISTS(SELECT 1 FROM foodtime.user_follows f"
+                    + " WHERE f.follower_id=? AND f.following_id=p.user_id)");
+            args.add(viewerId);
+        }
+        if (!keyword.isEmpty()) {
+            where.append(" AND (strpos(lower(p.title), lower(?))>0 OR strpos(lower(p.content), lower(?))>0)");
+            args.add(keyword);
+            args.add(keyword);
+        }
+        return where.toString();
     }
 
     private static String snippet(String content) {
