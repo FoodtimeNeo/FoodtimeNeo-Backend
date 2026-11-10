@@ -25,6 +25,7 @@ public final class VisitorPolicy {
     /** 私信可读、可标已读、可隐藏，但发送与新建会话仍受只读限制。 */
     private static final Pattern DIRECT_MESSAGE_BOOKKEEPING =
             Pattern.compile("^/api/v1/users/me/conversations/[0-9a-fA-F-]{36}(/read)?$");
+    private static final Pattern USER_BLOCK = Pattern.compile("^/api/v1/users/[0-9a-fA-F-]{36}/block$");
 
     private VisitorPolicy() { }
 
@@ -37,6 +38,11 @@ public final class VisitorPolicy {
             return false;
         }
         String path = request.getRequestURI();
+        // A read-only account can still receive unwanted messages and report visible content.
+        if (("POST".equals(method) && "/api/v1/reports".equals(path))
+                || (("PUT".equals(method) || "DELETE".equals(method)) && USER_BLOCK.matcher(path).matches())) {
+            return false;
+        }
         if (ALLOWED_WRITE_PATHS.contains(path)) {
             return false;
         }
