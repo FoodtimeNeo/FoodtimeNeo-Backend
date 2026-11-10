@@ -32,11 +32,16 @@ class CommunityPublicationIT extends IntegrationApiSupport {
   assertThat(admin.call("POST","/api/v1/admin/community/posts/"+id,Map.of("action","approve")).statusCode()).isEqualTo(200);
   assertThat(viewer.image(image).statusCode()).isEqualTo(200);
   var publishedImage=viewer.image(image);
-  assertThat(publishedImage.headers().firstValue("Cache-Control").orElseThrow()).contains("private", "no-cache");
+  assertThat(publishedImage.headers().firstValue("Cache-Control").orElseThrow()).contains("private", "max-age=300", "must-revalidate");
   assertThat(publishedImage.headers().allValues("Vary").toString()).contains("Cookie");
+  var thumbnail=viewer.image(image+"?size=thumb");
+  assertThat(thumbnail.statusCode()).isEqualTo(200);
+  assertThat(thumbnail.headers().firstValue("Cache-Control")).isEqualTo(publishedImage.headers().firstValue("Cache-Control"));
+  assertThat(thumbnail.headers().firstValue("ETag")).isNotEqualTo(publishedImage.headers().firstValue("ETag"));
   var conditional=viewer.imageIfNoneMatch(image,publishedImage.headers().firstValue("ETag").orElseThrow());
   assertThat(conditional.statusCode()).isEqualTo(304);
-  assertThat(conditional.headers().firstValue("Cache-Control").orElseThrow()).contains("private", "no-cache");
+  assertThat(conditional.headers().firstValue("Cache-Control")).isEqualTo(publishedImage.headers().firstValue("Cache-Control"));
+  assertThat(conditional.headers().allValues("Vary").toString()).contains("Cookie");
   assertThatThrownBy(()->jdbc.update("UPDATE foodtime.community_posts SET title='修改' WHERE id=?",id)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   assertThat(author.call("DELETE","/api/v1/community/posts/"+id,null).statusCode()).isEqualTo(200);
   assertThat(viewer.call("GET","/api/v1/community/posts/"+id,null).statusCode()).isEqualTo(404);
