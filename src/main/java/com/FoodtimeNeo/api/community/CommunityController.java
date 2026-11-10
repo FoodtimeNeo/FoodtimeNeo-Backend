@@ -52,8 +52,20 @@ public class CommunityController {
 
     @GetMapping("/feed/cursor")
     public ApiResponse<CursorPageResponse<CommunityPostResponse>> feedCursor(HttpServletRequest request,
-            @RequestParam(defaultValue="20") int size,@RequestParam(required=false) String cursor) {
-        return ApiResponse.success(posts.feedCursor(current(request).id(),size,cursor));
+            @RequestParam(defaultValue="20") int size, @RequestParam(required=false) String cursor,
+            @RequestParam(defaultValue="false") boolean following, @RequestParam(defaultValue="") String q) {
+        return ApiResponse.success(posts.feedCursor(current(request).id(), size, cursor, null, following, q));
+    }
+
+    @GetMapping("/authors/{id}")
+    public ApiResponse<com.FoodtimeNeo.community.dto.CommunityAuthorResponse> author(@PathVariable UUID id) {
+        return ApiResponse.success(posts.author(id));
+    }
+
+    @GetMapping("/authors/{id}/posts")
+    public ApiResponse<CursorPageResponse<CommunityPostResponse>> authorPosts(HttpServletRequest request,
+            @PathVariable UUID id, @RequestParam(defaultValue="20") int size, @RequestParam(required=false) String cursor) {
+        return ApiResponse.success(posts.feedCursor(current(request).id(), size, cursor, id, false, ""));
     }
 
     @GetMapping("/posts/{id}")
