@@ -10,11 +10,13 @@ import java.util.UUID;
 @Mapper
 public interface DishFavoriteMapper {
     String VISIBLE_FAVORITES = DishSearchMapper.CATALOG + """
+            LEFT JOIN foodtime.dish_rating_summary rs ON rs.dish_id=d.id
             JOIN foodtime.dish_favorites f ON f.dish_id=d.id
             WHERE d.status='active' AND f.user_id=#{userId,jdbcType=OTHER}
             """;
 
-    @Select("SELECT " + DishSearchMapper.COLUMNS + VISIBLE_FAVORITES + """
+    @Select("SELECT " + DishSearchMapper.COLUMNS
+            + ", rs.average_score, COALESCE(rs.review_count,0) AS review_count " + VISIBLE_FAVORITES + """
             ORDER BY f.created_at DESC, f.dish_id DESC LIMIT #{limit} OFFSET #{offset}
             """)
     List<DishSearchResponse> list(UUID userId, int limit, long offset);
