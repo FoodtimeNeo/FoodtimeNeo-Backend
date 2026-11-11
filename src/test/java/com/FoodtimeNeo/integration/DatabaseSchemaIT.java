@@ -40,7 +40,7 @@ class DatabaseSchemaIT {
                 "venue_review_targets", "venue_reviews", "venue_review_submissions", "venue_rating_stats",
                 "venue_review_stats", "venue_review_likes", "venue_review_replies", "venue_review_reply_stats", "venue_review_reply_likes",
                 "daily_recommendation_batch", "daily_recommendation_item", "user_blocks", "content_reports", "dish_favorites",
-                "user_feedback", "feedback_replies", "feedback_actions");
+                "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions");
         assertThat(jdbc.queryForObject("""
                 select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
@@ -76,7 +76,7 @@ class DatabaseSchemaIT {
             rejected(status, "23514", () -> jdbc.update(
                     "update foodtime.users set role = 'owner' where id = ?", fixture.user()));
             rejected(status, "23514", () -> jdbc.update(
-                    "update foodtime.users set status = 'deleted' where id = ?", fixture.user()));
+                    "update foodtime.users set status = 'archived' where id = ?", fixture.user()));
             rejected(status, "23514", () -> jdbc.update(
                     "update foodtime.dining_halls set latitude = 30 where id = ?", fixture.hall()));
             jdbc.update("update foodtime.dining_halls set latitude = 30, longitude = 120 where id = ?", fixture.hall());

@@ -36,10 +36,11 @@ public class RegistrationService {
     private final InvitationService invitations;
     private final RegistrationGate gate;
     private final Clock clock;
+    private final com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns;
 
     public RegistrationService(UserMapper users, PasswordEncoder passwords, DefaultDisplayNameGenerator names,
                                EmailVerificationService verification, InvitationService invitations,
-                               RegistrationGate gate, Clock clock) {
+                               RegistrationGate gate, Clock clock,com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns) {
         this.users = users;
         this.passwords = passwords;
         this.names = names;
@@ -47,6 +48,7 @@ public class RegistrationService {
         this.invitations = invitations;
         this.gate = gate;
         this.clock = clock;
+        this.cooldowns=cooldowns;
     }
 
     @Transactional
@@ -54,6 +56,7 @@ public class RegistrationService {
         try {
             // Policy first: never consume a verification code or reveal account state while closed.
             gate.requireInvitation(request);
+            cooldowns.requireAvailable(request.email());
             // Reveal account existence only after proving control of its email address.
             VerificationClaim claim = verification.claim(request.email(), request.verificationCode());
             boolean registered = false;

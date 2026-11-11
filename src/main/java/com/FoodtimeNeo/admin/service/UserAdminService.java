@@ -33,6 +33,7 @@ public class UserAdminService {
                 .orElseThrow(() -> new BusinessException("ACCESS_DENIED","需要平台管理员权限",HttpStatus.FORBIDDEN));
         guard(current.role(),current.status());
         if(locked.stream().noneMatch(u -> u.id().equals(id))) throw new BusinessException("USER_NOT_FOUND","用户不存在",HttpStatus.NOT_FOUND);
+        if(locked.stream().anyMatch(u->u.id().equals(id)&&u.status().equals("deleted")))throw new BusinessException("USER_DELETED","已注销账号不能恢复或修改权限",HttpStatus.CONFLICT);
         users.update(id,body.role(),body.status());
     }
     private void guard(String role,String status) {

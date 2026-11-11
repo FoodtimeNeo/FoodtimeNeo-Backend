@@ -24,9 +24,11 @@ public class EmailVerificationController {
     private final RegistrationRateLimiter limits;
     private final DeviceIdentityService devices;
     private final RegistrationGate gate;
+    private final com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns;
     public EmailVerificationController(EmailVerificationService verification, RegistrationRateLimiter limits,
-                                       DeviceIdentityService devices, RegistrationGate gate) {
+                                       DeviceIdentityService devices, RegistrationGate gate,com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns) {
         this.verification = verification; this.limits = limits; this.devices = devices; this.gate = gate;
+        this.cooldowns=cooldowns;
     }
 
     @PostMapping(value = "/register/email-code", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -37,6 +39,7 @@ public class EmailVerificationController {
         // A closed door must not keep sending mail through the shared SMTP account.
         gate.requireAcceptingRequests();
         gate.requireAllowedEmail(request.email());
+        cooldowns.requireAvailable(request.email());
         String deviceId = devices.resolve(http, response);
         limits.check(request.email(), http.getRemoteAddr(), deviceId);
         return ApiResponse.success(verification.send(request, http.getRemoteAddr(), deviceId));
