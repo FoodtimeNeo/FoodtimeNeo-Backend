@@ -18,7 +18,8 @@ public final class VisitorPolicy {
             "/api/v1/auth/bind-email/email-code",
             "/api/v1/users/me/bind-email",
             "/api/v1/users/me/password",
-            "/api/v1/users/me/profile");
+            "/api/v1/users/me/profile",
+            "/api/v1/users/me/feedback");
     private static final List<String> ALLOWED_WRITE_PREFIXES = List.of(
             "/api/v1/users/me/notices/",
             "/api/v1/users/me/messages/");
