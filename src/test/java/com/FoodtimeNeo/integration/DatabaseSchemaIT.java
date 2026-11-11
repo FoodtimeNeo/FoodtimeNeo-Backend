@@ -34,7 +34,7 @@ class DatabaseSchemaIT {
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
                 "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
-                "community_posts", "community_post_images", "community_comments",
+                "community_posts", "community_post_images", "community_comments", "community_post_views",
                 "community_post_likes", "community_comment_likes", "community_favorites", "dish_stats", "dish_review_stats", "dish_review_likes", "dish_review_replies", "dish_review_reply_stats", "dish_review_reply_likes",
                 "stall_images", "notices", "notice_reads", "messages", "conversations", "direct_messages", "config", "user_follows",
                 "venue_review_targets", "venue_reviews", "venue_review_submissions", "venue_rating_stats",

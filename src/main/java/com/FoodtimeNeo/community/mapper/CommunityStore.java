@@ -19,7 +19,7 @@ import java.util.*;
 @Repository
 public class CommunityStore {
     private static final String POST_COLUMNS = """
-            p.id, p.user_id, p.content, p.like_count, p.comment_count, p.repost_count,
+            p.id, p.user_id, p.content, p.like_count, p.comment_count, p.repost_count, p.view_count,
             p.repost_of_id, p.status, p.review_reason, p.created_at, p.title, p.favorite_count, p.review_stage, p.manual_review_reason,
             u.display_name AS user_display_name, u.avatar_url AS user_avatar_url,
             (SELECT COALESCE(array_agg(image_url ORDER BY sort_order, id), '{}') FROM foodtime.community_post_images WHERE post_id = p.id) AS images,
@@ -304,7 +304,7 @@ public class CommunityStore {
                 labels == null ? null : List.of((String[]) labels.getArray()),
                 r.getString("ai_reason"), instant(r, "ai_checked_at"), r.getTimestamp("created_at").toInstant(),
                 r.getString("title"),r.getString("user_avatar_url"),readImages(r.getString("image_details")),
-                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"),linkedDish);
+                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"),linkedDish,r.getLong("view_count"));
     }
 
     private List<CommunityPostResponse.PostImage> readImages(String value) {
