@@ -22,6 +22,7 @@ public final class VisitorPolicy {
             "/api/v1/users/me/feedback");
     private static final List<String> ALLOWED_WRITE_PREFIXES = List.of(
             "/api/v1/users/me/notices/",
+            "/api/v1/users/me/account-lifecycle/",
             "/api/v1/users/me/messages/");
     /** 私信可读、可标已读、可隐藏，但发送与新建会话仍受只读限制。 */
     private static final Pattern DIRECT_MESSAGE_BOOKKEEPING =

@@ -35,7 +35,7 @@ class EmailVerificationControllerTest {
                                 new com.FoodtimeNeo.config.properties.RegistrationLimitsProperties(
                                         com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
                                         java.time.Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
-                com.FoodtimeNeo.config.properties.RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS))))
+                com.FoodtimeNeo.config.properties.RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class)))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler()).build();
     }
 

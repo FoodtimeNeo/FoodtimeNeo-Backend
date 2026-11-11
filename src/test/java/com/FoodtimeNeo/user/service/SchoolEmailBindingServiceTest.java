@@ -31,9 +31,11 @@ class SchoolEmailBindingServiceTest {
     private final EmailVerificationService verification = mock(EmailVerificationService.class);
     private final RegistrationRateLimiter limits = mock(RegistrationRateLimiter.class);
     private final SchoolEmailBindingService service =
-            new SchoolEmailBindingService(users, profiles, verification, limits);
+            new SchoolEmailBindingService(users, profiles, verification, limits, mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class));
     private final UUID userId = UUID.randomUUID();
     private final UserProfile actor = new UserProfile(userId, "someone@gmail.com", "访客", "visitor", "active", null);
+
+    @org.junit.jupiter.api.BeforeEach void currentActor(){when(users.findProfile(userId)).thenReturn(actor);}
 
     private static String codeOf(Throwable error) {
         return ((BusinessException) error).getCode();
