@@ -19,11 +19,18 @@ public class SafetyService {
     }
 
     public record BlockState(boolean blocked) {}
+    public record BlockedUser(UUID id, String displayName, String avatarUrl, Instant blockedAt) {}
     public record ReportRow(UUID id, String targetType, UUID targetId, UUID targetUserId, UUID postId,
                             String reason, String excerpt, Instant createdAt) {}
 
     public BlockState blockState(UUID actor, UUID target) {
         return new BlockState(store.blockedBy(actor, target));
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public PageResponse<BlockedUser> blockedUsers(UUID actor, PageRequest page) {
+        return PageResponse.of(store.blockedUsers(actor, page.size(), page.offset()),
+                store.blockedCount(actor), page);
     }
 
     @Transactional

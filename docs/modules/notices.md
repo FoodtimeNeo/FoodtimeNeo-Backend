@@ -2,7 +2,7 @@
 
 ## 本轮范围
 
-公告仅在主动登录、冷启动或页面刷新恢复会话后检查一次。Web 和 Android 不再创建 60 秒公告轮询。创建/编辑管理流程后续实现；现有管理接口仅保留兼容，并限制启用状态的 superadmin。
+公告在主动登录、冷启动、页面刷新恢复会话和返回前台时检查；不使用定时轮询。V45 已增加独立排期与草稿管理，详见 [公告管理与排期](notice-management.md)。每次会话同一公告只显示一次；更新与普通公告各取最新有效一条，更新优先。
 
 ## V27 数据结构
 
@@ -13,7 +13,7 @@
 
 V27 将旧标题和正文合并为 Markdown，保留公告 ID、时间、发布人及阅读记录。旧阅读记录的免弹标记默认 false；不把“读过”误认为“选择免弹”。已执行的 V26 不修改。
 
-当前公告由 config.notice_id 指定；NULL 表示没有登录公告。管理配置入口本轮不新增。专用测试环境可通过 SQL 指定已存在的公告：
+以下为 V27 旧配置兼容方式；V45 新管理使用每条公告独立 enabled 和时间区间，升级只启用原来的当前公告。旧客户端配置仍保留：
 
     UPDATE foodtime.config SET notice_id = '<公告 UUID>' WHERE id = 1;
 
@@ -21,10 +21,11 @@ V27 将旧标题和正文合并为 Markdown，保留公告 ID、时间、发布�
 
 | 方法和路径（前缀 /api/v1） | 数据和行为 |
 |---|---|
-| GET /users/me/notices/current | 无配置或该用户 dont_show_again=true 时 data=null；否则返回 id/content/createdTime/isRead/dontShowAgain，不写阅读状态 |
+| GET /users/me/notices/current-set | 按服务器时间返回有效的更新、普通公告数组，最多两条，包含 publishedAt/displayEndsAt/isUpdate，不写阅读状态 |
+| GET /users/me/notices/current | 兼容旧客户端，返回 current-set 第一条或 null |
 | POST /users/me/notices/{id}/confirm | JSON 必须含 dontShowAgain 布尔值；记录阅读并按选择保存免弹，返回 isRead/dontShowAgain |
 | GET /users/me/notices/unread-count | 返回 unreadCount；读操作后按需刷新，无定时任务 |
-| GET /users/me/notices?page=1&size=20 | 历史列表，倒序分页；content 是完整 Markdown，旧 title/body/publishedAt 响应字段为兼容适配 |
+| GET /users/me/notices?page=1&size=20 | 仅已发布且到发布时间的历史列表，按发布时间倒序；到期与停用公告仍留档，草稿和未来公告不可见 |
 | POST /users/me/notices/{id}/read | 历史阅读接口；幂等，不修改免弹字段 |
 
 确认始终作用于 URL 中实际展示的公告 ID，不改写为 config 当前值。重复提交不重复建行；并发的普通确认通过 OR 合并，不会清除另一端已保存的 true。免弹为账号级、跨端有效。
@@ -35,13 +36,13 @@ GET /users/me/notices/feed 仅兼容旧安装包，响应仍为正序 items 和�
 
 ## 管理接口兼容
 
-现有 /admin/notices CRUD 接口仅允许 active superadmin，普通 admin 返回 403。旧请求 title/body 会转换为一份 content；新创建/编辑界面与配置管理不在本轮范围。不能原地运行旧 Backend 二进制访问 V27 数据库，需要配套更新后端应用。
+现有 /admin/notices CRUD 接口仅允许 active superadmin，普通 admin 返回 403。旧请求 title/body 会转换为一份 content；新版独立启停和排期见管理文档。先升级数据库与后端，再更新客户端。
 
 ## Markdown 与前端行为
 
 两端支持标题、段落、粗体/斜体、列表、引用、代码、删除线、表格、普通网页链接和网络图片。Web 禁用原始 HTML 并清洗生成 HTML；Android 使用原生 spans，不执行 HTML，不打开任意 intent/file 链接或加载本地文件图片。图片建议使用可访问的绝对 HTTP(S) 地址。
 
-Web 刷新页面视为恢复会话；Android Activity 旋转重建复用本次登录状态，进程冷启动重新检查。普通路由切换和返回前台不重查。检查失败不阻止登录，提供明确重试入口。已读计数与是否免弹独立。
+Web 刷新页面视为恢复会话；Android Activity 旋转重建复用本次登录状态，进程冷启动和返回前台重新检查。普通路由切换不重查。检查失败不阻止登录，提供明确重试入口。两类公告之间重新校验有效期。已读计数与是否免弹独立。
 
 ## 消息兼容
 

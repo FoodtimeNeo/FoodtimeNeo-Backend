@@ -33,7 +33,7 @@ class RegistrationServiceTest {
         return new RegistrationService(users, encoder, new DefaultDisplayNameGenerator(), verification, invitations,
                 new RegistrationGate(new RegistrationLimitsProperties(RegistrationMode.OPEN, Duration.ofMinutes(15),
                         10, 10, 1000, "test:registration",
-                RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)), Clock.systemUTC());
+                RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)), Clock.systemUTC(), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class));
     }
     @Test
     void nonMainstreamEmailIsRejectedBeforeClaimingTheCode() {
@@ -43,7 +43,7 @@ class RegistrationServiceTest {
                 new RegistrationGate(new RegistrationLimitsProperties(RegistrationMode.OPEN,
                         Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
                         RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
-                Clock.systemUTC());
+                Clock.systemUTC(), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class));
         assertThatThrownBy(() -> service.register(
                 new RegisterRequest("someone@example.com", "Abc12345", "012345", null)))
                 .isInstanceOf(BusinessException.class)
@@ -63,7 +63,7 @@ class RegistrationServiceTest {
                 verification, invitations, new RegistrationGate(new RegistrationLimitsProperties(
                         RegistrationMode.OPEN, Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
                 RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
-                Clock.systemUTC());
+                Clock.systemUTC(), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class));
 
         var response = service.register(new RegisterRequest("someone@gmail.com", "Abc12345", "012345", null));
 

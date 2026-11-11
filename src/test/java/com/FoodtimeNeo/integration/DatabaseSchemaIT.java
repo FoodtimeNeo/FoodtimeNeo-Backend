@@ -34,12 +34,13 @@ class DatabaseSchemaIT {
                 """, String.class)).containsExactlyInAnyOrder("users", "dining_halls", "stalls", "dishes",
                 "dish_images", "dish_review_submissions", "dish_reviews", "stall_submissions",
                 "dish_submissions", "content_moderation_logs", "invitation_codes", "ai_moderation_results",
-                "community_posts", "community_post_images", "community_comments",
+                "community_posts", "community_post_images", "community_comments", "community_post_views",
                 "community_post_likes", "community_comment_likes", "community_favorites", "dish_stats", "dish_review_stats", "dish_review_likes", "dish_review_replies", "dish_review_reply_stats", "dish_review_reply_likes",
                 "stall_images", "notices", "notice_reads", "messages", "conversations", "direct_messages", "config", "user_follows",
                 "venue_review_targets", "venue_reviews", "venue_review_submissions", "venue_rating_stats",
                 "venue_review_stats", "venue_review_likes", "venue_review_replies", "venue_review_reply_stats", "venue_review_reply_likes",
-                "daily_recommendation_batch", "daily_recommendation_item", "user_blocks", "content_reports", "dish_favorites");
+                "daily_recommendation_batch", "daily_recommendation_item", "user_blocks", "content_reports", "dish_favorites",
+                "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions");
         assertThat(jdbc.queryForObject("""
                 select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
@@ -75,7 +76,7 @@ class DatabaseSchemaIT {
             rejected(status, "23514", () -> jdbc.update(
                     "update foodtime.users set role = 'owner' where id = ?", fixture.user()));
             rejected(status, "23514", () -> jdbc.update(
-                    "update foodtime.users set status = 'deleted' where id = ?", fixture.user()));
+                    "update foodtime.users set status = 'archived' where id = ?", fixture.user()));
             rejected(status, "23514", () -> jdbc.update(
                     "update foodtime.dining_halls set latitude = 30 where id = ?", fixture.hall()));
             jdbc.update("update foodtime.dining_halls set latitude = 30, longitude = 120 where id = ?", fixture.hall());

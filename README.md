@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-当前版本 **1.7.1**。发布范围与部署要求见 [1.7.1 发布说明](docs/releases/release-1.7.1.md)，管理删除接口与权限见 [社区管理](docs/modules/community-management.md)。
+当前版本 **1.8.0**。发布范围与部署要求见 [1.8.0 发布说明](docs/releases/release-1.8.0.md)，管理删除接口与权限见 [社区管理](docs/modules/community-management.md)。
 
 校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
 
@@ -38,7 +38,7 @@ docker compose up -d --wait
 
 已有 PostgreSQL / Redis 时，可以跳过 Compose，编辑 `.env` 指向对应服务。数据库需要事先创建，数据库账号需要有 `foodtime` schema 的创建权限及迁移所需的 DDL 权限。
 
-当前迁移到 **V42**。餐厅与档口独立点评见 [模块说明](docs/modules/venue-reviews.md)。种子目录和媒体引用由 Flyway 写入，图片还需单独铺入实际上传目录，详见 [种子数据与图片部署](docs/ops/seed-data.md)。
+当前迁移到 **V43**。帖子浏览量与计数规则见 [模块说明](docs/modules/community-post-views.md)。餐厅与档口独立点评见 [模块说明](docs/modules/venue-reviews.md)。种子目录和媒体引用由 Flyway 写入，图片还需单独铺入实际上传目录，详见 [种子数据与图片部署](docs/ops/seed-data.md)。
 
 `.env` 通过 Spring Config Import 加载，也由 Compose 读取；启动时工作目录必须为本 Backend 目录。文件使用 UTF-8 的 `KEY=value` 格式，不加 `export` 或引号。示例仅包含本地开发凭据，真实配置不会进入 Git。复杂密码和生产凭据建议由系统环境变量或部署平台注入。
 

@@ -1,5 +1,9 @@
 # 数据库与迁移
 
+V44 新增 `user_feedback`、`feedback_replies`、`feedback_actions`，分别保存反馈、不可覆盖的回复历史和幂等动作。反馈记录保留账号及设备额度归属，导出状态与归档由事务维护。详见 [建议与反馈接口](../api/user/feedback.md)。
+
+V43 为 `community_posts` 添加 `view_count BIGINT NOT NULL DEFAULT 0`，历史帖子从零开始；`community_post_views` 按 `(post_id, viewer_id, client_request_id)` 唯一去重。计数与去重写入同一事务，列表和详情 GET 不计数，客户端每次打开详情独立调用统计接口。详见 [浏览量规则](../modules/community-post-views.md)。
+
 V1 初始化 `foodtime` schema；V2 建立全部 10 张业务表和评分物化视图；V3 按用户修订删除 `stalls.floor`；V4 按用户确认补充图片审核信息与日志外键；V5 导入四食堂菜单和批准图片；V6 补充食堂封面并新增两食堂；V7 新增邀请码表与用户归因列；V8 补充热点查询索引；V9 新增AI预检结论表。V5、V6是数据迁移；V8增加索引，V9新增结论表。V15–V18新增六张点评互动/统计表并将评分汇总改为实时普通视图。当前结构见 [数据库设计](database-design.md)：
 
 | 表 | 用途 |

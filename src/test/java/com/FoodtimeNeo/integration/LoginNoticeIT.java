@@ -22,7 +22,8 @@ class LoginNoticeIT extends IntegrationApiSupport {
     }
     private UUID notice(String content) {
         UUID id=UUID.randomUUID();
-        jdbc.update("INSERT INTO foodtime.notices(notice_id,content,created_by) VALUES (?,?,?)",id,content,owner.id());
+        // This fixture represents an already-published legacy notice, independent of host/DB clock skew.
+        jdbc.update("INSERT INTO foodtime.notices(notice_id,content,created_by,published_at,display_starts_at) VALUES (?,?,?,? ,?)",id,content,owner.id(),java.sql.Timestamp.from(java.time.Instant.EPOCH),java.sql.Timestamp.from(java.time.Instant.EPOCH));
         return id;
     }
     private void activate(UUID id) { jdbc.update("UPDATE foodtime.config SET notice_id=? WHERE id=1",id); }

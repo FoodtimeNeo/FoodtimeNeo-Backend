@@ -63,13 +63,17 @@ public interface UserMapper {
             """)
     boolean schoolEmailBoundElsewhere(@Param("email") String email, @Param("userId") UUID userId);
 
+    @Select("SELECT school_email FROM foodtime.users WHERE id=#{userId,jdbcType=OTHER}")
+    String boundSchoolEmail(UUID userId);
+
     /** 绑定成功后访客升级为普通用户；已是更高角色保持不变。 */
     @Update("""
             UPDATE foodtime.users
             SET school_email = #{email}, school_email_verified_at = now(),
                 role = CASE WHEN role = 'visitor' THEN 'user' ELSE role END,
                 updated_at = now()
-            WHERE id = #{userId,jdbcType=OTHER} AND status = 'active'
+            WHERE id = #{userId,jdbcType=OTHER} AND status = 'active' AND role IN ('visitor','user')
+              AND (school_email IS NULL OR school_email = #{email})
             """)
     int bindSchoolEmail(@Param("userId") UUID userId, @Param("email") String email);
 
