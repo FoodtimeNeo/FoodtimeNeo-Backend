@@ -135,6 +135,7 @@ abstract class IntegrationApiSupport {
         }
         var ownedHalls = new ArrayList<>(additionalHalls); ownedHalls.add(hall);
         for (UUID hallId : ownedHalls) {
+            jdbc.update("DELETE FROM foodtime.stall_images WHERE stall_id IN (SELECT id FROM foodtime.stalls WHERE dining_hall_id = ?)", hallId);
             jdbc.update("DELETE FROM foodtime.dishes WHERE stall_id IN (SELECT id FROM foodtime.stalls WHERE dining_hall_id = ?)", hallId);
             jdbc.update("DELETE FROM foodtime.stalls WHERE dining_hall_id = ?", hallId);
             jdbc.update("DELETE FROM foodtime.dining_halls WHERE id = ?", hallId);
