@@ -27,6 +27,7 @@
 | 获取食堂列表 | `GET /api/v1/dining-halls` | [食堂列表](dining/list.md) |
 | 获取食堂下档口列表 | `GET /api/v1/dining-halls/{diningHallId}/stalls` | [档口列表](dining/stalls.md) |
 | 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
+| 跨食堂搜索与筛选菜品 | `GET /api/v1/dishes/search` | [菜品搜索](dish/search.md) |
 | 获取菜品基础详情 | `GET /api/v1/dishes/{dishId}` | [菜品基础详情](dish/detail.md) |
 | 获取菜品图册 | `GET /api/v1/dishes/{dishId}/images` | [菜品图册](dish/images.md) |
 | 上传及读取图片文件 | `POST /api/v1/uploads/images`、`GET /api/v1/media/{id}` | [图片文件](dish/uploads.md) |

@@ -36,7 +36,6 @@ public class CatalogAdminService {
         UUID parent = create ? body.parentId() : old.parentId();
         if (!create && body.parentId() != null && !Objects.equals(body.parentId(),parent)) throw bad("修改已有记录时不能改变所属关系");
         if (!type.equals("dining-halls") && (parent == null || !catalog.parentExists(type,parent))) throw bad("上级记录不存在");
-        if (type.equals("dishes") && body.price() == null) throw bad("菜品价格必须填写");
         if (!type.equals("dishes") && body.coverImageUrl() != null && !body.coverImageUrl().isBlank()
                 && (create || !Objects.equals(old.coverImageUrl(),body.coverImageUrl()))) images.requireOwnedReference(body.coverImageUrl(),actor.id());
         String status = body.status() == null ? create ? "active" : old.status() : body.status();

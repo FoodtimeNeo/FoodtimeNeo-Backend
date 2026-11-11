@@ -89,11 +89,13 @@ class CatalogAdminIT extends IntegrationApiSupport {
     }
 
     @Test
-    void conflictsBadParentsAndMissingDishPriceDoNotWriteData() throws Exception {
+    void conflictsBadParentsAndUnknownDishPriceAreHandled() throws Exception {
         Browser admin = login(account("admin"));
         assertThat(admin.call("POST","/api/v1/admin/catalog/stalls",Map.of("name","integration stall","parentId",hall)).statusCode()).isEqualTo(409);
         assertThat(admin.call("POST","/api/v1/admin/catalog/stalls",Map.of("name","orphan","parentId",UUID.randomUUID())).statusCode()).isEqualTo(400);
-        assertThat(admin.call("POST","/api/v1/admin/catalog/dishes",Map.of("name","no price","parentId",stall)).statusCode()).isEqualTo(400);
+        var noPrice = admin.call("POST","/api/v1/admin/catalog/dishes",Map.of("name","no price","parentId",stall));
+        assertThat(noPrice.statusCode()).isEqualTo(201);
+        assertThat(body(noPrice).path("data").path("price").isNull()).isTrue();
         assertThat(admin.call("PUT","/api/v1/admin/catalog/dishes/" + dish,Map.of("name","moving","parentId",UUID.randomUUID(),"price",1)).statusCode()).isEqualTo(400);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.stalls WHERE dining_hall_id = ?",Long.class,hall)).isEqualTo(1);
     }
