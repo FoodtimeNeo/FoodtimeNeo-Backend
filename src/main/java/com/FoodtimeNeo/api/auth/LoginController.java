@@ -1,14 +1,17 @@
 package com.FoodtimeNeo.api.auth;
 
+import com.FoodtimeNeo.auth.captcha.CaptchaService;
 import com.FoodtimeNeo.auth.dto.CsrfResponse;
 import com.FoodtimeNeo.auth.dto.LoginRequest;
 import com.FoodtimeNeo.auth.dto.LoginResponse;
 import com.FoodtimeNeo.auth.dto.UserResponse;
 import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
+import com.FoodtimeNeo.auth.service.LoginAttemptPolicy;
 import com.FoodtimeNeo.auth.service.LoginRateLimiter;
 import com.FoodtimeNeo.auth.service.LoginService;
 import com.FoodtimeNeo.common.api.ApiResponse;
+import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -19,6 +22,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -39,14 +43,19 @@ public class LoginController {
     private final SessionAuthenticationService sessions;
     private final TransactionTemplate transactions;
     private final DeviceIdentityService devices;
+    private final LoginAttemptPolicy attempts;
+    private final CaptchaService captcha;
 
     public LoginController(LoginService logins, LoginRateLimiter limiter, SessionAuthenticationService sessions,
-                           TransactionTemplate transactions, DeviceIdentityService devices) {
+                           TransactionTemplate transactions, DeviceIdentityService devices,
+                           LoginAttemptPolicy attempts, CaptchaService captcha) {
         this.logins = logins;
         this.limiter = limiter;
         this.sessions = sessions;
         this.transactions = transactions;
         this.devices = devices;
+        this.attempts = attempts;
+        this.captcha = captcha;
     }
 
     @GetMapping("/csrf")
@@ -60,7 +69,19 @@ public class LoginController {
     @Operation(summary = "邮箱密码登录", description = "验证成功设置HttpOnly Cookie；每次登录创建新会话，固定期限7天（可配置）")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest login,
                                             HttpServletRequest request, HttpServletResponse response) {
+        String deviceId = devices.resolve(request, response);
         limiter.check(login.account(), request.getRemoteAddr());
+        if (attempts.requiresChallenge(deviceId)) {
+            if (login.challengeId() == null || login.challengeId().isBlank()
+                    || login.challengeAnswer() == null || login.challengeAnswer().isBlank()) {
+                throw new BusinessException("CAPTCHA_REQUIRED", "请先完成验证码后登录",
+                        HttpStatus.BAD_REQUEST);
+            }
+            if (!captcha.verify(login.challengeId(), login.challengeAnswer(), deviceId)) {
+                throw new BusinessException("CAPTCHA_INVALID", "验证码无效或已过期，请换题",
+                        HttpStatus.BAD_REQUEST);
+            }
+        }
         boolean[] creatingSession = {false};
         try {
             return transactions.execute(status -> {

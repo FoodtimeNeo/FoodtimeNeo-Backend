@@ -15,6 +15,7 @@
 | 邀请码发放与管理 | `POST/GET /api/v1/admin/invitation-codes`、`PUT /api/v1/admin/invitation-codes/{id}` | [邀请码](auth/invitation-codes.md) |
 | 注册邮箱验证码 | `POST /api/v1/auth/register/email-code` | [邮箱验证码](auth/email-verification.md) |
 | 邮箱密码登录 | `POST /api/v1/auth/login` | [登录与会话](auth/login.md) |
+| 登录算术图片验证码 | `GET /api/v1/auth/captcha` | [登录验证码](auth/captcha.md) |
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |
 | 当前登录用户 | `GET /api/v1/auth/me` | [登录与会话](auth/login.md) |
 | 当前用户个人资料与头像 | `GET /api/v1/users/me/profile` | [个人资料](user/profile.md) |
