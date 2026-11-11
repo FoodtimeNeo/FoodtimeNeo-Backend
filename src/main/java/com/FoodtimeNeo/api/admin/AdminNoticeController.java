@@ -49,6 +49,10 @@ public class AdminNoticeController {
     public ApiResponse<NoticeDtos.NoticeResponse> markdown(@PathVariable UUID id,@Valid @RequestBody NoticeDtos.MarkdownRequest body,HttpServletRequest request) {
         return ApiResponse.success(notices.saveMarkdown(current(request),id,body));
     }
+    @PutMapping("/{id}/schedule")
+    public ApiResponse<NoticeDtos.NoticeResponse> schedule(@PathVariable UUID id,@Valid @RequestBody NoticeDtos.Schedule body,HttpServletRequest request) {
+        return ApiResponse.success(notices.schedule(current(request),id,body));
+    }
     @GetMapping("/{id}")
     @Operation(summary = "公告详情", description = "管理端查看单条公告")
     public ApiResponse<NoticeDtos.NoticeResponse> get(@PathVariable UUID id, HttpServletRequest request) {

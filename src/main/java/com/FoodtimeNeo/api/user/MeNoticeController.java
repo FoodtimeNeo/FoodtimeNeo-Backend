@@ -21,6 +21,12 @@ public class MeNoticeController {
     private final NoticeService notices;
     public MeNoticeController(NoticeService notices) { this.notices = notices; }
 
+    @GetMapping("/current-set")
+    public ApiResponse<java.util.List<NoticeDtos.CurrentNoticeResponse>> currentSet(HttpServletRequest request) {
+        UserProfile user=(UserProfile)request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(notices.currentSet(user.id()));
+    }
+
     @GetMapping("/unread-count")
     public ApiResponse<NoticeDtos.UnreadCountResponse> unreadCount(HttpServletRequest request) {
         UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
