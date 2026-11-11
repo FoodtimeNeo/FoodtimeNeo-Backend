@@ -85,6 +85,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/password-reset/verify", "/api/v1/auth/password-reset").permitAll()
                         .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**",
                                 "/api/v1/admin/notices", "/api/v1/admin/notices/**",
+                                "/api/v1/admin/feedback", "/api/v1/admin/feedback/**",
                                 "/api/v1/admin/reports", "/api/v1/admin/reports/**").hasRole("superadmin")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "superadmin")
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").access(prometheusScrape(monitoring))
