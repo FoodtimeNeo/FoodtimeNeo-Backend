@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 
 class NoticeServiceTest {
     private final NoticeStore store = mock(NoticeStore.class);
-    private final NoticeService service = new NoticeService(store);
+    private final NoticeService service = new NoticeService(store,java.time.Clock.systemUTC());
     private final UUID userId = UUID.randomUUID();
 
     private static UserProfile actor(String role, String status) {
@@ -63,8 +63,8 @@ class NoticeServiceTest {
     @Test
     void feedReturnsItemsWithUnreadCount() {
         var item = new NoticeDtos.NoticeResponse(UUID.randomUUID(), "标题", "正文", Instant.now());
-        when(store.feed(0, 20)).thenReturn(List.of(item));
-        when(store.unreadCount(userId)).thenReturn(2L);
+        when(store.feed(org.mockito.ArgumentMatchers.eq(0L),org.mockito.ArgumentMatchers.eq(20),any())).thenReturn(List.of(item));
+        when(store.unreadCount(org.mockito.ArgumentMatchers.eq(userId),any())).thenReturn(2L);
 
         var result = service.feed(userId, 0, 20);
 
@@ -75,7 +75,7 @@ class NoticeServiceTest {
     @Test
     void markReadOfMissingNoticeIs404WithoutWriting() {
         UUID id = UUID.randomUUID();
-        when(store.exists(id)).thenReturn(false);
+        when(store.visible(org.mockito.ArgumentMatchers.eq(id),any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.markRead(userId, id))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
