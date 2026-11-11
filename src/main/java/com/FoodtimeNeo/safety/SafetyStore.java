@@ -43,6 +43,23 @@ public class SafetyStore {
         jdbc.update("DELETE FROM foodtime.user_blocks WHERE blocker_id=? AND blocked_id=?", actor, target);
     }
 
+    public List<SafetyService.BlockedUser> blockedUsers(UUID actor, int size, long offset) {
+        // Disabled accounts remain visible so that the owner can still remove the block.
+        return jdbc.query("""
+                SELECT u.id, u.display_name, u.avatar_url, b.created_at
+                FROM foodtime.user_blocks b JOIN foodtime.users u ON u.id=b.blocked_id
+                WHERE b.blocker_id=? ORDER BY b.created_at DESC, b.blocked_id
+                LIMIT ? OFFSET ?
+                """, (row, index) -> new SafetyService.BlockedUser(row.getObject("id", UUID.class),
+                row.getString("display_name"), row.getString("avatar_url"),
+                row.getTimestamp("created_at").toInstant()), actor, size, offset);
+    }
+
+    public long blockedCount(UUID actor) {
+        return jdbc.queryForObject("SELECT count(*) FROM foodtime.user_blocks WHERE blocker_id=?",
+                Long.class, actor);
+    }
+
     public void lockReporter(UUID reporter) {
         lock("report:" + reporter);
     }
