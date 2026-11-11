@@ -12,6 +12,44 @@ class CommunitySafetyIT extends IntegrationApiSupport {
     private static final String REPORTS = "/api/v1/reports";
     private static final String QUEUE = "/api/v1/admin/reports";
 
+    @Test void blocklistIsPrivatePaginatedAndIncludesDisabledTargets() throws Exception {
+        String list = "/api/v1/users/me/blocks";
+        Browser author = login(owner), target = login(other);
+        Account second = account("user");
+        assertThat(new Browser().call("GET", list, null).statusCode()).isIn(401, 403);
+        assertThat(body(author.call("GET", list, null)).path("data").path("items")).isEmpty();
+        author.call("PUT", block(other), null);
+        author.call("PUT", block(second), null);
+        jdbc.update("UPDATE foodtime.user_blocks SET created_at=now()-interval '1 day' WHERE blocker_id=? AND blocked_id=?",
+                owner.id(), other.id());
+        jdbc.update("UPDATE foodtime.users SET status='disabled' WHERE id=?", second.id());
+        var first = body(author.call("GET", list + "?page=1&size=1", null)).path("data");
+        assertThat(first.path("total").asLong()).isEqualTo(2);
+        var row = first.path("items").get(0);
+        assertThat(row.path("id").asString()).isEqualTo(second.id().toString());
+        assertThat(row.has("displayName")).isTrue();
+        assertThat(row.has("blockedAt")).isTrue();
+        assertThat(row.has("email")).isFalse();
+        var next = body(author.call("GET", list + "?page=2&size=1", null)).path("data").path("items");
+        assertThat(next).hasSize(1);
+        assertThat(next.get(0).path("id").asString()).isEqualTo(other.id().toString());
+        assertThat(body(target.call("GET", list, null)).path("data").path("items")).isEmpty();
+        assertThat(author.call("DELETE", block(second), null).statusCode()).isEqualTo(200);
+        assertThat(body(author.call("GET", list, null)).path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(author.call("GET", list + "?page=0", null).statusCode()).isEqualTo(400);
+        assertThat(author.call("GET", list + "?size=101", null).statusCode()).isEqualTo(400);
+    }
+
+    @Test void visitorCanListAndRemoveTheirOwnBlocksWithoutChangingOtherUsersBlocks() throws Exception {
+        Browser visitor = login(account("visitor")), author = login(owner);
+        assertThat(visitor.call("PUT", block(other), null).statusCode()).isEqualTo(200);
+        assertThat(author.call("PUT", block(other), null).statusCode()).isEqualTo(200);
+        assertThat(body(visitor.call("GET", "/api/v1/users/me/blocks", null)).path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(visitor.call("DELETE", block(other), null).statusCode()).isEqualTo(200);
+        assertThat(body(visitor.call("GET", "/api/v1/users/me/blocks", null)).path("data").path("items")).isEmpty();
+        assertThat(body(author.call("GET", block(other), null)).path("data").path("blocked").asBoolean()).isTrue();
+    }
+
     @Test void privateBlockStopsBothDirectionsAndOnlyOwnerCanUndoIt() throws Exception {
         Browser author = login(owner), receiver = login(other);
         String messages = CONVERSATIONS + "/" + start(author, other) + "/messages";

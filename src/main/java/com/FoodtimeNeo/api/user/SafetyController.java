@@ -2,6 +2,8 @@ package com.FoodtimeNeo.api.user;
 
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
+import com.FoodtimeNeo.common.api.PageRequest;
+import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.safety.SafetyService;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -22,6 +24,13 @@ public class SafetyController {
 
     public SafetyController(SafetyService safety) {
         this.safety = safety;
+    }
+
+    @GetMapping("/users/me/blocks")
+    public ApiResponse<PageResponse<SafetyService.BlockedUser>> blockedUsers(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size, HttpServletRequest request) {
+        return ApiResponse.success(safety.blockedUsers(actor(request), new PageRequest(page, size)));
     }
 
     @GetMapping("/users/{id}/block")
