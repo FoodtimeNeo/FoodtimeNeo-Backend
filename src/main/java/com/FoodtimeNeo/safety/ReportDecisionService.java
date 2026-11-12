@@ -93,6 +93,13 @@ public class ReportDecisionService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<ReportDecisionDtos.AdminDecision> adminDecisions(UserProfile actor, PageRequest page) {
+        capabilities.require(actor, Capability.REPORT_REVIEW, AuthorizationContext.none());
+        return PageResponse.of(decisions.adminDecisions(page.size(), page.offset()),
+                decisions.adminDecisionCount(), page);
+    }
+
+    @Transactional(readOnly = true)
     public MyDecision myDecision(UserProfile actor, UUID id) {
         MyDecision decision = decisions.myDecision(actor.id(), id);
         if (decision == null) throw new BusinessException("DECISION_NOT_FOUND", "决定不存在", HttpStatus.NOT_FOUND);

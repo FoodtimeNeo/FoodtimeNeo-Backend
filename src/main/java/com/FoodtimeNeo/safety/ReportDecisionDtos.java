@@ -26,4 +26,7 @@ public final class ReportDecisionDtos {
                              String outcome, String publicReason, Instant deliveredAt,
                              Instant appealDeadline, UUID appealId, String appealStatus,
                              String appealOutcome) {}
+
+    public record AdminDecision(UUID decisionId, UUID reportId, String outcome, String publicReason,
+                                String targetType, UUID targetId, UUID targetUserId, Instant createdAt) {}
 }
