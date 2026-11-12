@@ -71,3 +71,56 @@
 - `safety/ReportDecisionService`、`ReportDecisionStore`、`api/user/ReportReceiptController`、`api/admin/ReportsAdminController`。
 - 决定通过 `NotificationPublisher` 发布 `report` 事件并写站内消息；七类开关中的 `report` 默认关闭，因此不产生 Android 系统提醒，但站内始终可读。
 - 追问、申诉提交／复核、受限申诉会话和实际处罚动作在后续阶段实现。
+
+## 追问
+
+`GET /api/v1/users/me/reports/{id}/follow-ups?page=1&size=20`
+
+仅举报人本人可读，返回公开追问／管理员回复和证据引用；内部备注不返回。
+
+`POST /api/v1/users/me/reports/{id}/follow-ups`
+
+```json
+{
+  "content": "请再核对一下菜单价格",
+  "evidenceUrls": ["/api/v1/media/..."],
+  "clientRequestId": "6d6f..."
+}
+```
+
+- 仅举报人；举报处理中或已完成均可追加。
+- 每账号 UTC+8 自然日跨案件最多 5 次；每次 1–500 字、最多 3 张本人上传的证据。
+- `clientRequestId` 幂等；相同编号不同内容返回 409。
+- 管理员公开回复使用 `/api/v1/admin/reports/{id}/follow-ups`，`internalNote` 仅管理端可见；管理员回复不占用户额度。
+
+## 双方申诉
+
+`POST /api/v1/users/me/moderation-decisions/{decisionId}/appeals`
+
+```json
+{
+  "content": "复核理由，最多2000字",
+  "evidenceUrls": ["/api/v1/media/..."],
+  "clientRequestId": "6d6f..."
+}
+```
+
+- 只有决定接收方本人可提交；举报人、被举报人各自最多一次，`side` 由服务器从决定接收关系确定。
+- 必须在 `appealDeadline` 之前提交；截止时刻本身及之后返回 409 `APPEAL_DEADLINE_EXPIRED`。
+- 每次最多 2000 字、3 张本人证据；`(decision_id, appellant_id, side)` 唯一，并发重复提交返回 409。
+- `GET /api/v1/users/me/appeals`、`/{id}` 仅返回本人申诉；`GET /api/v1/users/me/moderation-decisions` 的 `appealStatus`／`appealOutcome` 展示本人申诉状态。
+
+管理端：
+
+| 方法 | 路径 | 语义 |
+|---|---|---|
+| GET | `/api/v1/admin/appeals?status=submitted` | 申诉队列，需要 `appeal.review` |
+| GET | `/api/v1/admin/appeals/{id}` | 审核详情，含内部备注与证据 |
+| POST | `/api/v1/admin/appeals/{id}/start?expectedRevision=1` | `submitted` → `under_review` |
+| POST | `/api/v1/admin/appeals/{id}/resolve` | 保存复核结论并通知双方 |
+
+复核结论 `outcome` 为 `upheld`（申诉成立）或 `rejected`（不成立），保存公开理由与内部备注；历史不会被覆盖，同一决定不再生成第二次申诉。裁决与实际恢复动作分离，本阶段不自动恢复处罚或下架。
+
+## 证据访问
+
+举报追问与申诉证据写入 `report_evidence`，只有上传者本人和具备 `report.review`／`appeal.review` 的审核者能通过媒体接口读取；普通管理员不能借管理身份读取他人申诉证据。暂存清理会保留被追问／申诉引用的图片。

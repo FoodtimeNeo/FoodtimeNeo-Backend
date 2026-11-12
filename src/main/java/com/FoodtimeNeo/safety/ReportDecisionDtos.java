@@ -24,5 +24,6 @@ public final class ReportDecisionDtos {
 
     public record MyDecision(UUID decisionId, UUID reportId, String side, String targetType,
                              String outcome, String publicReason, Instant deliveredAt,
-                             Instant appealDeadline) {}
+                             Instant appealDeadline, UUID appealId, String appealStatus,
+                             String appealOutcome) {}
 }
