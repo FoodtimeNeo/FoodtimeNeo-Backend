@@ -157,7 +157,7 @@ public class CatalogCorrectionStore {
         Long value = jdbc.queryForObject("""
                 SELECT count(*) FROM foodtime.catalog_corrections
                 WHERE submitter_id = ? AND created_at >= ? AND created_at < ?
-                """, Long.class, submitter, start, end);
+                """, Long.class, submitter, java.sql.Timestamp.from(start), java.sql.Timestamp.from(end));
         return value == null ? 0 : value;
     }
 
@@ -231,20 +231,20 @@ public class CatalogCorrectionStore {
             case DINING_HALL -> """
                     SELECT h.id, h.revision, h.name, h.description, NULL::numeric AS price,
                            h.status AS hall_status, NULL::varchar AS stall_status, NULL::varchar AS dish_status,
-                           h.name AS summary
+                           h.name AS target_summary
                     FROM foodtime.dining_halls h WHERE h.id = ?
                     """ + (lock ? " FOR UPDATE OF h" : "");
             case STALL -> """
                     SELECT s.id, s.revision, s.name, s.description, NULL::numeric AS price,
                            h.status AS hall_status, s.status AS stall_status, NULL::varchar AS dish_status,
-                           concat_ws(' / ', h.name, s.name) AS summary
+                           concat_ws(' / ', h.name, s.name) AS target_summary
                     FROM foodtime.stalls s JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
                     WHERE s.id = ?
                     """ + (lock ? " FOR UPDATE OF s" : "");
             case DISH -> """
                     SELECT d.id, d.revision, d.name, d.description, d.price,
                            h.status AS hall_status, s.status AS stall_status, d.status AS dish_status,
-                           concat_ws(' / ', h.name, s.name, d.name) AS summary
+                           concat_ws(' / ', h.name, s.name, d.name) AS target_summary
                     FROM foodtime.dishes d
                     JOIN foodtime.stalls s ON s.id = d.stall_id
                     JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
@@ -254,7 +254,7 @@ public class CatalogCorrectionStore {
         return jdbc.query(sql, (rs, index) -> new TargetSnapshot(
                 type.wireName(), rs.getObject("id", UUID.class), rs.getLong("revision"),
                 rs.getString("name"), rs.getString("description"), rs.getBigDecimal("price"),
-                rs.getString("summary"),
+                rs.getString("target_summary"),
                 "active".equals(rs.getString("hall_status"))
                         && (type == CorrectionTargetType.DINING_HALL
                             || "active".equals(rs.getString("stall_status")))
