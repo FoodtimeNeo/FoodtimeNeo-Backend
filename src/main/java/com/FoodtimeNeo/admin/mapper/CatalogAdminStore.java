@@ -12,7 +12,7 @@ public class CatalogAdminStore {
     private static final String REVIEW_FILTER = " WHERE r.deleted_at IS NULL AND (strpos(lower(u.email),lower(?)) > 0 OR strpos(lower(u.display_name),lower(?)) > 0 OR strpos(r.user_id::text,lower(?)) > 0)";
     private static final RowMapper<AdminCatalogResponse> ROW = (r,n) -> new AdminCatalogResponse(
             r.getObject("id",UUID.class),r.getObject("parent_id",UUID.class),r.getString("name"),r.getString("description"),
-            r.getBigDecimal("price"),r.getString("cover_image_url"),r.getString("status"),r.getObject("sort_order",Integer.class));
+            r.getBigDecimal("price"),r.getString("cover_image_url"),r.getString("status"),r.getObject("sort_order",Integer.class),r.getLong("revision"));
     public CatalogAdminStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<AdminCatalogResponse> page(String type, UUID parent, int size, long offset) {
@@ -40,8 +40,8 @@ public class CatalogAdminStore {
             else if (type.equals("stalls")) jdbc.update("INSERT INTO foodtime.stalls(id,dining_hall_id,name,description,cover_image_url,status,sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",id,parent,body.name().strip(),body.description(),body.coverImageUrl(),status,sort);
             else jdbc.update("INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status) VALUES (?, ?, ?, ?, ?, ?)",id,parent,body.name().strip(),body.description(),body.price(),status);
         } else {
-            if (type.equals("dishes")) jdbc.update("UPDATE foodtime.dishes SET name = ?,description = ?,price = ?,status = ? WHERE id = ?",body.name().strip(),body.description(),body.price(),status,id);
-            else jdbc.update("UPDATE " + table(type) + " SET name = ?,description = ?,cover_image_url = ?,status = ?,sort_order = ? WHERE id = ?",body.name().strip(),body.description(),body.coverImageUrl(),status,sort,id);
+            if (type.equals("dishes")) jdbc.update("UPDATE foodtime.dishes SET name = ?,description = ?,price = ?,status = ?,revision = revision + 1 WHERE id = ?",body.name().strip(),body.description(),body.price(),status,id);
+            else jdbc.update("UPDATE " + table(type) + " SET name = ?,description = ?,cover_image_url = ?,status = ?,sort_order = ?,revision = revision + 1 WHERE id = ?",body.name().strip(),body.description(),body.coverImageUrl(),status,sort,id);
         }
     }
     public List<AdminReviewResponse> reviews(String q,int size,long offset) {
@@ -77,7 +77,7 @@ public class CatalogAdminStore {
         String price = type.equals("dishes") ? "t.price" : "NULL::numeric";
         String cover = type.equals("dishes") ? "(SELECT image_url FROM foodtime.dish_images WHERE dish_id = t.id AND status = 'approved' ORDER BY created_at DESC,id ASC LIMIT 1)" : "t.cover_image_url";
         String sort = type.equals("dishes") ? "NULL::integer" : "t.sort_order";
-        return "SELECT t.id," + parent + " AS parent_id,t.name,t.description," + price + " AS price," + cover + " AS cover_image_url,t.status," + sort + " AS sort_order FROM " + table(type) + " t";
+        return "SELECT t.id," + parent + " AS parent_id,t.name,t.description," + price + " AS price," + cover + " AS cover_image_url,t.status," + sort + " AS sort_order,t.revision FROM " + table(type) + " t";
     }
     private String parentColumn(String type) { return type.equals("stalls") ? "dining_hall_id" : "stall_id"; }
     private String table(String type) {

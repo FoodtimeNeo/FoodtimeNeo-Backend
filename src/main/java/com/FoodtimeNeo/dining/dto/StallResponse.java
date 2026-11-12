@@ -15,7 +15,8 @@ public record StallResponse(
     @Schema(description = "档口图集，按 sort_order、ID 升序排列，从首图开始；无图时为空数组")
         List<StallImageResponse> images,
     java.math.BigDecimal averageScore,
-    long reviewCount) {
+    long reviewCount,
+    @Schema(description = "目录资料版本；纠错提交时作为 baseRevision") long revision) {
   public StallResponse(
       UUID id,
       UUID diningHallId,
@@ -23,7 +24,7 @@ public record StallResponse(
       String coverImageUrl,
       String description,
       List<StallImageResponse> images) {
-    this(id, diningHallId, name, coverImageUrl, description, images, null, 0);
+    this(id, diningHallId, name, coverImageUrl, description, images, null, 0, 0);
   }
 
   public static StallResponse from(Stall stall) {
@@ -39,6 +40,7 @@ public record StallResponse(
         stall.description(),
         images,
         stall.averageScore(),
-        stall.reviewCount());
+        stall.reviewCount(),
+        stall.revision());
   }
 }

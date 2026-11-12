@@ -72,6 +72,7 @@ abstract class IntegrationApiSupport {
     @AfterEach
     void cleanFixtures() {
         for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.catalog_corrections WHERE submitter_id = ?", user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_review_reply_id IN"
                     + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type='dish-review-reply' AND submission_id IN"

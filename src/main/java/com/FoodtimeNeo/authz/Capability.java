@@ -13,6 +13,7 @@ public enum Capability {
     USER_MANAGE("user.manage"),
     INVITATION_MANAGE("invitation.manage"),
     AI_MODEL_MANAGE("ai.model.manage"),
+    CORRECTION_SUBMIT("correction.submit"),
     CORRECTION_REVIEW("correction.review"),
     REPORT_REVIEW("report.review"),
     REPORT_REPLY("report.reply"),

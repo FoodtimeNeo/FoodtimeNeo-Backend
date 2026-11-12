@@ -16,9 +16,12 @@ public class DefaultAuthorizationPolicy implements AuthorizationPolicy {
     private static final Set<Capability> SUPERADMIN = Collections.unmodifiableSet(
             EnumSet.allOf(Capability.class));
     private static final Set<Capability> ADMIN = Collections.unmodifiableSet(
-            EnumSet.of(Capability.MODERATION_REVIEW, Capability.CATALOG_EDIT));
+            EnumSet.of(Capability.MODERATION_REVIEW, Capability.CATALOG_EDIT,
+                    Capability.CORRECTION_SUBMIT));
+    private static final Set<Capability> USER = Collections.unmodifiableSet(
+            EnumSet.of(Capability.CORRECTION_SUBMIT));
     private static final Set<Capability> NONE = Set.of();
-    private static final String REVISION = "default-v1";
+    private static final String REVISION = "default-v2";
 
     @Override
     public boolean allows(UserProfile actor, Capability capability, AuthorizationContext context) {
@@ -31,6 +34,7 @@ public class DefaultAuthorizationPolicy implements AuthorizationPolicy {
         return switch (actor.role()) {
             case "superadmin" -> SUPERADMIN;
             case "admin" -> ADMIN;
+            case "user" -> USER;
             default -> NONE;
         };
     }

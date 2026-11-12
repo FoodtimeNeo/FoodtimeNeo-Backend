@@ -27,7 +27,8 @@
       "coverImageUrl": null,
       "description": "食堂简介",
       "latitude": 39.9520000,
-      "longitude": 116.3500000
+      "longitude": 116.3500000,
+      "revision": 1
     }
   ],
   "timestamp": "2026-10-07T15:00:00Z",
@@ -42,6 +43,7 @@
 | `coverImageUrl` | 字符串或null | 图片地址或存储引用，按现有数据返回 |
 | `description` | 字符串或null | 食堂简介 |
 | `latitude` / `longitude` | JSON数值或null | 食堂经纬度；未配置时均为null，不以0代替缺失位置 |
+| `revision` | 数字 | 目录资料版本；纠错提交时作为 `baseRevision` |
 
 - 查询固定过滤 `status = active`，所有角色均适用；管理员也不能通过此展示接口读取停用食堂。
 - 按 `sort_order ASC, id ASC` 排列；相同排序值使用ID保持顺序稳定。

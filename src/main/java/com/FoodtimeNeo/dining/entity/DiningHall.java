@@ -14,16 +14,5 @@ public record DiningHall(
     String status,
     int sortOrder,
     BigDecimal averageScore,
-    long reviewCount) {
-  public DiningHall(
-      UUID id,
-      String name,
-      String coverImageUrl,
-      String description,
-      BigDecimal latitude,
-      BigDecimal longitude,
-      String status,
-      int sortOrder) {
-    this(id, name, coverImageUrl, description, latitude, longitude, status, sortOrder, null, 0);
-  }
-}
+    long reviewCount,
+    long revision) { }

@@ -23,20 +23,23 @@ class DefaultAuthorizationPolicyTest {
     }
 
     @Test
-    void normalAdminKeepsOnlyCatalogAndModeration() {
+    void normalAdminKeepsCatalogModerationAndCorrectionSubmit() {
         UserProfile actor = actor("admin", "active");
         var policy = new DefaultAuthorizationPolicy();
         assertThat(policy.capabilities(actor))
-                .containsExactlyInAnyOrder(Capability.CATALOG_EDIT, Capability.MODERATION_REVIEW);
+                .containsExactlyInAnyOrder(Capability.CATALOG_EDIT, Capability.MODERATION_REVIEW,
+                        Capability.CORRECTION_SUBMIT);
+        assertThat(policy.allows(actor, Capability.CORRECTION_SUBMIT, AuthorizationContext.none())).isTrue();
         assertThat(policy.allows(actor, Capability.CORRECTION_REVIEW, AuthorizationContext.none())).isFalse();
         assertThat(policy.allows(actor, Capability.REPORT_REPLY, AuthorizationContext.none())).isFalse();
         assertThat(policy.allows(actor, Capability.APPEAL_REVIEW, AuthorizationContext.none())).isFalse();
     }
 
     @Test
-    void ordinaryUsersAndVisitorsHaveNoManagementCapability() {
+    void ordinaryUsersCanSubmitCorrectionsButVisitorsCannot() {
         var policy = new DefaultAuthorizationPolicy();
-        assertThat(policy.capabilities(actor("user", "active"))).isEmpty();
+        assertThat(policy.capabilities(actor("user", "active")))
+                .containsExactly(Capability.CORRECTION_SUBMIT);
         assertThat(policy.capabilities(actor("visitor", "active"))).isEmpty();
     }
 
@@ -52,7 +55,7 @@ class DefaultAuthorizationPolicyTest {
     @Test
     void revisionIsStableForTheDefaultMapping() {
         var policy = new DefaultAuthorizationPolicy();
-        assertThat(policy.revision()).isEqualTo("default-v1");
+        assertThat(policy.revision()).isEqualTo("default-v2");
     }
 
     @Test

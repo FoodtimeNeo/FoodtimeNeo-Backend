@@ -76,7 +76,8 @@ class DiningHallListIT {
             UUID id = UUID.fromString(item.path("id").asString());
             assertThat(id).isNotEqualTo(hidden);
             if (hallIds.contains(id)) { ownResults.add(id); }
-            assertThat(item.size()).isEqualTo(8);
+            assertThat(item.size()).isEqualTo(9);
+            assertThat(item.path("revision").asLong()).isEqualTo(1);
             assertThat(item.path("averageScore").isNull()).isTrue();
             assertThat(item.path("reviewCount").asLong()).isZero();
             assertThat(item.has("status")).isFalse();
