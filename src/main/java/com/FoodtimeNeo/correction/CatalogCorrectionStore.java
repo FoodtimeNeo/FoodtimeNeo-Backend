@@ -210,8 +210,8 @@ public class CatalogCorrectionStore {
                 INSERT INTO foodtime.catalog_correction_events
                 (id, correction_id, actor_id, action, public_note, internal_note, before_values, after_values)
                 VALUES (?, ?, ?, ?, ?, ?,
-                    jsonb_build_object('name', ?, 'description', ?, 'price', ?),
-                    jsonb_build_object('name', ?, 'description', ?, 'price', ?))
+                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric),
+                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric))
                 """, id, correctionId, actorId, action, publicNote, internalNote,
                 originalName, originalDescription, originalPrice,
                 proposedName, proposedDescription, proposedPrice);
