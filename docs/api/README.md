@@ -10,6 +10,7 @@
 
 | 功能 | 方法与路径 | 接口文档 |
 | --- | --- | --- |
+| 注册策略 | `GET /api/v1/auth/registration-policy` | [注册策略](auth/registration-policy.md) |
 | 用户注册 | `POST /api/v1/auth/register` | [注册接口](auth/register.md) |
 | 邀请码发放与管理 | `POST/GET /api/v1/admin/invitation-codes`、`PUT /api/v1/admin/invitation-codes/{id}` | [邀请码](auth/invitation-codes.md) |
 | 注册邮箱验证码 | `POST /api/v1/auth/register/email-code` | [邮箱验证码](auth/email-verification.md) |
@@ -51,8 +52,9 @@
 
 可按 [auth.http](auth.http) 的顺序逐条发送请求。请求客户端须保留服务器设置的Cookie；填写自己的测试邮箱、密码、邮件验证码和CSRF令牌，勿将真实凭据提交到Git。
 
-1. 获取CSRF令牌，再发送注册邮箱验证码。
-2. 收到邮件后提交邮箱、密码和验证码完成注册。注册成功不会自动登录。
+1. 读取注册策略，按 `mode` 决定是否显示邀请码；`closed` 时停止发码与注册。
+2. 获取CSRF令牌，再发送注册邮箱验证码。
+3. 收到邮件后提交邮箱、密码、验证码和（invitation 模式必填的）邀请码完成注册。注册成功不会自动登录。
 3. 携带Cookie和CSRF令牌提交邮箱账号与密码登录。
 4. 登录会替换旧会话；重新获取CSRF令牌，再查询当前用户或退出登录。
 
