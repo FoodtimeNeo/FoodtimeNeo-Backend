@@ -44,7 +44,8 @@ class DatabaseSchemaIT {
                 "favorite_groups", "dish_favorite_group_members", "community_favorite_group_members",
                 "catalog_corrections", "catalog_correction_evidence", "catalog_correction_events",
                 "browsing_history_settings", "browsing_history",
-                "notification_events", "notification_preferences", "notification_deliveries");
+                "notification_events", "notification_preferences", "notification_deliveries",
+                "report_decisions", "report_decision_recipients");
         assertThat(jdbc.queryForObject("""
                 select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
