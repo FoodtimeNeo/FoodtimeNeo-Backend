@@ -154,7 +154,7 @@ class ReportAppealIT extends IntegrationApiSupport {
         String decisionId = decide(superadmin, reportId);
         jdbc.update("""
                 UPDATE foodtime.report_decision_recipients
-                SET appeal_deadline = now() - interval '1 second'
+                SET delivered_at = now() - interval '8 days', appeal_deadline = now() - interval '1 second'
                 WHERE decision_id = ? AND user_id = ?
                 """, UUID.fromString(decisionId), other.id());
         var response = target.call("POST", "/api/v1/users/me/moderation-decisions/" + decisionId + "/appeals",
