@@ -119,7 +119,8 @@ public class ReportDecisionService {
         private static MyDecision decision(MyDecision value) {
             if (!"target".equals(value.side())) return value;
             return new MyDecision(value.decisionId(), null, value.side(), value.targetType(),
-                    value.outcome(), value.publicReason(), value.deliveredAt(), value.appealDeadline());
+                    value.outcome(), value.publicReason(), value.deliveredAt(), value.appealDeadline(),
+                    value.appealId(), value.appealStatus(), value.appealOutcome());
         }
     }
 }

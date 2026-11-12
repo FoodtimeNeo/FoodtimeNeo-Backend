@@ -104,16 +104,20 @@ public class ReportDecisionStore {
     public java.util.List<MyDecision> myDecisions(UUID user, int size, long offset) {
         return jdbc.query("""
                 SELECT d.id AS decision_id, d.report_id, rec.side, r.target_type, d.outcome,
-                       d.public_reason, rec.delivered_at, rec.appeal_deadline
+                       d.public_reason, rec.delivered_at, rec.appeal_deadline,
+                       a.id AS appeal_id, a.status AS appeal_status, a.outcome AS appeal_outcome
                 FROM foodtime.report_decision_recipients rec
                 JOIN foodtime.report_decisions d ON d.id = rec.decision_id
                 JOIN foodtime.content_reports r ON r.id = d.report_id
+                LEFT JOIN foodtime.report_appeals a
+                    ON a.decision_id = d.id AND a.appellant_id = rec.user_id
                 WHERE rec.user_id = ?
                 ORDER BY rec.delivered_at DESC, d.id DESC LIMIT ? OFFSET ?
                 """, (rs, index) -> new MyDecision(rs.getObject("decision_id", UUID.class),
                 rs.getObject("report_id", UUID.class), rs.getString("side"), rs.getString("target_type"),
                 rs.getString("outcome"), rs.getString("public_reason"), instant(rs, "delivered_at"),
-                instant(rs, "appeal_deadline")), user, size, offset);
+                instant(rs, "appeal_deadline"), rs.getObject("appeal_id", UUID.class),
+                rs.getString("appeal_status"), rs.getString("appeal_outcome")), user, size, offset);
     }
 
     public long myDecisionCount(UUID user) {
@@ -126,15 +130,20 @@ public class ReportDecisionStore {
     public MyDecision myDecision(UUID user, UUID decisionId) {
         return jdbc.query("""
                 SELECT d.id AS decision_id, d.report_id, rec.side, r.target_type, d.outcome,
-                       d.public_reason, rec.delivered_at, rec.appeal_deadline
+                       d.public_reason, rec.delivered_at, rec.appeal_deadline,
+                       a.id AS appeal_id, a.status AS appeal_status, a.outcome AS appeal_outcome
                 FROM foodtime.report_decision_recipients rec
                 JOIN foodtime.report_decisions d ON d.id = rec.decision_id
                 JOIN foodtime.content_reports r ON r.id = d.report_id
+                LEFT JOIN foodtime.report_appeals a
+                    ON a.decision_id = d.id AND a.appellant_id = rec.user_id
                 WHERE rec.user_id = ? AND d.id = ?
                 """, (rs, index) -> new MyDecision(rs.getObject("decision_id", UUID.class),
                 rs.getObject("report_id", UUID.class), rs.getString("side"), rs.getString("target_type"),
                 rs.getString("outcome"), rs.getString("public_reason"), instant(rs, "delivered_at"),
-                instant(rs, "appeal_deadline")), user, decisionId).stream().findFirst().orElse(null);
+                instant(rs, "appeal_deadline"), rs.getObject("appeal_id", UUID.class),
+                rs.getString("appeal_status"), rs.getString("appeal_outcome")), user, decisionId)
+                .stream().findFirst().orElse(null);
     }
 
     private static Instant instant(java.sql.ResultSet rs, String column) throws java.sql.SQLException {

@@ -23,10 +23,10 @@ public class ImageStorageService {
     private final Path directory;
     private final JdbcTemplate jdbc;
     private final StorageBudget budget;
-    private final StagedImageAccessPolicy stagedAccess;
+    private final java.util.List<StagedImageAccessPolicy> stagedAccess;
     private final java.util.concurrent.Semaphore uploads;
     public ImageStorageService(@Value("${app.storage.directory:uploads}") String directory, JdbcTemplate jdbc, StorageBudget budget,
-                               StagedImageAccessPolicy stagedAccess,
+                               java.util.List<StagedImageAccessPolicy> stagedAccess,
                                com.FoodtimeNeo.config.properties.StorageQuotaProperties limits) {
         this.directory = Path.of(directory).toAbsolutePath().normalize(); this.jdbc = jdbc;
         this.budget = budget; this.stagedAccess = stagedAccess;
@@ -91,7 +91,7 @@ public class ImageStorageService {
         if (user == null) throw missing();
         boolean owner = user.id().toString().equals(metadata.getProperty("owner"));
         boolean administrator = (user.role().equals("admin") || user.role().equals("superadmin"))
-                && !stagedAccess.restricted(user, id);
+                && stagedAccess.stream().noneMatch(policy -> policy.restricted(user, id));
         Publication publication = publication(reference(id));
         boolean published = publication.catalog() || publication.community() || publication.avatar();
         if (!owner && !administrator && !published) throw missing();

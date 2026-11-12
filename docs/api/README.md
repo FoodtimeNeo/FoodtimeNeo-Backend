@@ -44,7 +44,7 @@
 | 已有目录纠错提案与审核 | POST/GET 用户接口；GET/POST 管理接口 | [目录纠错](user/catalog-corrections.md) |
 | 浏览历史设置、列表、记录与清理 | GET/PUT/DELETE 用户接口 | [浏览历史](user/browsing-history.md) |
 | 通知事件、游标与七类提醒开关 | GET/POST/PUT 用户接口 | [通知基础](user/notifications.md) |
-| 举报回执、决定与 7 天申诉期限 | GET 用户接口；POST 管理决定 | [举报回执](user/reports.md) |
+| 举报回执、决定、追问与双方申诉 | GET/POST 用户接口；GET/POST 管理接口 | [举报回执](user/reports.md) |
 | 平台管理员查询用户与调整角色/状态 | GET/PUT接口 | [用户管理](user/user-admin.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
