@@ -17,6 +17,8 @@ public final class AppealOnlyPolicy {
             Pattern.compile("^/api/v1/users/me/moderation-decisions/[0-9a-fA-F-]{36}$");
     private static final Pattern APPEAL =
             Pattern.compile("^/api/v1/users/me/appeals/[0-9a-fA-F-]{36}$");
+    private static final Pattern DECISION_ACTIONS =
+            Pattern.compile("^/api/v1/users/me/moderation-decisions/[0-9a-fA-F-]{36}/actions$");
     private static final Pattern SUBMIT_APPEAL =
             Pattern.compile("^/api/v1/users/me/moderation-decisions/[0-9a-fA-F-]{36}/appeals$");
     private static final Pattern MEDIA =
@@ -30,6 +32,7 @@ public final class AppealOnlyPolicy {
         if ("OPTIONS".equals(method) || "HEAD".equals(method)) return true;
         if ("GET".equals(method)) {
             return GET.contains(path) || DECISION.matcher(path).matches()
+                    || DECISION_ACTIONS.matcher(path).matches()
                     || APPEAL.matcher(path).matches() || MEDIA.matcher(path).matches();
         }
         if ("POST".equals(method)) {

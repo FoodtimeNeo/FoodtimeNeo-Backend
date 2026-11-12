@@ -96,6 +96,35 @@ class ReportDecisionIT extends IntegrationApiSupport {
     }
 
     @Test
+    void linkedAdminActionIsPerformedByServerAndVisibleOnlyToRecipients() throws Exception {
+        var targetBrowser = login(other);
+        String postId = approvedPost(targetBrowser);
+        var reporter = login(owner);
+        assertThat(reporter.call("POST", "/api/v1/reports",
+                Map.of("targetType", "post", "targetId", postId, "reason", "需要下架")).statusCode()).isEqualTo(200);
+        UUID reportId = reportId(owner.id(), UUID.fromString(postId));
+        var superadmin = login(account("superadmin"));
+        String decisionId = body(superadmin.call("POST", "/api/v1/admin/reports/" + reportId + "/decision",
+                Map.of("outcome", "upheld", "publicReason", "内容违规"))).path("data").path("id").asString();
+
+        var action = superadmin.call("POST", "/api/v1/admin/reports/" + reportId + "/actions",
+                Map.of("actionType", "remove_post", "note", "管理员执行下架"));
+        assertThat(action.statusCode()).isEqualTo(201);
+        String actionId = body(action).path("data").path("id").asString();
+        assertThat(body(action).path("data").path("targetType").asString()).isEqualTo("post");
+        var replay = superadmin.call("POST", "/api/v1/admin/reports/" + reportId + "/actions",
+                Map.of("actionType", "remove_post"));
+        assertThat(body(replay).path("data").path("id").asString()).isEqualTo(actionId);
+
+        var reporterActions = reporter.call("GET", DECISIONS + "/" + decisionId + "/actions", null);
+        assertThat(reporterActions.statusCode()).isEqualTo(200);
+        assertThat(body(reporterActions).path("data").size()).isEqualTo(1);
+        assertThat(targetBrowser.call("GET", DECISIONS + "/" + decisionId + "/actions", null).statusCode()).isEqualTo(200);
+        var stranger = login(account("user"));
+        assertThat(stranger.call("GET", DECISIONS + "/" + decisionId + "/actions", null).statusCode()).isEqualTo(404);
+    }
+
+    @Test
     void legacyReviewedReportDoesNotInventAnOutcomeOrDeadline() throws Exception {
         var targetBrowser = login(other);
         String postId = approvedPost(targetBrowser);

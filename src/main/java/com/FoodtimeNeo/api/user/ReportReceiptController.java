@@ -4,6 +4,8 @@ import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
+import com.FoodtimeNeo.safety.ReportActionDtos;
+import com.FoodtimeNeo.safety.ReportActionService;
 import com.FoodtimeNeo.safety.ReportDecisionDtos;
 import com.FoodtimeNeo.safety.ReportDecisionService;
 import com.FoodtimeNeo.user.entity.UserProfile;
@@ -19,9 +21,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "sessionCookie")
 public class ReportReceiptController {
     private final ReportDecisionService decisions;
+    private final ReportActionService actions;
 
-    public ReportReceiptController(ReportDecisionService decisions) {
+    public ReportReceiptController(ReportDecisionService decisions, ReportActionService actions) {
         this.decisions = decisions;
+        this.actions = actions;
     }
 
     @GetMapping("/reports")
@@ -49,6 +53,13 @@ public class ReportReceiptController {
     public ApiResponse<ReportDecisionDtos.MyDecision> myDecision(@PathVariable UUID id,
             HttpServletRequest request) {
         return ApiResponse.success(decisions.myDecision(actor(request), id));
+    }
+
+    @GetMapping("/moderation-decisions/{id}/actions")
+    @Operation(summary = "决定关联的真实管理动作", description = "仅决定接收方本人可读")
+    public ApiResponse<java.util.List<ReportActionDtos.Response>> actions(@PathVariable UUID id,
+            HttpServletRequest request) {
+        return ApiResponse.success(actions.listForRecipient(actor(request), id));
     }
 
     private static UserProfile actor(HttpServletRequest request) {

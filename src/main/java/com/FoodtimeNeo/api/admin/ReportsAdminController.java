@@ -4,6 +4,8 @@ import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
+import com.FoodtimeNeo.safety.ReportActionDtos;
+import com.FoodtimeNeo.safety.ReportActionService;
 import com.FoodtimeNeo.safety.ReportDecisionDtos;
 import com.FoodtimeNeo.safety.ReportDecisionService;
 import com.FoodtimeNeo.safety.ReportFollowUpService;
@@ -24,12 +26,14 @@ public class ReportsAdminController {
     private final SafetyService safety;
     private final ReportDecisionService decisions;
     private final ReportFollowUpService followUps;
+    private final ReportActionService actions;
 
     public ReportsAdminController(SafetyService safety, ReportDecisionService decisions,
-            ReportFollowUpService followUps) {
+            ReportFollowUpService followUps, ReportActionService actions) {
         this.safety = safety;
         this.decisions = decisions;
         this.followUps = followUps;
+        this.actions = actions;
     }
 
     @GetMapping
@@ -59,6 +63,21 @@ public class ReportsAdminController {
             @Valid @RequestBody ReportInteractionDtos.StaffFollowUpRequest body, HttpServletRequest request) {
         UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
         return ApiResponse.success(followUps.addStaff(user, id, body));
+    }
+
+    @GetMapping("/{id}/actions")
+    public ApiResponse<java.util.List<ReportActionDtos.Response>> actions(@PathVariable UUID id,
+            HttpServletRequest request) {
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(actions.listForAdmin(user, id));
+    }
+
+    @PostMapping("/{id}/actions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<ReportActionDtos.Response> performAction(@PathVariable UUID id,
+            @Valid @RequestBody ReportActionDtos.Request body, HttpServletRequest request) {
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(actions.perform(user, id, body));
     }
 
     @PutMapping("/{id}/review")
