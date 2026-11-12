@@ -1,10 +1,13 @@
 package com.FoodtimeNeo.integration;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,16 +17,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NoticeNotificationIT extends IntegrationApiSupport {
     private static final String PREFS = "/api/v1/users/me/notification-preferences";
     private static final String EVENTS = "/api/v1/users/me/notification-events";
+    private final List<UUID> created = new ArrayList<>();
+
+    @AfterEach
+    void cleanNotices() {
+        for (UUID id : created) jdbc.update("DELETE FROM foodtime.notices WHERE notice_id = ?", id);
+    }
 
     private UUID notice(String content, boolean published, Instant publishedAt, Instant startsAt, Instant endsAt) {
         UUID id = UUID.randomUUID();
+        created.add(id);
         jdbc.update("""
                 INSERT INTO foodtime.notices
                     (notice_id, content, created_by, published_at, display_starts_at,
                      display_ends_at, published, publication_announced, enabled)
-                VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, TRUE)
+                VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?)
                 """, id, content, owner.id(), Timestamp.from(publishedAt), Timestamp.from(startsAt),
-                endsAt == null ? null : Timestamp.from(endsAt), published);
+                endsAt == null ? null : Timestamp.from(endsAt), published, published);
         return id;
     }
 
