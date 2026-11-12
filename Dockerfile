@@ -7,7 +7,8 @@ RUN mvn -B -ntp -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-RUN addgroup -S foodtime && adduser -S foodtime -G foodtime \
+RUN apk add --no-cache fontconfig ttf-dejavu \
+    && addgroup -S foodtime && adduser -S foodtime -G foodtime \
     && mkdir -p /app/logs && chown -R foodtime:foodtime /app
 COPY --from=build --chown=foodtime:foodtime /workspace/target/foodtime-neo-backend.jar app.jar
 USER foodtime

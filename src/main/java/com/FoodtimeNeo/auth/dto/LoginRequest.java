@@ -22,13 +22,29 @@ public record LoginRequest(
         @Pattern(regexp = "\\A[!-~]+\\z", message = "密码只能包含英文字母、数字和半角符号，不允许空白或其他字符")
         @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
         @Schema(description = "原密码，8至128位英文字母、数字和ASCII半角符号，不允许空白",
-                accessMode = Schema.AccessMode.WRITE_ONLY, minLength = 8, maxLength = 128) String password) {
+                accessMode = Schema.AccessMode.WRITE_ONLY, minLength = 8, maxLength = 128) String password,
+
+        @Size(max = 64, message = "验证码标识过长")
+        @Pattern(regexp = "\\A[0-9a-fA-F-]{36}\\z", message = "验证码标识格式不正确")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        @Schema(description = "需要验证时由 /auth/captcha 返回的 challengeId；其他情况可为空",
+                accessMode = Schema.AccessMode.WRITE_ONLY, nullable = true) String challengeId,
+
+        @Pattern(regexp = "\\A[0-9]{1,4}\\z", message = "验证码答案须为数字")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        @Schema(description = "算术题答案；只有服务器要求验证时才需要",
+                accessMode = Schema.AccessMode.WRITE_ONLY, nullable = true) String challengeAnswer) {
     public LoginRequest {
         account = account == null ? null : account.strip().toLowerCase(Locale.ROOT);
     }
 
+    /** Compatibility constructor for callers that do not use a login challenge. */
+    public LoginRequest(String account, String password) {
+        this(account, password, null, null);
+    }
+
     @Override
     public String toString() {
-        return "LoginRequest[account=<redacted>, password=<redacted>]";
+        return "LoginRequest[account=<redacted>, password=<redacted>, challenge=<redacted>]";
     }
 }
