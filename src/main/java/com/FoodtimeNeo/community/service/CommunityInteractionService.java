@@ -75,9 +75,10 @@ public class CommunityInteractionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CommunityPostResponse> myFavorites(@NotNull UUID userId, @NotNull PageRequest page) {
-        return PageResponse.of(posts.favorites(userId, page.size(), page.offset()),
-                posts.favoriteCount(userId), page);
+    public PageResponse<CommunityPostResponse> myFavorites(@NotNull UUID userId, UUID groupId,
+                                                           boolean unfiled, @NotNull PageRequest page) {
+        return PageResponse.of(posts.favorites(userId, groupId, unfiled, page.size(), page.offset()),
+                posts.favoriteCount(userId, groupId, unfiled), page);
     }
 
     @Transactional
