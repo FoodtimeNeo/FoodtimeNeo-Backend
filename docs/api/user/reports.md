@@ -141,6 +141,8 @@
 
 ## 决定关联的真实管理动作
 
+`GET /api/v1/admin/reports/decisions?page=1&size=20` 按决定时间倒序返回已处理决定，供管理端选择后执行动作。
+
 `POST /api/v1/admin/reports/{reportId}/actions`
 
 ```json
