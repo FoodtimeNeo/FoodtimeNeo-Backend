@@ -18,6 +18,7 @@
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |
 | 当前登录用户 | `GET /api/v1/auth/me` | [登录与会话](auth/login.md) |
 | 当前用户个人资料与头像 | `GET /api/v1/users/me/profile` | [个人资料](user/profile.md) |
+| 当前账号有效能力 | `GET /api/v1/users/me/capabilities` | [能力授权](user/capabilities.md) |
 | 修改当前用户昵称与头像 | `PUT /api/v1/users/me/profile` | [个人资料](user/profile.md) |
 | 按用户名搜索用户 | `GET /api/v1/users/search` | [搜索用户](user/user-search.md) |
 | 退出登录 | `POST /api/v1/auth/logout` | [登录与会话](auth/login.md) |
