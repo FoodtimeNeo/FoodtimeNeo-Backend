@@ -33,7 +33,8 @@
       "diningHallId": "3e96f06d-9f88-4b24-a9f5-0830359b629b",
       "name": "面食档口",
       "coverImageUrl": null,
-      "description": "提供面食"
+      "description": "提供面食",
+      "revision": 1
     }
   ],
   "timestamp": "2026-10-07T15:00:00Z",
@@ -48,6 +49,7 @@
 | `name` | 字符串 | 档口名称 |
 | `coverImageUrl` | 字符串或null | 封面图片地址或存储引用 |
 | `description` | 字符串或null | 档口简介 |
+| `revision` | 数字 | 目录资料版本；纠错提交时作为 `baseRevision` |
 
 未设置的可空字段返回null；不公开内部状态、排序值和数据库创建/更新时间。响应包含 `X-Request-Id`，不加载菜品列表或统计菜品数量。
 

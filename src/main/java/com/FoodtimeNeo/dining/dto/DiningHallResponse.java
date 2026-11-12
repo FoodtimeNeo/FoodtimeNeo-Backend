@@ -14,7 +14,8 @@ public record DiningHallResponse(
     @Schema(description = "纬度；未设置时为null", nullable = true) BigDecimal latitude,
     @Schema(description = "经度；未设置时为null", nullable = true) BigDecimal longitude,
     BigDecimal averageScore,
-    long reviewCount) {
+    long reviewCount,
+    @Schema(description = "目录资料版本；纠错提交时作为 baseRevision") long revision) {
   public DiningHallResponse(
       UUID id,
       String name,
@@ -22,7 +23,7 @@ public record DiningHallResponse(
       String description,
       BigDecimal latitude,
       BigDecimal longitude) {
-    this(id, name, coverImageUrl, description, latitude, longitude, null, 0);
+    this(id, name, coverImageUrl, description, latitude, longitude, null, 0, 0);
   }
 
   public static DiningHallResponse from(DiningHall hall) {
@@ -34,6 +35,7 @@ public record DiningHallResponse(
         hall.latitude(),
         hall.longitude(),
         hall.averageScore(),
-        hall.reviewCount());
+        hall.reviewCount(),
+        hall.revision());
   }
 }

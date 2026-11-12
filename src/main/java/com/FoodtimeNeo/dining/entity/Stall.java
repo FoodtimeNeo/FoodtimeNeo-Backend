@@ -12,7 +12,8 @@ public record Stall(
     String status,
     Integer sortOrder,
     java.math.BigDecimal averageScore,
-    long reviewCount) {
+    long reviewCount,
+    long revision) {
   public Stall(
       UUID diningHallId,
       UUID id,
@@ -21,6 +22,6 @@ public record Stall(
       String coverImageUrl,
       String status,
       Integer sortOrder) {
-    this(diningHallId, id, name, description, coverImageUrl, status, sortOrder, null, 0);
+    this(diningHallId, id, name, description, coverImageUrl, status, sortOrder, null, 0, 0);
   }
 }

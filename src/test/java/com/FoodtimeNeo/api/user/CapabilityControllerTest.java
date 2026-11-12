@@ -29,7 +29,7 @@ class CapabilityControllerTest {
         UserProfile actor = new UserProfile(UUID.randomUUID(), "admin@bjtu.edu.cn", "管理员",
                 "admin", "active", Instant.now());
         when(capabilities.snapshot(any())).thenReturn(
-                new CapabilitySnapshot(List.of("catalog.edit", "moderation.review"), "default-v1"));
+                new CapabilitySnapshot(List.of("catalog.edit", "correction.submit", "moderation.review"), "default-v2"));
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new CapabilityController(capabilities))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilters(new RequestIdFilter())
@@ -42,8 +42,9 @@ class CapabilityControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data.capabilities[0]").value("catalog.edit"))
-                .andExpect(jsonPath("$.data.capabilities[1]").value("moderation.review"))
-                .andExpect(jsonPath("$.data.revision").value("default-v1"))
+                .andExpect(jsonPath("$.data.capabilities[1]").value("correction.submit"))
+                .andExpect(jsonPath("$.data.capabilities[2]").value("moderation.review"))
+                .andExpect(jsonPath("$.data.revision").value("default-v2"))
                 .andExpect(jsonPath("$.requestId").value("capability-test"));
     }
 }

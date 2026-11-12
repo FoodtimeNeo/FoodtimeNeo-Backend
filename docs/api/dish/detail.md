@@ -8,7 +8,7 @@
 
 [数据库设计](../../database-design.md#dishes菜品表) 规定菜品名称、简介、价格及所属档口。所属食堂通过 `dishes.stall_id → stalls.dining_hall_id` 关联取得，不在菜品表新增食堂列。价格使用 `NUMERIC(10,2)` / `BigDecimal`，允许0；简介允许为null。
 
-接口返回 `id`、`stallId`、`stallName`、`diningHallId`、`diningHallName`、`name`、`description`、`price`。档口名和食堂名来自关联表。图片、评分、评论属于独立的数据结构，本基础详情接口不查询它们。
+接口返回 `id`、`stallId`、`stallName`、`diningHallId`、`diningHallName`、`name`、`description`、`price`、`revision`。档口名和食堂名来自关联表。`revision` 是目录资料版本，纠错提交时作为 `baseRevision`。图片、评分、评论属于独立的数据结构，本基础详情接口不查询它们。
 
 必须登录、公开字段选择及不可见资源返回404属于沿用现有接口的约定，不是数据库新增字段或约束。所有登录角色使用相同展示规则；单条SQL同时检查食堂、档口、菜品均为 `active`，查询参数无法覆盖状态过滤。每次请求重新查询。
 
@@ -25,7 +25,8 @@
   "diningHallName": "第一食堂",
   "name": "红烧肉",
   "description": null,
-  "price": 12.30
+  "price": 12.30,
+  "revision": 1
 }
 ```
 

@@ -14,9 +14,10 @@ public record DishDetailResponse(
         String diningHallName,
         String name,
         @Schema(description = "菜品简介，未设置时为null", nullable = true) String description,
-        @Schema(description = "非负菜品价格，最多两位小数", implementation = Number.class, type = "number", minimum = "0") BigDecimal price) {
+        @Schema(description = "非负菜品价格，最多两位小数", implementation = Number.class, type = "number", minimum = "0") BigDecimal price,
+        @Schema(description = "目录资料版本；纠错提交时作为 baseRevision") long revision) {
     public static DishDetailResponse from(DishDetail dish) {
         return new DishDetailResponse(dish.id(), dish.stallId(), dish.stallName(), dish.diningHallId(),
-                dish.diningHallName(), dish.name(), dish.description(), dish.price());
+                dish.diningHallName(), dish.name(), dish.description(), dish.price(), dish.revision());
     }
 }

@@ -20,9 +20,9 @@ class CapabilityIT extends IntegrationApiSupport {
     void adminAndSuperadminReceiveTheirCurrentDefaultCapabilities() throws Exception {
         var admin = login(account("admin"));
         var adminBody = body(admin.call("GET", "/api/v1/users/me/capabilities", null));
-        assertThat(names(adminBody)).containsExactly("catalog.edit", "moderation.review");
+        assertThat(names(adminBody)).containsExactly("catalog.edit", "correction.submit", "moderation.review");
         assertThat(names(adminBody)).doesNotContain("correction.review", "report.review", "report.reply", "appeal.review");
-        assertThat(adminBody.path("data").path("revision").asString()).isEqualTo("default-v1");
+        assertThat(adminBody.path("data").path("revision").asString()).isEqualTo("default-v2");
 
         var superadmin = login(account("superadmin"));
         var superBody = body(superadmin.call("GET", "/api/v1/users/me/capabilities", null));

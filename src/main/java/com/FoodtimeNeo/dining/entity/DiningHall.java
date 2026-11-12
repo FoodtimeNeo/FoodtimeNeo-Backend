@@ -14,7 +14,8 @@ public record DiningHall(
     String status,
     int sortOrder,
     BigDecimal averageScore,
-    long reviewCount) {
+    long reviewCount,
+    long revision) {
   public DiningHall(
       UUID id,
       String name,
@@ -24,6 +25,6 @@ public record DiningHall(
       BigDecimal longitude,
       String status,
       int sortOrder) {
-    this(id, name, coverImageUrl, description, latitude, longitude, status, sortOrder, null, 0);
+    this(id, name, coverImageUrl, description, latitude, longitude, status, sortOrder, null, 0, 0);
   }
 }

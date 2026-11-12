@@ -15,8 +15,8 @@
   "code": "OK",
   "message": "success",
   "data": {
-    "capabilities": ["catalog.edit", "moderation.review"],
-    "revision": "default-v1"
+    "capabilities": ["catalog.edit", "correction.submit", "moderation.review"],
+    "revision": "default-v2"
   },
   "timestamp": "2026-11-12T00:00:00Z",
   "requestId": "capability-example-1"
@@ -39,12 +39,13 @@
 | `user.manage` | 用户角色/状态管理 | `superadmin` |
 | `invitation.manage` | 邀请码发放与管理 | `superadmin` |
 | `ai.model.manage` | AI 模型热切换 | `superadmin` |
-| `correction.review` | 目录纠错审核（G2 预留） | `superadmin` |
+| `correction.submit` | 提交目录纠错提案 | `user`、`admin`、`superadmin` |
+| `correction.review` | 目录纠错审核 | `superadmin` |
 | `report.review` | 举报处理（G2 预留） | `superadmin` |
 | `report.reply` | 举报回复（G2 预留） | `superadmin` |
 | `appeal.review` | 申诉复核（G2 预留） | `superadmin` |
 
-普通管理员不因本接口获得纠错、举报或申诉能力；当前 `admin` 仍只有 `moderation.review` 与 `catalog.edit`。
+普通管理员可以提交纠错，但不获得纠错审核、举报或申诉能力；当前 `admin` 仅有 `moderation.review`、`catalog.edit` 与 `correction.submit`。
 
 ## 缓存与失效
 
