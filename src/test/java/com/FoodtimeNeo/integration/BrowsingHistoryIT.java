@@ -63,7 +63,7 @@ class BrowsingHistoryIT extends IntegrationApiSupport {
 
         var author = browser;
         var postBody = new HashMap<>(communityPost(author, "历史帖子"));
-        assertThat(author.call("POST", "/api/v1/community/posts", postBody).statusCode()).isEqualTo(201);
+        assertThat(author.call("POST", "/api/v1/community/posts", postBody).statusCode()).isEqualTo(202);
         String postId = body(author.call("GET", "/api/v1/users/me/community-posts?page=1&size=20", null))
                 .path("data").path("items").get(0).path("id").asString();
         // Pending posts are not recordable; approve with the same fixture's normal moderation path.

@@ -15,6 +15,7 @@ import java.util.UUID;
 public class BrowsingHistoryStore {
     private static final RowMapper<Item> ITEM = (rs, index) -> new Item(
             rs.getString("kind"), rs.getObject("target_id", UUID.class),
+            rs.getObject("dining_hall_id", UUID.class), rs.getObject("stall_id", UUID.class),
             instant(rs, "visited_at"), rs.getBoolean("available"),
             rs.getString("title"), rs.getString("subtitle"), rs.getString("image_url"));
     private final JdbcTemplate jdbc;
@@ -119,7 +120,7 @@ public class BrowsingHistoryStore {
 
     public List<Item> list(UUID user, HistoryKind kind, int size, long offset) {
         String sql = kind == HistoryKind.DISH ? """
-                SELECT h.kind, h.target_id, h.visited_at,
+                SELECT h.kind, h.target_id, dh.id AS dining_hall_id, s.id AS stall_id, h.visited_at,
                        (d.id IS NOT NULL AND s.id IS NOT NULL AND dh.id IS NOT NULL) AS available,
                        d.name AS title,
                        CASE WHEN d.id IS NOT NULL THEN concat_ws(' · ', dh.name, s.name) END AS subtitle,
@@ -134,7 +135,8 @@ public class BrowsingHistoryStore {
                 WHERE h.user_id = ? AND h.kind = ?
                 ORDER BY h.visited_at DESC, h.visit_seq DESC LIMIT ? OFFSET ?
                 """ : """
-                SELECT h.kind, h.target_id, h.visited_at, (p.id IS NOT NULL) AS available,
+                SELECT h.kind, h.target_id, NULL::uuid AS dining_hall_id, NULL::uuid AS stall_id,
+                       h.visited_at, (p.id IS NOT NULL) AS available,
                        p.title AS title,
                        CASE WHEN p.id IS NOT NULL THEN u.display_name END AS subtitle,
                        CASE WHEN p.id IS NOT NULL THEN (

@@ -14,6 +14,6 @@ public final class BrowsingHistoryDtos {
 
     public record RecordRequest(@NotNull Long epoch, @NotNull UUID visitEventId) {}
 
-    public record Item(String kind, UUID targetId, Instant visitedAt, boolean available,
-                       String title, String subtitle, String imageUrl) {}
+    public record Item(String kind, UUID targetId, UUID diningHallId, UUID stallId, Instant visitedAt,
+                       boolean available, String title, String subtitle, String imageUrl) {}
 }
