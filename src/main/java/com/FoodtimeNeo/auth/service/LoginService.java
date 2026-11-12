@@ -35,7 +35,8 @@ public class LoginService {
         try {
             LoginAccount account = users.findLoginAccount(request.account());
             boolean matched = passwords.matches(request.password(), account == null ? dummyHash : account.passwordHash());
-            if (account == null || !matched || !"active".equals(account.status())) {
+            if (account == null || !matched
+                    || !("active".equals(account.status()) || "disabled".equals(account.status()))) {
                 throw invalidCredentials();
             }
             if (users.recordSuccessfulLogin(account.id(), account.passwordHash()) != 1) {

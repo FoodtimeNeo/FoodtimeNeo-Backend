@@ -7,6 +7,8 @@ import com.FoodtimeNeo.auth.dto.LoginResponse;
 import com.FoodtimeNeo.auth.dto.UserResponse;
 import com.FoodtimeNeo.auth.security.DeviceIdentityService;
 import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
+import com.FoodtimeNeo.auth.security.SessionMode;
+import com.FoodtimeNeo.auth.security.SessionPrincipal;
 import com.FoodtimeNeo.auth.service.LoginAttemptPolicy;
 import com.FoodtimeNeo.auth.service.LoginRateLimiter;
 import com.FoodtimeNeo.auth.service.LoginService;
@@ -87,9 +89,10 @@ public class LoginController {
             return transactions.execute(status -> {
                 UserProfile user = logins.authenticate(login);
                 creatingSession[0] = true;
+                SessionMode mode = "active".equals(user.status()) ? SessionMode.NORMAL : SessionMode.APPEAL_ONLY;
                 // A failed session must roll back last_login_at, which records successful logins only.
-                return ApiResponse.success(new LoginResponse(UserResponse.from(user),
-                        sessions.establish(user, request, response)));
+                return ApiResponse.success(new LoginResponse(UserResponse.from(user, mode.wireName()),
+                        sessions.establish(user, request, response, mode), mode.wireName()));
             });
         } catch (RuntimeException exception) {
             if (creatingSession[0]) {
@@ -110,7 +113,11 @@ public class LoginController {
     @SecurityRequirement(name = "sessionCookie")
     @Operation(summary = "获取当前登录用户", description = "校验会话、账号状态和密码变更；未登录或已失效返回401")
     public ApiResponse<UserResponse> me(HttpServletRequest request) {
-        return ApiResponse.success(UserResponse.from((UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER)));
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        SessionMode mode = SecurityContextHolder.getContext().getAuthentication() != null
+                && SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof SessionPrincipal principal
+                ? principal.mode() : SessionMode.NORMAL;
+        return ApiResponse.success(UserResponse.from(user, mode.wireName()));
     }
 
     @PostMapping("/logout")

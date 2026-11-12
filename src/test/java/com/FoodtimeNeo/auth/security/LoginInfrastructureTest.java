@@ -21,7 +21,7 @@ class LoginInfrastructureTest {
         var redis = mock(StringRedisTemplate.class);
         when(redis.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                 .thenThrow(new RedisConnectionFailureException("private connection data"));
-        var limiter = new LoginRateLimiter(redis, new AuthProperties(Duration.ofDays(7), false,
+        var limiter = new LoginRateLimiter(redis, new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false,
                 Duration.ofMinutes(15), 10, 100, "test:auth"));
         assertThatThrownBy(() -> limiter.check("123@bjtu.edu.cn", "127.0.0.1"))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
