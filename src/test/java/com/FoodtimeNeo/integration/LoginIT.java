@@ -318,7 +318,11 @@ class LoginIT {
         assertThat(body.path("message").asString()).isEqualTo("账号或密码错误");
     }
 
-    private URI uri(String path) { return URI.create("http://127.0.0.1:" + port + "/api/v1/auth" + path); }
+    private URI uri(String path) {
+        String base = "http://127.0.0.1:" + port + "/api/v1";
+        String suffix = path.startsWith("/api/v1/") ? path.substring("/api/v1".length()) : "/auth" + path;
+        return URI.create(base + suffix);
+    }
     private String loginBody(String email, String password) { return json.writeValueAsString(Map.of("account", email, "password", password)); }
 
     private class Browser {
