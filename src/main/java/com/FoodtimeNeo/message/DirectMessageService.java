@@ -3,6 +3,8 @@ package com.FoodtimeNeo.message;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.notification.NotificationCategory;
+import com.FoodtimeNeo.notification.NotificationPublisher;
 import com.FoodtimeNeo.safety.SafetyStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,11 +26,14 @@ public class DirectMessageService {
     private final DirectMessageStore store;
     private final DirectMessageRateLimiter limiter;
     private final SafetyStore safety;
+    private final NotificationPublisher notifications;
 
-    public DirectMessageService(DirectMessageStore store, DirectMessageRateLimiter limiter, SafetyStore safety) {
+    public DirectMessageService(DirectMessageStore store, DirectMessageRateLimiter limiter, SafetyStore safety,
+            NotificationPublisher notifications) {
         this.store = store;
         this.limiter = limiter;
         this.safety = safety;
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -83,7 +88,8 @@ public class DirectMessageService {
         String content = request.content().strip();
         if (content.isEmpty()) throw bad("VALIDATION_ERROR", "消息不能为空");
         limiter.check(me, remoteAddress);
-        int inserted = store.insertMessage(UUID.randomUUID(), conversation.id(), me, content,
+        UUID messageId = UUID.randomUUID();
+        int inserted = store.insertMessage(messageId, conversation.id(), me, content,
                 request.clientRequestId());
         if (inserted == 0) {
             DirectMessageDtos.MessageResponse existing = store
@@ -97,6 +103,8 @@ public class DirectMessageService {
         }
         store.revive(conversation.id());
         store.touch(conversation.id());
+        notifications.publishEventOnly(NotificationCategory.MESSAGE, other, messageId,
+                "收到一条新私信", "你收到一条新私信，请到信箱查看。", "direct-message", messageId, null, null);
         return store.findByClientRequest(me, request.clientRequestId()).orElseThrow(DirectMessageService::notFound);
     }
 

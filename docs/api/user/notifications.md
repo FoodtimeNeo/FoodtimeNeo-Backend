@@ -76,3 +76,16 @@
 - `V51__notification_foundation.sql`：事件、偏好、交付表；`messages.event_id` 唯一索引。
 - `notification/NotificationPublisher`、`NotificationStore`、`NotificationService`、`api/user/NotificationController`。
 - 目录纠错审核已通过 publisher 发布 `correction` 事件，站内消息可见；其余六类在 W4 接入。
+
+## 已接入业务事件
+
+| 类别 | 来源 | 站内消息 |
+|---|---|---|
+| `interaction` | 社区帖子/评论点赞、评论回复 | 既有聚合消息；事件只补权威 eventId |
+| `message` | 一对一私信发送 | 私信会话本身；系统事件不复制正文 |
+| `feedback` | 管理员回复建议反馈 | 反馈回复记录；事件正文通用 |
+| `correction` | 目录纠错审核结论 | 站内消息 |
+| `report` | 举报决定、管理员举报追问回复 | 站内消息 |
+| `appeal` | 申诉复核结论 | 站内消息 |
+
+公告类事件仍由公告排期/资格模块在后续接入；当前客户端继续使用公告接口，不提前给未来或草稿公告创建事件。

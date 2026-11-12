@@ -1,5 +1,7 @@
 package com.FoodtimeNeo.community.service;
 
+import com.FoodtimeNeo.notification.NotificationCategory;
+import com.FoodtimeNeo.notification.NotificationPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +17,15 @@ public class CommunityNotificationService {
     private static final String INTERACTION_CATEGORIES =
             "'LIKE_POST','LIKE_COMMENT','COMMENT_POST','REPLY_COMMENT'";
     private final JdbcTemplate jdbc;
+    private final NotificationPublisher notifications;
 
-    public CommunityNotificationService(JdbcTemplate jdbc) {
+    public CommunityNotificationService(JdbcTemplate jdbc, NotificationPublisher notifications) {
         this.jdbc = jdbc;
+        this.notifications = notifications;
     }
 
     /** Recomputes the single like message for a post/comment after a like or unlike. */
-    public void likeChanged(UUID actor, String type, UUID targetId) {
+    public void likeChanged(UUID actor, String type, UUID targetId, boolean liked) {
         boolean post = "post".equals(type);
         Target target = post ? postTarget(targetId) : commentTarget(targetId);
         if (target == null || target.ownerId().equals(actor)) return;
@@ -69,6 +73,11 @@ public class CommunityNotificationService {
                   AND ref_id=? AND ref_comment_id IS NOT DISTINCT FROM ?
                 """, title, body, count, target.ownerId(), category,
                 target.postId(), commentId);
+        if (liked) {
+            notifications.publishEventOnly(NotificationCategory.INTERACTION, target.ownerId(),
+                    UUID.randomUUID(), title, "你的内容收到新的互动，请到社区查看。",
+                    "community-post", target.postId(), commentId, rootCommentId);
+        }
     }
 
     /** Called after a community comment is approved. */
@@ -96,6 +105,9 @@ public class CommunityNotificationService {
                 VALUES (?,?,?,?,?,'community-post',?,?,?,1,FALSE)
                 ON CONFLICT DO NOTHING
                 """, UUID.randomUUID(), recipient, title, body, category,
+                comment.postId(), commentId, rootCommentId);
+        notifications.publishEventOnly(NotificationCategory.INTERACTION, recipient, UUID.randomUUID(),
+                title, "你的内容收到新的互动，请到社区查看。", "community-post",
                 comment.postId(), commentId, rootCommentId);
     }
 

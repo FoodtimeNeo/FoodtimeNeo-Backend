@@ -25,6 +25,24 @@ public class NotificationPublisher {
                 refCommentId, refRootCommentId);
         notifications.insertInboxMessage(eventId, recipient, category, title, body, refType, refId,
                 refCommentId, refRootCommentId);
+        delivery(category, recipient, eventId, seq);
+    }
+
+    /**
+     * For business modules that already wrote their own inbox row (community aggregation,
+     * direct messages, feedback replies). Creates the authoritative event and Android delivery
+     * record without duplicating the station-inbox projection.
+     */
+    @Transactional
+    public void publishEventOnly(NotificationCategory category, UUID recipient, UUID eventId, String title,
+            String body, String refType, UUID refId, UUID refCommentId, UUID refRootCommentId) {
+        notifications.ensurePreferences(recipient);
+        long seq = notifications.insertEvent(eventId, recipient, category, title, body, refType, refId,
+                refCommentId, refRootCommentId);
+        delivery(category, recipient, eventId, seq);
+    }
+
+    private void delivery(NotificationCategory category, UUID recipient, UUID eventId, long seq) {
         if (notifications.deliveryEnabled(recipient, category, seq)) {
             notifications.insertDelivery(eventId);
         }

@@ -20,7 +20,8 @@ class DirectMessageServiceTest {
     private final DirectMessageStore store = mock(DirectMessageStore.class);
     private final DirectMessageRateLimiter limiter = mock(DirectMessageRateLimiter.class);
     private final DirectMessageService service = new DirectMessageService(store, limiter,
-            mock(com.FoodtimeNeo.safety.SafetyStore.class));
+            mock(com.FoodtimeNeo.safety.SafetyStore.class),
+            mock(com.FoodtimeNeo.notification.NotificationPublisher.class));
     private final UUID me = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private final UUID other = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private final UUID conversation = UUID.fromString("33333333-3333-4333-8333-333333333333");
