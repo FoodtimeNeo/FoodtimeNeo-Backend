@@ -52,6 +52,8 @@
     {
       "kind": "dish",
       "targetId": "cc77444e-...",
+      "diningHallId": "3e96f06d-...",
+      "stallId": "72e6eeb7-...",
       "visitedAt": "2026-11-12T08:00:00Z",
       "available": true,
       "title": "红烧肉",
@@ -65,7 +67,7 @@
 }
 ```
 
-目标下架、删除或帖子不可见时保留 `targetId`、`visitedAt`，返回 `available=false` 且 `title`／`subtitle`／`imageUrl` 为 null，不展示旧正文或旧图片；记录仍可删除。
+帖子项的 `diningHallId`／`stallId` 为 null。目标下架、删除或帖子不可见时保留 `targetId`、`visitedAt`，返回 `available=false` 且 `title`／`subtitle`／`imageUrl` 为 null，不展示旧正文或旧图片；记录仍可删除。
 
 ## 删除与清空
 

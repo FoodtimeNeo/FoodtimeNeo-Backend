@@ -89,7 +89,7 @@ public class BrowsingHistoryStore {
                 ON CONFLICT (user_id, kind, target_id) DO UPDATE
                 SET visited_at = now(), visit_seq = nextval('foodtime.browsing_history_seq'),
                     epoch = EXCLUDED.epoch, last_event_id = EXCLUDED.last_event_id
-                WHERE foodtime.browsing_history.last_event_id <> EXCLUDED.last_event_id
+                WHERE browsing_history.last_event_id <> EXCLUDED.last_event_id
                 """, user, kind.wireName(), target, epoch, eventId);
         jdbc.update("""
                 DELETE FROM foodtime.browsing_history h
