@@ -13,6 +13,8 @@ import com.FoodtimeNeo.correction.CatalogCorrectionDtos.Response;
 import com.FoodtimeNeo.correction.CatalogCorrectionStore.AdminRow;
 import com.FoodtimeNeo.correction.CatalogCorrectionStore.CorrectionRow;
 import com.FoodtimeNeo.media.service.ImageStorageService;
+import com.FoodtimeNeo.notification.NotificationCategory;
+import com.FoodtimeNeo.notification.NotificationPublisher;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -40,13 +42,15 @@ public class CatalogCorrectionService {
     private final CatalogCorrectionStore corrections;
     private final ImageStorageService images;
     private final CapabilityService capabilities;
+    private final NotificationPublisher notifications;
     private final Clock clock;
 
     public CatalogCorrectionService(CatalogCorrectionStore corrections, ImageStorageService images,
-            CapabilityService capabilities, Clock clock) {
+            CapabilityService capabilities, NotificationPublisher notifications, Clock clock) {
         this.corrections = corrections;
         this.images = images;
         this.capabilities = capabilities;
+        this.notifications = notifications;
         this.clock = clock;
     }
 
@@ -165,6 +169,11 @@ public class CatalogCorrectionService {
         corrections.insertEvent(UUID.randomUUID(), id, actor.id(), request.decision(), note, null,
                 row.originalName(), row.originalDescription(), row.originalPrice(),
                 row.proposedName(), row.proposedDescription(), row.proposedPrice());
+        boolean approved = "approved".equals(request.decision());
+        notifications.publish(NotificationCategory.CORRECTION, row.submitterId(), UUID.randomUUID(),
+                approved ? "目录纠错已通过" : "目录纠错未通过",
+                approved ? "你提交的目录纠错已通过并应用。" : "你提交的目录纠错未通过，请查看审核说明。",
+                "catalog-correction", id, null, null);
         return adminDetail(actor, id);
     }
 
