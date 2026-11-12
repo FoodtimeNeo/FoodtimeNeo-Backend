@@ -51,9 +51,12 @@ class UserAdminIT extends IntegrationApiSupport {
         assertThat(platform.call("PUT","/api/v1/admin/users/"+owner.id(),Map.of("role","user","status","disabled")).statusCode()).isEqualTo(200);
         assertThat(student.call("GET","/api/v1/users/me/profile",null).statusCode()).isEqualTo(401);
         Browser fresh = new Browser(); fresh.csrf();
-        assertThat(fresh.call("POST","/api/v1/auth/login",Map.of("account",owner.email(),"password",PASSWORD)).statusCode()).isEqualTo(401);
+        var restricted = fresh.call("POST","/api/v1/auth/login",Map.of("account",owner.email(),"password",PASSWORD));
+        assertThat(restricted.statusCode()).isEqualTo(200);
+        assertThat(json.readTree(restricted.body()).path("data").path("sessionMode").asString()).isEqualTo("appeal_only");
         assertThat(platform.call("PUT","/api/v1/admin/users/"+owner.id(),Map.of("role","user","status","active")).statusCode()).isEqualTo(200);
         assertThat(student.call("GET","/api/v1/users/me/profile",null).statusCode()).isEqualTo(401);
+        assertThat(fresh.call("GET","/api/v1/users/me/profile",null).statusCode()).isEqualTo(401);
         login(owner);
     }
 

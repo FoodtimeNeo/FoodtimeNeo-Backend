@@ -135,8 +135,10 @@ class LoginIT {
         assertThat(browser.send("GET", "/me", null, false).statusCode()).isEqualTo(200);
         assertThat(json.readTree(browser.send("GET", "/me", null, false).body()).path("data").path("sessionMode").asString())
                 .isEqualTo("appeal_only");
-        assertThat(browser.send("GET", "/api/v1/users/me/moderation-decisions", null, false).statusCode()).isEqualTo(200);
-        assertThat(browser.send("GET", "/api/v1/users/me/appeals", null, false).statusCode()).isEqualTo(200);
+        var restrictedDecisions = browser.send("GET", "/api/v1/users/me/moderation-decisions", null, false);
+        assertThat(restrictedDecisions.statusCode()).as(restrictedDecisions.body()).isEqualTo(200);
+        var restrictedAppeals = browser.send("GET", "/api/v1/users/me/appeals", null, false);
+        assertThat(restrictedAppeals.statusCode()).as(restrictedAppeals.body()).isEqualTo(200);
         assertThat(browser.send("GET", "/api/v1/users/me/profile", null, false).statusCode()).isEqualTo(403);
         assertThat(json.readTree(browser.send("GET", "/api/v1/users/me/profile", null, false).body()).path("code").asString())
                 .isEqualTo("RESTRICTED_SESSION");
