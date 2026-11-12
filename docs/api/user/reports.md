@@ -138,3 +138,18 @@
 - `POST /uploads/images` 和本人图片读取；媒体接口只允许本人上传的暂存图，不因历史管理员角色读取他人材料。
 
 其它普通、社区、私信、收藏、历史和全部管理 API 返回 403 `RESTRICTED_SESSION`。账号恢复为 active 后，旧受限会话失效，必须重新正常登录；密码变更、注销、退出、再次处罚/状态变化也会使会话失效。客户端应保存未提交的申诉表单，重新认证后恢复；新会话仍是 45 分钟，7 天申诉截止不因重新认证改变。
+
+## 决定关联的真实管理动作
+
+`POST /api/v1/admin/reports/{reportId}/actions`
+
+```json
+{ "actionType": "remove_post", "targetId": "可选，必须与决定目标一致", "note": "执行说明" }
+```
+
+- 仅超管默认具备 `report.review`；内容动作还要求 `moderation.review`，账号动作要求 `user.manage`。
+- 服务端校验动作目标确实属于该举报/决定：`remove_post`/`remove_comment` 只能指向原目标；`disable_user`/`restore_user` 只能指向被举报用户。
+- 成功后才写入 `report_actions` 并返回服务器动作 ID；客户端不能手填 actionId，也不能用行动失败伪造已执行。
+- 同一决定、动作和目标重复提交返回已有动作记录，不重复执行。
+- `GET /api/v1/admin/reports/{reportId}/actions` 和管理端详情可查看；决定接收方通过 `GET /api/v1/users/me/moderation-decisions/{decisionId}/actions` 查看实际动作。
+- 申诉成立后的恢复动作仍需管理员显式执行并选择 `restore_user`/内容恢复动作；复核结论本身不自动恢复。
