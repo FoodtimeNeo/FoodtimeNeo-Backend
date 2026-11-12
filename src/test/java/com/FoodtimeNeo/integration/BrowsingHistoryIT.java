@@ -61,7 +61,7 @@ class BrowsingHistoryIT extends IntegrationApiSupport {
         assertThat(body(stale).path("code").asString()).isEqualTo("HISTORY_EPOCH_STALE");
         assertThat(browser.call("PUT", BASE + "/dish/" + dish, recordBody(1)).statusCode()).isEqualTo(204);
 
-        var author = login(owner);
+        var author = browser;
         var postBody = new HashMap<>(communityPost(author, "历史帖子"));
         assertThat(author.call("POST", "/api/v1/community/posts", postBody).statusCode()).isEqualTo(201);
         String postId = body(author.call("GET", "/api/v1/users/me/community-posts?page=1&size=20", null))
