@@ -260,18 +260,48 @@ public class CommunityStore {
     }
     public long postFavoriteCount(UUID id){return jdbc.queryForObject("SELECT favorite_count FROM foodtime.community_posts WHERE id=?",Long.class,id);}
 
-    public List<CommunityPostResponse> favorites(UUID userId, int size, long offset) {
+    public List<CommunityPostResponse> favorites(UUID userId, UUID groupId, boolean unfiled, int size, long offset) {
+        String filter = groupFilter(groupId, unfiled);
+        List<Object> args = new ArrayList<>();
+        args.add(userId);
+        if (groupId != null) args.add(groupId);
+        args.add(userId);
+        args.add(userId);
+        args.add(size);
+        args.add(offset);
         return jdbc.query("SELECT " + POST_COLUMNS
                 + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = ? AND post_id = p.id) AS liked"
                 + ", TRUE AS favorited "
                 + POST_JOINS
                 + " WHERE EXISTS(SELECT 1 FROM foodtime.community_favorites f WHERE f.user_id = ? AND f.post_id = p.id)"
+                + filter
                 + " AND p.deleted_at IS NULL AND p.status = 'approved' ORDER BY (SELECT created_at FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) DESC,p.id DESC LIMIT ? OFFSET ?",
-                (r, n) -> row(r, userId), userId, userId, userId, size, offset);
+                (r, n) -> row(r, userId), args.toArray());
     }
 
-    public long favoriteCount(UUID userId) {
-        return jdbc.queryForObject("SELECT count(*) FROM foodtime.community_favorites f JOIN foodtime.community_posts p ON p.id=f.post_id WHERE f.user_id=? AND p.status='approved' AND p.deleted_at IS NULL",Long.class,userId);
+    public long favoriteCount(UUID userId, UUID groupId, boolean unfiled) {
+        String filter = groupFilter(groupId, unfiled);
+        List<Object> args = new ArrayList<>();
+        args.add(userId);
+        if (groupId != null) args.add(groupId);
+        return jdbc.queryForObject("SELECT count(*) FROM foodtime.community_favorites f JOIN foodtime.community_posts p ON p.id=f.post_id"
+                + filter + " WHERE f.user_id=? AND p.status='approved' AND p.deleted_at IS NULL", Long.class, args.toArray());
+    }
+
+    private static String groupFilter(UUID groupId, boolean unfiled) {
+        if (groupId != null) return """
+                AND EXISTS(
+                  SELECT 1 FROM foodtime.community_favorite_group_members m
+                  JOIN foodtime.favorite_groups g ON g.id=m.group_id
+                  WHERE m.group_id=? AND m.owner_id=f.user_id AND m.post_id=f.post_id
+                    AND g.owner_id=f.user_id AND g.kind='post')
+                """;
+        if (unfiled) return """
+                AND NOT EXISTS(
+                  SELECT 1 FROM foodtime.community_favorite_group_members m
+                  WHERE m.owner_id=f.user_id AND m.post_id=f.post_id)
+                """;
+        return "";
     }
 
     public UUID lock(UUID id) {
