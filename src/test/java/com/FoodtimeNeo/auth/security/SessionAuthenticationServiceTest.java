@@ -22,7 +22,7 @@ class SessionAuthenticationServiceTest {
     private final UserProfile user = new UserProfile(UUID.randomUUID(), "123@bjtu.edu.cn", "干饭人123456", "user",
             "active", now.minusSeconds(100));
     private final SessionAuthenticationService sessions = new SessionAuthenticationService(users,
-            new HttpSessionSecurityContextRepository(), new AuthProperties(Duration.ofDays(7), false,
+            new HttpSessionSecurityContextRepository(), new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false,
             Duration.ofMinutes(15), 10, 100, "test:auth"), Clock.fixed(now, ZoneOffset.UTC));
 
     @AfterEach

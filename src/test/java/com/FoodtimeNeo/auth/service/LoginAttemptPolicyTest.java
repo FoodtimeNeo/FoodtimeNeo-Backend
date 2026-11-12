@@ -25,7 +25,7 @@ class LoginAttemptPolicyTest {
     private static final Instant NOW = Instant.parse("2026-11-12T00:00:00Z");
 
     private static AuthProperties auth() {
-        return new AuthProperties(Duration.ofDays(7), false, Duration.ofMinutes(15), 10, 1000, "test:auth");
+        return new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false, Duration.ofMinutes(15), 10, 1000, "test:auth");
     }
 
     private static CaptchaProperties captcha(boolean enabled) {

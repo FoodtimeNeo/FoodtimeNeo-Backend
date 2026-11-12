@@ -49,7 +49,12 @@ public class ImageStorageController {
         if (!size.equals("full") && !size.equals("thumb")) {
             throw new BusinessException("VALIDATION_ERROR", "size只能为full或thumb", HttpStatus.BAD_REQUEST);
         }
-        var image = images.inspect(imageId, current(request));
+        UserProfile viewer = current(request);
+        if (Boolean.TRUE.equals(request.getAttribute("com.FoodtimeNeo.auth.security.AppealOnlyPolicy.restricted"))
+                && !images.isOwner(imageId, viewer.id())) {
+            throw new BusinessException("MEDIA_NOT_FOUND", "图片不存在", HttpStatus.NOT_FOUND);
+        }
+        var image = images.inspect(imageId, viewer);
         CacheControl cache = switch (image.policy()) {
             case PUBLIC_IMMUTABLE -> CacheControl.maxAge(365, java.util.concurrent.TimeUnit.DAYS).cachePublic().immutable();
             case PRIVATE_COMMUNITY -> CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePrivate().mustRevalidate();

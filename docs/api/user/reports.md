@@ -124,3 +124,17 @@
 ## 证据访问
 
 举报追问与申诉证据写入 `report_evidence`，只有上传者本人和具备 `report.review`／`appeal.review` 的审核者能通过媒体接口读取；普通管理员不能借管理身份读取他人申诉证据。暂存清理会保留被追问／申诉引用的图片。
+
+## 停用账号的受限申诉会话
+
+停用账号使用原邮箱和密码登录时仍返回 200，但 `LoginResponse.sessionMode` 为 `appeal_only`，`expiresAt` 从**密码校验成功并建立受限会话的时刻**起算 **45 分钟绝对到期**，不滑动、不续期。正常账号为 `session_mode=normal`。
+
+受限会话精确白名单：
+
+- `GET /auth/csrf`、`GET /auth/me`、`GET /auth/captcha`、`POST /auth/login`、`POST /auth/logout`；
+- `GET /users/me/moderation-decisions`、`/{id}`；
+- `GET /users/me/appeals`、`/{id}`；
+- `POST /users/me/moderation-decisions/{id}/appeals`；
+- `POST /uploads/images` 和本人图片读取；媒体接口只允许本人上传的暂存图，不因历史管理员角色读取他人材料。
+
+其它普通、社区、私信、收藏、历史和全部管理 API 返回 403 `RESTRICTED_SESSION`。账号恢复为 active 后，旧受限会话失效，必须重新正常登录；密码变更、注销、退出、再次处罚/状态变化也会使会话失效。客户端应保存未提交的申诉表单，重新认证后恢复；新会话仍是 45 分钟，7 天申诉截止不因重新认证改变。

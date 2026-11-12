@@ -60,7 +60,7 @@ class LoginRollbackIT {
             HttpServletRequest request = invocation.getArgument(1);
             request.getSession(true).setAttribute("partial-login", true);
             throw new RedisConnectionFailureException("simulated session write failure");
-        }).when(authentication).establish(any(), any(), any());
+        }).when(authentication).establish(any(), any(), any(), any());
     }
 
     @AfterEach

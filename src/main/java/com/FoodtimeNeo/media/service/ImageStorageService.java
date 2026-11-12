@@ -113,6 +113,14 @@ public class ImageStorageService {
         } catch (IOException failure) { throw missing(); }
     }
 
+    public boolean isOwner(UUID imageId, UUID userId) {
+        try {
+            return userId.toString().equals(metadata(imageId).getProperty("owner"));
+        } catch (RuntimeException missing) {
+            return false;
+        }
+    }
+
     public void requireOwnedReference(String reference, UUID userId) {
         try {
             if (reference == null || !reference.startsWith("/api/v1/media/")) throw bad("请先上传图片");

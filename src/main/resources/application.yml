@@ -200,6 +200,7 @@ app:
       cache-namespace: ${EMAIL_MAILBOX_VERIFY_CACHE_NAMESPACE:foodtime:auth:mailbox}
   auth:
     session-ttl: ${AUTH_SESSION_TTL:P7D}
+    appeal-session-ttl: ${AUTH_APPEAL_SESSION_TTL:PT45M}
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     login-window: ${AUTH_LOGIN_WINDOW:PT15M}
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}

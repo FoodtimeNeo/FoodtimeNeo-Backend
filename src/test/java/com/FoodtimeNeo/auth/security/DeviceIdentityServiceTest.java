@@ -11,7 +11,7 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DeviceIdentityServiceTest {
-    private final AuthProperties auth = new AuthProperties(Duration.ofDays(7), false,
+    private final AuthProperties auth = new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false,
             Duration.ofMinutes(15), 10, 1000, "test:login");
     private final DeviceIdentityService service = new DeviceIdentityService(auth,
             "test-device-secret-at-least-32-characters", "foodtime_device", Duration.ofDays(365));
@@ -56,7 +56,7 @@ class DeviceIdentityServiceTest {
 
     @Test
     void secureFlagFollowsAuthCookieConfiguration() {
-        var secureAuth = new AuthProperties(Duration.ofDays(7), true,
+        var secureAuth = new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), true,
                 Duration.ofMinutes(15), 10, 1000, "test:login");
         var secureService = new DeviceIdentityService(secureAuth,
                 "test-device-secret-at-least-32-characters", "foodtime_device", Duration.ofDays(365));
