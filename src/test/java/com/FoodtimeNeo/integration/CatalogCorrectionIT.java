@@ -88,8 +88,10 @@ class CatalogCorrectionIT extends IntegrationApiSupport {
     void directEditMakesApprovalConflictAndRejectionStillWorks() throws Exception {
         var author = login(owner);
         long base = revision(author);
-        String id = body(author.call("POST", BASE, proposal("旧提案", UUID.randomUUID().toString(), base, List.of())))
-                .path("data").path("id").asString();
+        var submitted = author.call("POST", BASE,
+                proposal("旧提案", UUID.randomUUID().toString(), base, List.of()));
+        assertThat(submitted.statusCode()).isEqualTo(201);
+        String id = body(submitted).path("data").path("id").asString();
 
         var admin = login(account("admin"));
         assertThat(admin.call("PUT", "/api/v1/admin/catalog/dishes/" + dish,
