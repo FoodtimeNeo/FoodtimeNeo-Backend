@@ -101,6 +101,25 @@ public class ReportDecisionStore {
                 id, reporter).stream().findFirst().orElse(null);
     }
 
+    public java.util.List<ReportDecisionDtos.AdminDecision> adminDecisions(int size, long offset) {
+        return jdbc.query("""
+                SELECT d.id AS decision_id, d.report_id, d.outcome, d.public_reason, d.created_at,
+                       r.target_type, r.target_id, r.target_user_id
+                FROM foodtime.report_decisions d
+                JOIN foodtime.content_reports r ON r.id = d.report_id
+                ORDER BY d.created_at DESC, d.id DESC LIMIT ? OFFSET ?
+                """, (rs, index) -> new ReportDecisionDtos.AdminDecision(
+                rs.getObject("decision_id", UUID.class), rs.getObject("report_id", UUID.class),
+                rs.getString("outcome"), rs.getString("public_reason"), rs.getString("target_type"),
+                rs.getObject("target_id", UUID.class), rs.getObject("target_user_id", UUID.class),
+                instant(rs, "created_at")), size, offset);
+    }
+
+    public long adminDecisionCount() {
+        Long value = jdbc.queryForObject("SELECT count(*) FROM foodtime.report_decisions", Long.class);
+        return value == null ? 0 : value;
+    }
+
     public java.util.List<MyDecision> myDecisions(UUID user, int size, long offset) {
         return jdbc.query("""
                 SELECT d.id AS decision_id, d.report_id, rec.side, r.target_type, d.outcome,

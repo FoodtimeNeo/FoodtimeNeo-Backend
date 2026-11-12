@@ -49,6 +49,14 @@ public class ReportsAdminController {
         return ApiResponse.success(decisions.decide(user, id, body));
     }
 
+    @GetMapping("/decisions")
+    public ApiResponse<PageResponse<ReportDecisionDtos.AdminDecision>> decisions(
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest request) {
+        UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        return ApiResponse.success(decisions.adminDecisions(user, new PageRequest(page, size)));
+    }
+
     @GetMapping("/{id}/follow-ups")
     public ApiResponse<PageResponse<ReportInteractionDtos.FollowUp>> followUps(@PathVariable UUID id,
             @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size,
