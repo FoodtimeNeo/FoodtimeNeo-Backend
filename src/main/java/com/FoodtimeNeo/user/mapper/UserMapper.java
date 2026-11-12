@@ -80,7 +80,7 @@ public interface UserMapper {
     /** Detect concurrent password changes or disablement before granting a session. */
     @Update("""
             UPDATE foodtime.users SET last_login_at = statement_timestamp()
-            WHERE id = #{id,jdbcType=OTHER} AND status = 'active' AND password_hash = #{passwordHash}
+            WHERE id = #{id,jdbcType=OTHER} AND status IN ('active', 'disabled') AND password_hash = #{passwordHash}
             """)
     int recordSuccessfulLogin(@Param("id") UUID id, @Param("passwordHash") String passwordHash);
 }
