@@ -21,6 +21,14 @@ class CommunityPostEditAiIT extends IntegrationApiSupport {
     @DynamicPropertySource static void enableAi(DynamicPropertyRegistry properties){properties.add("app.ai.triage.enabled",()->"true");}
     @MockitoSpyBean FakeAiProvider provider;
     @MockitoSpyBean ModerationService moderation;
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("aiTriageExecutor")
+    java.util.concurrent.Executor executor;
+    private void awaitTasksComplete()throws InterruptedException {
+        var pool=((org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor)executor).getThreadPoolExecutor();
+        for(int i=0;i<250&&(pool.getActiveCount()>0||!pool.getQueue().isEmpty());i++)Thread.sleep(20);
+        assertThat(pool.getActiveCount()).isZero();assertThat(pool.getQueue()).isEmpty();
+    }
     @Test void oldNetworkDiagnosisCannotApproveAnEditedPostOrBlockItsSubmission()throws Exception{
         var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
         var low=new AiVerdict("LOW",0.99,List.of(),"旧正文通过","fake");
@@ -40,9 +48,11 @@ class CommunityPostEditAiIT extends IntegrationApiSupport {
             }
             verify(moderation,timeout(5000)).recordPostVerdict(eq(id),eq(2L),any());
             release.countDown();verify(moderation,timeout(5000)).recordPostVerdict(eq(id),eq(1L),any());
+            // Mockito observes invocation before the transactional proxy commits; wait for both workers.
+            awaitTasksComplete();
             assertThat(jdbc.queryForObject("SELECT status FROM foodtime.community_posts WHERE id=?",String.class,id)).isEqualTo("pending");
             assertThat(jdbc.queryForObject("SELECT content_revision FROM foodtime.community_posts WHERE id=?",Long.class,id)).isEqualTo(2);
             assertThat(jdbc.queryForObject("SELECT reason FROM foodtime.ai_moderation_results WHERE submission_type='community-post' AND submission_id=?",String.class,id)).isEqualTo("新正文须人工核验");
-        }finally{release.countDown();}
+        }finally{release.countDown();awaitTasksComplete();}
     }
 }
