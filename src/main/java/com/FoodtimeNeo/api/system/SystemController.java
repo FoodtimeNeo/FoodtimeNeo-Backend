@@ -27,8 +27,10 @@ public class SystemController {
     @GetMapping("/app-release")
     @Operation(summary = "Android 更新检查", description = "versionCode 为 0 表示未配置，客户端视为无需更新")
     public ApiResponse<AppReleaseResponse> appRelease() {
+        boolean testing=release.testing();
+        String notes=testing&&!release.notes().contains("测试版")?"测试版，可选择稍后更新。\n"+release.notes():release.notes();
         return ApiResponse.success(new AppReleaseResponse(release.versionCode(), release.versionName(),
-                release.apkUrl(), release.notes(), release.minVersionCode()));
+                release.apkUrl(), notes, testing?0:release.minVersionCode()));
     }
 
     public record PingResult(String service, String status) { }
