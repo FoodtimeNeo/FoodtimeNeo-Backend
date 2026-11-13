@@ -6,7 +6,7 @@ import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.config.properties.AuthProperties;
 import com.FoodtimeNeo.config.properties.EmailVerificationProperties;
 import com.FoodtimeNeo.user.entity.UserProfile;
-import com.FoodtimeNeo.user.mapper.ProfileMapper;
+import com.FoodtimeNeo.user.service.ProfileService;
 import org.slf4j.*;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,11 +29,11 @@ import static com.FoodtimeNeo.user.lifecycle.AccountLifecycleDtos.*;
 public class AccountLifecycleService {
     private static final Logger LOG=LoggerFactory.getLogger(AccountLifecycleService.class);
     private static final ZoneOffset ZONE=ZoneOffset.ofHours(8);
-    private final AccountLifecycleStore store;private final EmailCooldowns cooldowns;private final ProfileMapper profiles;
+    private final AccountLifecycleStore store;private final EmailCooldowns cooldowns;private final ProfileService profiles;
     private final EmailVerificationProperties email;private final AuthProperties auth;private final ObjectProvider<JavaMailSender> mail;
     private final PasswordEncoder passwords;private final Clock clock;private final StringRedisTemplate redis;private final TransactionTemplate tx;
     private final SecureRandom random=new SecureRandom();
-    public AccountLifecycleService(AccountLifecycleStore store,EmailCooldowns cooldowns,ProfileMapper profiles,
+    public AccountLifecycleService(AccountLifecycleStore store,EmailCooldowns cooldowns,ProfileService profiles,
             EmailVerificationProperties email,AuthProperties auth,ObjectProvider<JavaMailSender> mail,PasswordEncoder passwords,
             Clock clock,StringRedisTemplate redis,PlatformTransactionManager manager){
         this.store=store;this.cooldowns=cooldowns;this.profiles=profiles;this.email=email;this.auth=auth;this.mail=mail;
@@ -69,7 +69,7 @@ public class AccountLifecycleService {
             var message=new SimpleMailMessage();message.setFrom(email.from());message.setTo(user.target());
             message.setSubject(purpose.equals("delete")?"FoodtimeNeo 账号注销验证码":"FoodtimeNeo 学校邮箱解绑验证码");
             message.setText((purpose.equals("delete")?"您的账号注销":"您的学校邮箱解绑")+"验证码："+code+"\n验证码15分钟有效，请勿向他人透露。\n"+
-                (purpose.equals("delete")?"注销立即生效、不可撤销，新账号不继承旧数据；邮箱冷却1小时后可重新注册。注销验证码每天只能发送一次。":"解绑后账号保留并恢复访客身份，学校邮箱冷却1小时后可重新绑定。")+"\n如非本人操作，请勿提交验证码。");
+                (purpose.equals("delete")?"注销立即生效、不可撤销，新账号不继承旧数据；邮箱冷却1小时后可重新注册。注销验证码每天只能发送一次。":"解绑后账号保留，学校邮箱认证移除，可用功能按平台当前权限策略执行；学校邮箱冷却1小时后可重新绑定。")+"\n如非本人操作，请勿提交验证码。");
             sender.send(message);delivered=true;
             Instant sentAt=clock.instant();
             boolean published=Boolean.TRUE.equals(tx.execute(status->{store.lockActor(actor.id());return store.publish(actor.id(),purpose,nonce,day(sentAt));}));

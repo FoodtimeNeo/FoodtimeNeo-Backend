@@ -147,6 +147,9 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  participation:
+    # false: all registered members have ordinary-user access; true: restore school-mail gating.
+    school-email-required: ${PARTICIPATION_SCHOOL_EMAIL_REQUIRED:false}
   # Tomcat's max-http-form-post-size only guards form posts; JSON bodies need their own cap.
   request:
     max-json-bytes: ${REQUEST_MAX_JSON_BYTES:1048576}
