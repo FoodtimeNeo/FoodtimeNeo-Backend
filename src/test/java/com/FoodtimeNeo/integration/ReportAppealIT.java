@@ -1,6 +1,9 @@
 package com.FoodtimeNeo.integration;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.time.Clock;
+import java.sql.Timestamp;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.HashMap;
@@ -11,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ReportAppealIT extends IntegrationApiSupport {
+    @Autowired private Clock clock;
     private static final String REPORTS = "/api/v1/users/me/reports";
     private static final String APPEALS = "/api/v1/users/me/appeals";
 
@@ -154,9 +158,10 @@ class ReportAppealIT extends IntegrationApiSupport {
         String decisionId = decide(superadmin, reportId);
         jdbc.update("""
                 UPDATE foodtime.report_decision_recipients
-                SET delivered_at = now() - interval '8 days', appeal_deadline = now() - interval '1 second'
+                SET delivered_at = ?, appeal_deadline = ?
                 WHERE decision_id = ? AND user_id = ?
-                """, UUID.fromString(decisionId), other.id());
+                """, Timestamp.from(clock.instant().minusSeconds(8 * 86400)),
+                Timestamp.from(clock.instant().minusSeconds(60)), UUID.fromString(decisionId), other.id());
         var response = target.call("POST", "/api/v1/users/me/moderation-decisions/" + decisionId + "/appeals",
                 Map.of("content", "已过期申诉", "evidenceUrls", java.util.List.of(),
                         "clientRequestId", UUID.randomUUID().toString()));
