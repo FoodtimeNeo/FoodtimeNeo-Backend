@@ -276,4 +276,16 @@ class DailyRecommendationIT extends ReadApiITSupport {
         var serviceAtBoundary = new DailyRecommendationService(store, cache, config, generator, boundary, transactions);
         assertThat(serviceAtBoundary.currentDate()).isEqualTo(LocalDate.of(2026, 11, 3));
     }
+    @Test void explicitScheduledJobGeneratesOneCompleteCurrentDateSnapshot() {
+        catalogue(30);
+        var date=service.currentDate();dates.add(date);
+        var job=new DailyRecommendationScheduler(service);
+        job.generate();
+        var first=store.findSuccessfulBatch(date);
+        assertThat(first).isNotNull();
+        assertThat(store.findVisibleItems(first.id())).hasSize(10);
+        job.generate();
+        assertThat(store.findSuccessfulBatch(date).id()).isEqualTo(first.id());
+        assertThat(service.today().items()).hasSize(10);
+    }
 }

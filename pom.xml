@@ -166,6 +166,10 @@
             <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
               <argLine>${test.jvm.args}</argLine>
+              <systemPropertyVariables>
+                <!-- Cached test contexts share a disposable database; tests invoke jobs explicitly. -->
+                <app.recommendation.daily.scheduling-enabled>false</app.recommendation.daily.scheduling-enabled>
+              </systemPropertyVariables>
             </configuration>
             <executions>
               <execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution>
