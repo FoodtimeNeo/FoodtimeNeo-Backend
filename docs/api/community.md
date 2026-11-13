@@ -10,7 +10,7 @@
 | `POST /api/v1/community/posts` | 发布动态，body 为 `{content:"1到2000字",imageUrls:["/api/v1/media/{id}"，最多9张本人已上传],repostOfId:可选}`；202 受理，pending 待审 |
 | `GET /api/v1/community/feed?page=1&size=20` | 仅已通过，最新发布在前；附点赞/评论/转发数、是否已赞/已藏、转发原帖摘要 |
 | `GET /api/v1/community/posts/{id}` | 详情；pending 仅本人可见 |
-| `DELETE /api/v1/community/posts/{id}` | 只能删除本人动态；连带配图、评论、赞、藏一起删除，审核记录保留 |
+| `DELETE /api/v1/community/posts/{id}` | 本人可软删除动态，隐藏公开入口并取消置顶，原记录与审核证据保留 |
 | `GET /api/v1/users/me/community-posts?page=1&size=20` | 我的动态，含 pending/approved/rejected，附 AI 结论与驳回原因 |
 | `GET /api/v1/admin/community/posts?status=pending&page=1&size=20` | 社区审核队列，含 AI 分诊结论 |
 | `POST /api/v1/admin/community/posts/{id}` | body 为 `{action:"approve或reject",reason:"驳回必填"}`；通过后转发数+1（转发的原帖） |
@@ -25,3 +25,5 @@
 | `POST /api/v1/community/posts/{postId}/reposts` | body 为 `{content:"1到2000字转发语"}`；原动态须已通过；转发本身作为新动态走审核，通过后原帖转发数+1 |
 
 点赞/收藏/转发走社区动作限流（默认每用户每分钟 100 次、每 IP 1000 次），与投稿限流独立计数。
+
+作者修改及审核版本契约见 [edits.md](community/edits.md)，置顶契约见 [pins.md](community/pins.md)。

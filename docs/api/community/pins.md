@@ -10,7 +10,7 @@
 | `DELETE /api/v1/admin/community/pins/{id}?expectedRevision=...` | 取消置顶，剩余序号压紧 |
 | `PUT /api/v1/admin/community/pins/order` | JSON `{expectedRevision,postIds}`，完整、不重复的当前清单顺序 |
 
-快照 `{revision,items,canManage}`；条目包含 `id/title/userDisplayName/status/position`，不包含正文、图片或私密审核材料。最多 3 条包含隐藏名额；待审核或被拒不公开，审核通过后恢复原顺序。删除或下架在同一事务取消置顶并释放名额；不能通过恢复旧记录偷偷恢复置顶。该迁移只准备状态联动，作者编辑入口由后续独立功能交付。
+快照 `{revision,items,canManage}`；条目包含 `id/title/userDisplayName/status/position`，不包含正文、图片或私密审核材料。最多 3 条包含隐藏名额；待审核或被拒不公开，审核通过后恢复原顺序。删除或下架在同一事务取消置顶并释放名额；不能通过恢复旧记录偷偷恢复置顶。作者编辑经独立[修改契约](edits.md)进入版本化审核，不由置顶接口修改正文。
 
 发现游标流 `GET /api/v1/community/feed/cursor` 新增可空 `pins` 快照。只有无关键词、非关注的发现流提供快照，同时从普通 `items/total` 排除置顶。关注、关键词搜索、作者页、收藏及我的食记保持原规则；原偏移分页 `/community/feed` 保留原契约。
 

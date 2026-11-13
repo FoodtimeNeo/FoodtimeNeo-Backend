@@ -112,7 +112,7 @@ public class ModerationStore {
     /** Community posts live outside the catalog union; lock builds the same item shape. */
     public ModerationItem lockCommunityPost(UUID id) {
         var rows = jdbc.query("""
-                SELECT p.id, p.user_id, p.content, p.status, p.review_reason, p.created_at,
+                SELECT p.id, p.content_revision, p.title, p.user_id, p.content, p.status, p.review_reason, p.created_at,
                 u.display_name AS user_display_name, u.email AS user_email,
                 (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
@@ -121,10 +121,10 @@ public class ModerationStore {
                 LEFT JOIN foodtime.ai_moderation_results a ON a.submission_type = 'community-post' AND a.submission_id = p.id
                 WHERE p.id = ? AND p.deleted_at IS NULL FOR UPDATE OF p
                 """, (r, n) -> new ModerationItem(r.getObject("id", UUID.class), "community-post", r.getObject("id", UUID.class),
-                r.getObject("user_id", UUID.class), r.getString("user_display_name"), null, r.getString("content"), null,
+                r.getObject("user_id", UUID.class), r.getString("user_display_name"), r.getString("title"), r.getString("content"), null,
                 r.getString("image_url"), null, r.getString("status"), r.getString("review_reason"),
                 r.getTimestamp("created_at").toInstant(), r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
-                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at"),r.getString("user_email")), id);
+                readLabels(r), r.getString("ai_reason"), readInstant(r, "ai_checked_at"),r.getString("user_email"),r.getLong("content_revision")), id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -208,10 +208,11 @@ public class ModerationStore {
                        CASE WHEN l.review_submission_id IS NOT NULL THEN 'review' WHEN l.dish_submission_id IS NOT NULL THEN 'dish' WHEN l.stall_submission_id IS NOT NULL THEN 'stall' WHEN l.dish_image_id IS NOT NULL THEN 'photo' WHEN l.community_post_id IS NOT NULL THEN 'community-post' WHEN l.community_comment_id IS NOT NULL THEN 'community-comment' WHEN l.dish_review_reply_id IS NOT NULL THEN 'dish-review-reply' WHEN l.venue_review_submission_id IS NOT NULL THEN CASE WHEN vt.stall_id IS NULL THEN 'hall-review' ELSE 'stall-review' END ELSE CASE WHEN vt.stall_id IS NULL THEN 'hall-review-reply' ELSE 'stall-review-reply' END END AS type,
                        l.moderator_user_id,l.actor,l.ai_model,l.action,l.reason,l.created_at,
                        u.id AS user_id,u.email AS user_email,u.display_name AS user_display_name,
-                       COALESCE(ds.name,ss.name,p.title,d.name,vst.name,vh.name) AS name,
-                       COALESCE(rs.content,ds.description,ss.description,p.content,c.content,rr.content,vs.content,vc.content) AS content,
+                       COALESCE(ds.name,ss.name,l.post_content_snapshot->'post'->>'title',p.title,d.name,vst.name,vh.name) AS name,
+                       COALESCE(rs.content,ds.description,ss.description,l.post_content_snapshot->'post'->>'content',p.content,c.content,rr.content,vs.content,vc.content) AS content,
                        COALESCE(ds.image_url,ss.cover_image_url,i.image_url,
-                           (SELECT image_url FROM foodtime.community_post_images WHERE post_id=p.id ORDER BY sort_order,id LIMIT 1)) AS image_url,
+                           CASE WHEN l.post_content_snapshot IS NOT NULL THEN l.post_content_snapshot->'images'->0->>'image_url'
+                           ELSE (SELECT image_url FROM foodtime.community_post_images WHERE post_id=p.id ORDER BY sort_order,id LIMIT 1) END) AS image_url,
                        COALESCE(rs.submitted_at,ds.created_at,ss.created_at,i.created_at,p.created_at,c.created_at,rr.created_at,vs.submitted_at,vc.created_at) AS submitted_at
                 FROM foodtime.content_moderation_logs l
                 LEFT JOIN foodtime.dish_review_submissions rs ON rs.id=l.review_submission_id

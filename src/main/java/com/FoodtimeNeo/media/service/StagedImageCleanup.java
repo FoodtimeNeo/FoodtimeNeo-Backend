@@ -104,11 +104,12 @@ public class StagedImageCleanup {
                     UNION ALL SELECT 1 FROM foodtime.dining_halls WHERE cover_image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.users WHERE avatar_url = ?
                     UNION ALL SELECT 1 FROM foodtime.community_post_images WHERE image_url = ?
+                    UNION ALL SELECT 1 FROM foodtime.community_post_versions WHERE payload->'images' @> jsonb_build_array(jsonb_build_object('image_url',?::text))
                     UNION ALL SELECT 1 FROM foodtime.catalog_correction_evidence WHERE image_url = ?
                     UNION ALL SELECT 1 FROM foodtime.report_evidence WHERE image_url = ?
                 )
                 """, Boolean.class, reference, reference, reference, reference, reference, reference,
-                reference, reference));
+                reference, reference, reference));
     }
 
     private boolean delete(String id) {

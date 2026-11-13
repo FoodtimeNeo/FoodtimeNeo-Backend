@@ -62,6 +62,11 @@ public class ModerationService {
         if (!Set.of("review","dish","stall","photo","community-post","community-comment","dish-review-reply").contains(type)) throw bad("审核类型不合法");
         ModerationItem item = store.lock(type,id);
         if (item == null) throw new BusinessException("SUBMISSION_NOT_FOUND", "提交不存在", HttpStatus.NOT_FOUND);
+        if(type.equals("community-post")) {
+            long current=community.contentRevision(id);
+            if((request.contentRevision()==null&&current>1)||(request.contentRevision()!=null&&request.contentRevision()!=current))
+                throw new BusinessException("POST_REVIEW_CONFLICT","帖子内容已变化，请重新读取后审核",HttpStatus.CONFLICT);
+        }
         if (!item.status().equals("pending")) throw new BusinessException("ALREADY_REVIEWED", "此提交已审核", HttpStatus.CONFLICT);
         String reason = request.reason() == null ? null : request.reason().strip();
         if (request.action().equals("reject") && (reason == null || reason.isBlank())) throw bad("请填写驳回原因");
@@ -95,6 +100,28 @@ public class ModerationService {
         return "HIGH".equals(verdict.riskLevel())&&Double.isFinite(verdict.confidence())
                 &&verdict.confidence()>=aiProperties.autoRejectAbove()&&verdict.confidence()<=1
                 &&!"system".equals(verdict.model());
+    }
+
+    /** AI network work happens outside a transaction; only its original version may be persisted. */
+    @Transactional
+    public int recordPostVerdict(UUID id,long revision,AiVerdict verdict) {
+        if(!community.lockAiRevision(id,revision))return -1;
+        return ai.insert(UUID.randomUUID(),"community-post",id,verdict.riskLevel(),BigDecimal.valueOf(verdict.confidence()),
+                verdict.labels().toArray(String[]::new),verdict.reason(),verdict.model());
+    }
+
+    @Transactional
+    public void recordPostImageVerdict(UUID post,long revision,UUID image,AiVerdict verdict) {
+        if(!community.lockAiRevision(post,revision))return;
+        if(community.postImages(post).stream().noneMatch(value->value.id().equals(image)))return;
+        ai.insert(UUID.randomUUID(),"community-image",image,verdict.riskLevel(),BigDecimal.valueOf(verdict.confidence()),
+                verdict.labels().toArray(String[]::new),verdict.reason(),verdict.model());
+    }
+
+    @Transactional
+    public ModerationResult autoDecidePost(UUID id,long revision,AiVerdict verdict,boolean approve) {
+        if(!community.lockAiRevision(id,revision))return null;
+        return autoDecide("community-post",id,verdict,approve);
     }
 
     /** AI calls happen outside this transaction. Record and optional rejection commit together;

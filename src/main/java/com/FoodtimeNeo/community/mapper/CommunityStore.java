@@ -19,7 +19,7 @@ import java.util.*;
 @Repository
 public class CommunityStore {
     private static final String POST_COLUMNS = """
-            p.id, p.user_id, p.content, p.like_count, p.comment_count, p.repost_count, p.view_count,
+            p.id, p.content_revision, p.edited_at, p.user_id, p.content, p.like_count, p.comment_count, p.repost_count, p.view_count,
             p.repost_of_id, p.status, p.review_reason, p.created_at, p.title, p.favorite_count, p.review_stage, p.manual_review_reason,
             u.display_name AS user_display_name, u.avatar_url AS user_avatar_url,
             (SELECT COALESCE(array_agg(image_url ORDER BY sort_order, id), '{}') FROM foodtime.community_post_images WHERE post_id = p.id) AS images,
@@ -47,9 +47,9 @@ public class CommunityStore {
 
     public boolean sameRequest(UUID id, com.FoodtimeNeo.community.dto.CreatePostRequest body) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
-                SELECT title=? AND content=? AND repost_of_id IS NOT DISTINCT FROM ?
-                       AND dish_id IS NOT DISTINCT FROM ? FROM foodtime.community_posts WHERE id=?
-                """, Boolean.class,body.title(),body.content(),body.repostOfId(),body.dishId(),id)) && imageUrls(id).equals(body.imageUrls());
+                SELECT create_payload=jsonb_build_object('title',?::text,'content',?::text,'repostOfId',?::uuid,
+                       'dishId',?::uuid,'imageUrls',?::jsonb) FROM foodtime.community_posts WHERE id=?
+                """, Boolean.class,body.title(),body.content(),body.repostOfId(),body.dishId(),tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(body.imageUrls()),id));
     }
 
     public boolean lockVisibleDish(UUID dishId) {
@@ -61,8 +61,8 @@ public class CommunityStore {
     public UUID create(UUID userId, com.FoodtimeNeo.community.dto.CreatePostRequest body,
             List<com.FoodtimeNeo.media.service.ImageStorageService.UploadedImage> images, boolean aiEnabled) {
         UUID id=UUID.randomUUID();
-        int inserted=jdbc.update("INSERT INTO foodtime.community_posts(id,user_id,title,content,repost_of_id,client_request_id,review_stage,manual_review_reason,dish_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,client_request_id) DO NOTHING",
-                id,userId,body.title(),body.content(),body.repostOfId(),body.clientRequestId(),aiEnabled?"ai_pending":"manual_pending",aiEnabled?null:"ai_disabled",body.dishId());
+        int inserted=jdbc.update("INSERT INTO foodtime.community_posts(id,user_id,title,content,repost_of_id,client_request_id,review_stage,manual_review_reason,dish_id,create_payload) VALUES (?,?,?,?,?,?,?,?,?,?::jsonb) ON CONFLICT(user_id,client_request_id) DO NOTHING",
+                id,userId,body.title(),body.content(),body.repostOfId(),body.clientRequestId(),aiEnabled?"ai_pending":"manual_pending",aiEnabled?null:"ai_disabled",body.dishId(),creationPayload(body));
         if(inserted==0) return null;
         for(int i=0;i<images.size();i++) {
             var image=images.get(i);
@@ -70,6 +70,19 @@ public class CommunityStore {
                     UUID.randomUUID(),id,image.imageUrl(),i,image.width(),image.height());
         }
         return id;
+    }
+
+    private String creationPayload(com.FoodtimeNeo.community.dto.CreatePostRequest body) {
+        var values=new java.util.LinkedHashMap<String,Object>();values.put("title",body.title());values.put("content",body.content());values.put("repostOfId",body.repostOfId());values.put("dishId",body.dishId());values.put("imageUrls",body.imageUrls());
+        return tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(values);
+    }
+
+    public long contentRevision(UUID id) { return jdbc.queryForObject("SELECT content_revision FROM foodtime.community_posts WHERE id=?",Long.class,id); }
+    public boolean lockAiRevision(UUID id,long expected) {
+        return !jdbc.query("SELECT id FROM foodtime.community_posts WHERE id=? AND content_revision=? AND status='pending' AND review_stage='ai_pending' AND deleted_at IS NULL FOR UPDATE",(r,n)->r.getObject(1,UUID.class),id,expected).isEmpty();
+    }
+    public void routePostToManual(UUID id,long expected,String reason) {
+        jdbc.update("UPDATE foodtime.community_posts SET review_stage='manual_pending',manual_review_reason=? WHERE id=? AND content_revision=? AND status='pending' AND review_stage='ai_pending' AND deleted_at IS NULL",reason,id,expected);
     }
 
     public void routeToManual(String type, UUID id, String reason) {
@@ -135,9 +148,10 @@ public class CommunityStore {
 
     public void bumpRepostOf(UUID postId) {
         jdbc.update("""
-                UPDATE foodtime.community_posts SET repost_count = repost_count + 1 WHERE id = (
-                    SELECT repost_of_id FROM foodtime.community_posts WHERE id = ?)""",
-                postId);
+                WITH counted AS (UPDATE foodtime.community_posts SET repost_counted=true
+                    WHERE id=? AND repost_of_id IS NOT NULL AND NOT repost_counted RETURNING repost_of_id)
+                UPDATE foodtime.community_posts SET repost_count=repost_count+1 WHERE id IN(SELECT repost_of_id FROM counted)
+                """,postId);
     }
 
     public record ImageRef(UUID id, String url) { }
@@ -155,7 +169,7 @@ public class CommunityStore {
     /** Admin queue items reuse the moderation item shape (target = the post itself). */
     public java.util.List<com.FoodtimeNeo.moderation.dto.ModerationItem> queue(String status, int size, long offset) {
         return jdbc.query("""
-                SELECT p.id, p.user_id, p.title, p.content, p.status, p.review_reason, p.created_at,
+                SELECT p.id, p.content_revision, p.user_id, p.title, p.content, p.status, p.review_reason, p.created_at,
                 u.display_name AS user_display_name, u.email AS user_email,
                 (SELECT image_url FROM foodtime.community_post_images WHERE post_id = p.id ORDER BY sort_order, id LIMIT 1) AS image_url,
                 a.risk_level AS ai_risk_level, a.confidence AS ai_confidence, a.labels AS ai_labels,
@@ -171,7 +185,7 @@ public class CommunityStore {
                         r.getString("review_reason"), r.getTimestamp("created_at").toInstant(),
                         r.getString("ai_risk_level"), r.getBigDecimal("ai_confidence"),
                         labels == null ? null : List.of((String[]) labels.getArray()),
-                        r.getString("ai_reason"), instant(r, "ai_checked_at"),r.getString("user_email"));
+                        r.getString("ai_reason"), instant(r, "ai_checked_at"),r.getString("user_email"),r.getLong("content_revision"));
                 }, status, size, offset);
     }
 
@@ -334,7 +348,7 @@ public class CommunityStore {
                 labels == null ? null : List.of((String[]) labels.getArray()),
                 r.getString("ai_reason"), instant(r, "ai_checked_at"), r.getTimestamp("created_at").toInstant(),
                 r.getString("title"),r.getString("user_avatar_url"),readImages(r.getString("image_details")),
-                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"),linkedDish,r.getLong("view_count"));
+                r.getLong("favorite_count"),r.getString("review_stage"),r.getString("manual_review_reason"),linkedDish,r.getLong("view_count"),r.getLong("content_revision"),instant(r,"edited_at"));
     }
 
     private List<CommunityPostResponse.PostImage> readImages(String value) {
