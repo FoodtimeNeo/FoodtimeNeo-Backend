@@ -1,6 +1,9 @@
 package com.FoodtimeNeo.integration;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.time.Clock;
+import java.sql.Timestamp;
 import org.junit.jupiter.api.AfterAll;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -14,6 +17,7 @@ import java.util.UUID;
         properties = {
                 "app.invitation.secret=0123456789abcdef0123456789abcdef0123456789abcdef"})
 class InvitationCodeIT extends IntegrationApiSupport {
+    @Autowired private Clock clock;
     private static final CapturingSmtpServer SMTP = new CapturingSmtpServer();
     private static final String EMAIL_PREFIX = "foodtime:integration:invitation-email:" + UUID.randomUUID();
 
@@ -133,7 +137,9 @@ class InvitationCodeIT extends IntegrationApiSupport {
         assertThat(exhausted.body()).contains("INVITATION_CODE_INVALID");
 
         Created expirable = create(superadmin, Map.of("maxUses", 5));
-        jdbc.update("UPDATE foodtime.invitation_codes SET expires_at = now() - interval '1 second' WHERE id = ?", expirable.id());
+        // Use the application clock; a separate PostgreSQL host may have a small wall-clock skew.
+        jdbc.update("UPDATE foodtime.invitation_codes SET expires_at = ? WHERE id = ?",
+                Timestamp.from(clock.instant().minusSeconds(60)), expirable.id());
         assertThat(registerWith(anonymous, expirable.code(), 3).statusCode()).isEqualTo(400);
 
         Created stoppable = create(superadmin, Map.of("maxUses", 5));
