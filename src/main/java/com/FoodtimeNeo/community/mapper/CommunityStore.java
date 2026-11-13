@@ -356,7 +356,6 @@ public class CommunityStore {
     }
 
     public long feedCount(UUID viewerId, UUID authorId, boolean following, String keyword) {
-        if (authorId == null && !following && keyword.isEmpty()) return feedCount();
         List<Object> args = new ArrayList<>();
         String condition = feedConditions(viewerId, authorId, following, keyword, args);
         return jdbc.queryForObject("""
@@ -367,6 +366,9 @@ public class CommunityStore {
 
     private String feedConditions(UUID viewerId, UUID authorId, boolean following, String keyword, List<Object> args) {
         StringBuilder where = new StringBuilder();
+        if(authorId==null&&!following&&keyword.isEmpty()) {
+            where.append(" AND NOT EXISTS(SELECT 1 FROM foodtime.community_post_pins pin WHERE pin.post_id=p.id)");
+        }
         if (authorId != null) {
             where.append(" AND p.user_id=? AND u.status='active'");
             args.add(authorId);

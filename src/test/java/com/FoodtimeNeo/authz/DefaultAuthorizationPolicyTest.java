@@ -55,7 +55,7 @@ class DefaultAuthorizationPolicyTest {
     @Test
     void revisionIsStableForTheDefaultMapping() {
         var policy = new DefaultAuthorizationPolicy();
-        assertThat(policy.revision()).isEqualTo("default-v3");
+        assertThat(policy.revision()).isEqualTo("default-v4");
     }
 
     @Test
