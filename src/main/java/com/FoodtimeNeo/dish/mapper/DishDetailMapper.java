@@ -9,7 +9,7 @@ import java.util.UUID;
 public interface DishDetailMapper {
     @Select("""
             SELECT d.id, s.id AS stall_id, s.name AS stall_name,
-                   h.id AS dining_hall_id, h.name AS dining_hall_name, d.name, d.description, d.price, d.revision
+                   h.id AS dining_hall_id, h.name AS dining_hall_name, d.name, d.description, d.price, d.revision, d.price_unit
             FROM foodtime.dishes d
             JOIN foodtime.stalls s ON s.id = d.stall_id AND s.status = 'active'
             JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'

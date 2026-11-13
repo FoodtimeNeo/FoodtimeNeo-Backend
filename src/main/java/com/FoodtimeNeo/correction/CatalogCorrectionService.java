@@ -62,11 +62,12 @@ public class CatalogCorrectionService {
         String name = fields.contains("name") ? name(request.name(), type) : null;
         String description = fields.contains("description") ? description(request.description()) : null;
         BigDecimal price = fields.contains("price") ? price(request.price()) : null;
+        String priceUnit=fields.contains("priceUnit") ? com.FoodtimeNeo.pricehistory.PriceUnit.require(request.priceUnit()) : null;
         String reason = text(request.reason(), 500, "理由");
         List<String> evidence = evidence(actor, request.evidenceUrls());
         if (request.baseRevision() == null || request.baseRevision() < 1) throw bad("baseRevision必须为正数");
         String hash = hash(type, request.targetId(), request.baseRevision(), fields, name, description, price,
-                reason, evidence);
+                reason, evidence, priceUnit);
         LocalDate day = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         String idempotencyKey = request.idempotencyKey().strip();
         corrections.lockDaily(actor.id(), day);
@@ -93,7 +94,7 @@ public class CatalogCorrectionService {
             summary = summary.substring(0, summary.offsetByCodePoints(0, 200));
         CorrectionRow row = new CorrectionRow(id, actor.id(), type, target.id(), summary,
                 target.revision(), target.name(), target.description(), target.price(),
-                name, description, price, fields, reason, "pending", null, null, null, null, 1, hash);
+                name, description, price, fields, reason, "pending", null, null, null, null, 1, hash, target.priceUnit(),priceUnit);
         try {
             corrections.insert(row, idempotencyKey);
         } catch (DuplicateKeyException duplicate) {
@@ -105,7 +106,7 @@ public class CatalogCorrectionService {
         }
         corrections.insertEvidence(id, actor.id(), evidence);
         corrections.insertEvent(UUID.randomUUID(), id, actor.id(), "submitted", null, null,
-                target.name(), target.description(), target.price(), name, description, price);
+                target.name(), target.description(), target.price(), name, description, price,target.priceUnit(),priceUnit);
         return response(corrections.findAny(id).orElseThrow(), evidence);
     }
 
@@ -161,14 +162,14 @@ public class CatalogCorrectionService {
             if (target.revision() != row.baseRevision()) throw conflict("CATALOG_REVISION_CONFLICT",
                     "目录资料已更新，请刷新后重新核对");
             if (!corrections.apply(row.targetType(), row.targetId(), row.baseRevision(), row.changedFields(),
-                    row.proposedName(), row.proposedDescription(), row.proposedPrice()))
+                    row.proposedName(), row.proposedDescription(), row.proposedPrice(),row.proposedPriceUnit()))
                 throw conflict("CATALOG_REVISION_CONFLICT", "目录资料已更新，请刷新后重新核对");
         }
         if (!corrections.decide(id, request.expectedRevision(), request.decision(), note, actor.id()))
             throw conflict("CORRECTION_REVISION_CONFLICT", "提案已被其他操作修改，请刷新后重试");
         corrections.insertEvent(UUID.randomUUID(), id, actor.id(), request.decision(), note, null,
                 row.originalName(), row.originalDescription(), row.originalPrice(),
-                row.proposedName(), row.proposedDescription(), row.proposedPrice());
+                row.proposedName(), row.proposedDescription(), row.proposedPrice(),row.originalPriceUnit(),row.proposedPriceUnit());
         boolean approved = "approved".equals(request.decision());
         notifications.publish(NotificationCategory.CORRECTION, row.submitterId(), UUID.randomUUID(),
                 approved ? "目录纠错已通过" : "目录纠错未通过",
@@ -189,7 +190,7 @@ public class CatalogCorrectionService {
                 row.baseRevision(), row.originalName(), row.originalDescription(), row.originalPrice(),
                 row.proposedName(), row.proposedDescription(), row.proposedPrice(), row.changedFields(),
                 row.reason(), row.status(), row.reviewNote(), row.createdAt(), row.reviewedAt(),
-                row.revision(), evidence);
+                row.revision(), evidence,row.originalPriceUnit(),row.proposedPriceUnit());
     }
 
     private static CorrectionTargetType targetType(String value) {
@@ -204,11 +205,12 @@ public class CatalogCorrectionService {
         Set<String> seen = new HashSet<>();
         for (String value : values) {
             String field = value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
+            if (field.equals("priceunit")) field="priceUnit";
             if (!type.supports(field)) throw bad("该目录类型不支持字段：" + field);
             if (!seen.add(field)) throw bad("changedFields不能重复");
             result.add(field);
         }
-        if (result.size() > 3) throw bad("changedFields最多3个");
+        if (result.size() > 4) throw bad("changedFields最多4个");
         return result;
     }
 
@@ -259,12 +261,13 @@ public class CatalogCorrectionService {
     }
 
     private static String hash(CorrectionTargetType type, UUID targetId, long baseRevision, List<String> fields,
-            String name, String description, BigDecimal price, String reason, List<String> evidence) {
+            String name, String description, BigDecimal price, String reason, List<String> evidence, String priceUnit) {
         String canonical = String.join("\u0000", type.wireName(), targetId.toString(),
                 Long.toString(baseRevision), String.join(",", fields.stream().sorted().toList()),
                 nullToEmpty(name), nullToEmpty(description),
                 price == null ? "" : price.toPlainString(), reason,
                 String.join("\n", evidence.stream().sorted().toList()));
+        if (fields.contains("priceUnit")) canonical += "\u0000"+priceUnit;
         try {
             return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(canonical.getBytes(StandardCharsets.UTF_8)));

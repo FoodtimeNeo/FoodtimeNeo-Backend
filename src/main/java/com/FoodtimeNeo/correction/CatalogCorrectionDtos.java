@@ -17,13 +17,13 @@ public final class CatalogCorrectionDtos {
             @NotBlank String targetType,
             @NotNull UUID targetId,
             @NotNull Long baseRevision,
-            @NotEmpty @Size(max = 3) List<String> changedFields,
+            @NotEmpty @Size(max = 4) List<String> changedFields,
             String name,
             String description,
             BigDecimal price,
             @NotBlank @Size(max = 500) String reason,
             @Size(max = 3) List<String> evidenceUrls,
-            @NotBlank @Size(max = 64) String idempotencyKey) {
+            @NotBlank @Size(max = 64) String idempotencyKey, String priceUnit) {
         public CreateRequest {
             changedFields = changedFields == null ? null : new java.util.ArrayList<>(changedFields);
             evidenceUrls = evidenceUrls == null ? List.of() : new java.util.ArrayList<>(evidenceUrls);
@@ -54,7 +54,7 @@ public final class CatalogCorrectionDtos {
             Instant createdAt,
             Instant reviewedAt,
             long revision,
-            List<String> evidenceUrls) {
+            List<String> evidenceUrls, String originalPriceUnit, String proposedPriceUnit) {
         public Response {
             changedFields = List.copyOf(changedFields);
             evidenceUrls = List.copyOf(evidenceUrls);
@@ -75,5 +75,5 @@ public final class CatalogCorrectionDtos {
             String description,
             BigDecimal price,
             String summary,
-            boolean visible) {}
+            boolean visible, String priceUnit) {}
 }

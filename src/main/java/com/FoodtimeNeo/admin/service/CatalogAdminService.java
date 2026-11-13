@@ -30,6 +30,7 @@ public class CatalogAdminService {
     @Transactional
     public AdminCatalogResponse save(UserProfile actor,String type,UUID id,@Valid CatalogEditRequest body) {
         guard(actor); type(type);
+        if (type.equals("dishes") && body.priceUnit()!=null) com.FoodtimeNeo.pricehistory.PriceUnit.require(body.priceUnit());
         if (!type.equals("dishes") && body.name().length() > 100) throw bad("名称不能超过100字");
         boolean create = id == null;
         AdminCatalogResponse old = create ? null : existing(type,id,true);

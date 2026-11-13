@@ -17,7 +17,8 @@ public enum Capability {
     CORRECTION_REVIEW("correction.review"),
     REPORT_REVIEW("report.review"),
     REPORT_REPLY("report.reply"),
-    APPEAL_REVIEW("appeal.review");
+    APPEAL_REVIEW("appeal.review"),
+    DISH_PRICE_HISTORY_MANAGE("dish-price-history.manage");
 
     private final String wireName;
 
