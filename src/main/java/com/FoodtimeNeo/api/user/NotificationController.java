@@ -45,6 +45,14 @@ public class NotificationController {
         return ApiResponse.success(notifications.events(actor(request).id(), afterSeq, limit));
     }
 
+    @PostMapping("/notification-preferences/legacy-message")
+    @Operation(summary = "迁移旧客户端私信开关", description = "仅初始化未明确设置的偏好；保留较新的选择，迁移前事件不补发")
+    public ApiResponse<NotificationDtos.Preference> adoptLegacyMessage(
+            @Valid @RequestBody NotificationDtos.LegacyMessagePreferenceRequest body,
+            HttpServletRequest request) {
+        return ApiResponse.success(notifications.adoptLegacyMessage(actor(request).id(), body.enabled()));
+    }
+
     @PostMapping("/notification-events/{eventId}/delivered")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "标记 Android 通知已投递", description = "幂等；不改变站内消息已读状态或事件入箱时间")

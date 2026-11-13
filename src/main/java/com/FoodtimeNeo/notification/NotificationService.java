@@ -45,15 +45,30 @@ public class NotificationService {
         return notifications.preference(user, category);
     }
 
+    /** Old local choices only initialize an untouched preference; explicit newer choices win. */
+    @Transactional
+    public Preference adoptLegacyMessage(UUID user, boolean enabled) {
+        notifications.lockPreference(user, NotificationCategory.MESSAGE);
+        Preference current = notifications.preference(user, NotificationCategory.MESSAGE);
+        if (current.revision() == 1) {
+            notifications.updatePreference(user, NotificationCategory.MESSAGE, enabled, current.revision());
+        }
+        return notifications.preference(user, NotificationCategory.MESSAGE);
+    }
+
     @Transactional
     public EventPage events(UUID user, long afterSeq, int limit) {
         if (afterSeq < 0) throw new BusinessException("VALIDATION_ERROR", "afterSeq不能为负数",
                 HttpStatus.BAD_REQUEST);
-        notices.ensureVisible(user);
+        var visibleNotices = notices.ensureVisible(user);
         int size = Math.min(Math.max(limit, 1), MAX_EVENTS);
         List<Event> items = notifications.events(user, afterSeq, size);
         long next = items.isEmpty() ? afterSeq : items.get(items.size() - 1).seq();
-        return new EventPage(items, next);
+        List<Event> eligible = items.stream().map(event ->
+                "notice".equals(event.category()) && "pending".equals(event.deliveryStatus())
+                        && !visibleNotices.contains(event.refId())
+                        ? event.withDeliveryStatus("skipped") : event).toList();
+        return new EventPage(eligible, next);
     }
 
     @Transactional

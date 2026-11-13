@@ -51,7 +51,7 @@ public class NotificationStore {
         return jdbc.update("""
                 UPDATE foodtime.notification_preferences
                 SET enabled = ?, revision = revision + 1,
-                    enabled_after_seq = CASE WHEN enabled <> ? THEN (
+                    enabled_after_seq = CASE WHEN enabled <> ? OR revision = 1 THEN (
                         SELECT COALESCE(max(seq), 0) FROM foodtime.notification_events WHERE recipient_id = ?
                     ) ELSE enabled_after_seq END,
                     updated_at = now()
@@ -117,10 +117,14 @@ public class NotificationStore {
         return jdbc.query("""
                 SELECT e.id, e.seq, e.category, e.title, e.body, e.ref_type, e.ref_id,
                        e.ref_comment_id, e.ref_root_comment_id, e.created_at,
-                       d.status AS delivery_status
+                       CASE WHEN d.status IS NULL OR d.status = 'delivered' THEN d.status
+                            WHEN p.enabled AND e.seq > p.enabled_after_seq THEN d.status
+                            ELSE 'skipped' END AS delivery_status
                 FROM foodtime.notification_events e
                 LEFT JOIN foodtime.notification_deliveries d
                     ON d.event_id = e.id AND d.channel = 'android'
+                LEFT JOIN foodtime.notification_preferences p
+                    ON p.user_id = e.recipient_id AND p.category = e.category
                 WHERE e.recipient_id = ? AND e.seq > ?
                 ORDER BY e.seq ASC LIMIT ?
                 """, (rs, index) -> new Event(rs.getObject("id", UUID.class), rs.getLong("seq"),
