@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.CodePointLength;
 
 import java.time.Instant;
 import java.util.List;
@@ -40,7 +41,7 @@ public final class ReportInteractionDtos {
     }
 
     public record AppealRequest(
-            @NotBlank @Size(max = 2000) String content,
+            @NotBlank @CodePointLength(max = 2000) String content,
             @Size(max = 3) List<String> evidenceUrls,
             @NotNull UUID clientRequestId) {
         public AppealRequest {
