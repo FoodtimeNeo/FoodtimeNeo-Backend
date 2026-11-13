@@ -21,7 +21,7 @@ public class DefaultAuthorizationPolicy implements AuthorizationPolicy {
     private static final Set<Capability> USER = Collections.unmodifiableSet(
             EnumSet.of(Capability.CORRECTION_SUBMIT));
     private static final Set<Capability> NONE = Set.of();
-    private static final String REVISION = "default-v3";
+    private static final String REVISION = "default-v4";
 
     @Override
     public boolean allows(UserProfile actor, Capability capability, AuthorizationContext context) {

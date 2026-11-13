@@ -22,7 +22,7 @@ class CapabilityIT extends IntegrationApiSupport {
         var adminBody = body(admin.call("GET", "/api/v1/users/me/capabilities", null));
         assertThat(names(adminBody)).containsExactly("catalog.edit", "correction.submit", "moderation.review");
         assertThat(names(adminBody)).doesNotContain("correction.review", "report.review", "report.reply", "appeal.review");
-        assertThat(adminBody.path("data").path("revision").asString()).isEqualTo("default-v3");
+        assertThat(adminBody.path("data").path("revision").asString()).isEqualTo("default-v4");
 
         var superadmin = login(account("superadmin"));
         var superBody = body(superadmin.call("GET", "/api/v1/users/me/capabilities", null));

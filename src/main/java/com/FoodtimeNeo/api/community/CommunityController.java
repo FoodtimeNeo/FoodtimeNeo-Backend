@@ -31,9 +31,12 @@ public class CommunityController {
     private final CommunityPostService posts;
     private final CommunityCommentService comments;
     private final CommunityInteractionService interactions;
+    private final com.FoodtimeNeo.community.pin.CommunityDiscoveryService discovery;
     public CommunityController(CommunityPostService posts, CommunityCommentService comments,
-                               CommunityInteractionService interactions) {
+                               CommunityInteractionService interactions,
+                               com.FoodtimeNeo.community.pin.CommunityDiscoveryService discovery) {
         this.posts = posts; this.comments = comments; this.interactions = interactions;
+        this.discovery=discovery;
     }
 
     @PostMapping("/posts")
@@ -51,10 +54,11 @@ public class CommunityController {
     }
 
     @GetMapping("/feed/cursor")
-    public ApiResponse<CursorPageResponse<CommunityPostResponse>> feedCursor(HttpServletRequest request,
+    public ApiResponse<com.FoodtimeNeo.community.pin.CommunityDiscoveryService.Page> feedCursor(HttpServletRequest request,
             @RequestParam(defaultValue="20") int size, @RequestParam(required=false) String cursor,
-            @RequestParam(defaultValue="false") boolean following, @RequestParam(defaultValue="") String q) {
-        return ApiResponse.success(posts.feedCursor(current(request).id(), size, cursor, null, following, q));
+            @RequestParam(defaultValue="false") boolean following, @RequestParam(defaultValue="") String q,
+            @RequestParam(required=false) Long pinRevision) {
+        return ApiResponse.success(discovery.read(current(request),size,cursor,following,q,pinRevision));
     }
 
     @GetMapping("/authors/{id}")

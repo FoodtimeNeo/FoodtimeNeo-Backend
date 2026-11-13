@@ -16,7 +16,7 @@
   "message": "success",
   "data": {
     "capabilities": ["catalog.edit", "correction.submit", "moderation.review"],
-    "revision": "default-v2"
+    "revision": "default-v4"
   },
   "timestamp": "2026-11-12T00:00:00Z",
   "requestId": "capability-example-1"
@@ -44,6 +44,8 @@
 | `report.review` | 举报处理（G2 预留） | `superadmin` |
 | `report.reply` | 举报回复（G2 预留） | `superadmin` |
 | `appeal.review` | 申诉复核（G2 预留） | `superadmin` |
+| `dish-price-history.manage` | 更正／隐藏价格历史 | `superadmin` |
+| `community.pin.manage` | 帖子置顶、取消及调整顺序 | `superadmin` |
 
 普通管理员可以提交纠错，但不获得纠错审核、举报或申诉能力；当前 `admin` 仅有 `moderation.review`、`catalog.edit` 与 `correction.submit`。
 
