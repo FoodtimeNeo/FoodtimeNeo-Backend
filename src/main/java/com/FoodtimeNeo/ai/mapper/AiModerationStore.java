@@ -90,22 +90,24 @@ public class AiModerationStore {
         return rows.stream().findFirst();
     }
 
-    public record PendingCommunityPost(UUID id, String content) { }
+    public record PendingCommunityPost(UUID id, String content,long revision) {
+        public PendingCommunityPost(UUID id,String content){this(id,content,1);}
+    }
 
     public java.util.List<PendingCommunityPost> pendingCommunityPosts(int limit) {
         return jdbc.query("""
-                SELECT p.id, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
+                SELECT p.id, p.content_revision, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
                 WHERE p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending'
                 ORDER BY p.created_at ASC, p.id ASC LIMIT ?
-                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), limit);
+                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content"),r.getLong("content_revision")), limit);
     }
 
     /** Single pending community post without a verdict yet; empty when already diagnosed, decided or gone. */
     public java.util.Optional<PendingCommunityPost> pendingCommunityPost(java.util.UUID id) {
         var rows = jdbc.query("""
-                SELECT p.id, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
+                SELECT p.id, p.content_revision, p.title || E'\n' || p.content AS content FROM foodtime.community_posts p
                 WHERE p.id = ? AND p.status = 'pending' AND p.deleted_at IS NULL AND p.review_stage='ai_pending'
-                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content")), id);
+                """, (r, n) -> new PendingCommunityPost(r.getObject("id", java.util.UUID.class), r.getString("content"),r.getLong("content_revision")), id);
         return rows.stream().findFirst();
     }
 

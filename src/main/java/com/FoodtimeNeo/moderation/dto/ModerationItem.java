@@ -7,7 +7,10 @@ import java.util.UUID;
 public record ModerationItem(UUID id, String type, UUID targetId, UUID userId, String userDisplayName, String name,
         String content, BigDecimal price, String imageUrl, Integer rating, String status,
         String reason, Instant createdAt, String aiRiskLevel, BigDecimal aiConfidence, java.util.List<String> aiLabels,
-        String aiReason, Instant aiCheckedAt, String userEmail) {
+        String aiReason, Instant aiCheckedAt, String userEmail, Long contentRevision) {
+    public ModerationItem(UUID id,String type,UUID targetId,UUID userId,String userDisplayName,String name,String content,BigDecimal price,String imageUrl,Integer rating,String status,String reason,Instant createdAt,String aiRiskLevel,BigDecimal aiConfidence,java.util.List<String> aiLabels,String aiReason,Instant aiCheckedAt,String userEmail) {
+        this(id,type,targetId,userId,userDisplayName,name,content,price,imageUrl,rating,status,reason,createdAt,aiRiskLevel,aiConfidence,aiLabels,aiReason,aiCheckedAt,userEmail,null);
+    }
     public ModerationItem(UUID id, String type, UUID targetId, UUID userId, String userDisplayName, String name,
             String content, BigDecimal price, String imageUrl, Integer rating, String status, String reason,
             Instant createdAt, String aiRiskLevel, BigDecimal aiConfidence, java.util.List<String> aiLabels,
