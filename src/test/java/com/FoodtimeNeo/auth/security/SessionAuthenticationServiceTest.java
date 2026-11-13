@@ -22,8 +22,8 @@ class SessionAuthenticationServiceTest {
     private final UserProfile user = new UserProfile(UUID.randomUUID(), "123@bjtu.edu.cn", "干饭人123456", "user",
             "active", now.minusSeconds(100));
     private final SessionAuthenticationService sessions = new SessionAuthenticationService(users,
-            new HttpSessionSecurityContextRepository(), new AuthProperties(Duration.ofDays(7), false,
-            Duration.ofMinutes(15), 10, 100, "test:auth"), Clock.fixed(now, ZoneOffset.UTC));
+            new HttpSessionSecurityContextRepository(), new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false,
+            Duration.ofMinutes(15), 10, 100, "test:auth"), Clock.fixed(now, ZoneOffset.UTC), new com.FoodtimeNeo.auth.security.ParticipationPolicy(new com.FoodtimeNeo.config.properties.ParticipationProperties(true)));
 
     @AfterEach
     void clearContext() { SecurityContextHolder.clearContext(); }
@@ -91,5 +91,27 @@ class SessionAuthenticationServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated("placeholder", null, List.of()));
         return request;
+    }
+
+    @Test
+    void existingSessionRechecksTheParticipationPolicyAndCanReturnToSchoolGating() {
+        var stored = new UserProfile(user.id(), "member@gmail.com", user.displayName(), "visitor",
+                "active", user.passwordChangedAt());
+        when(users.findProfile(user.id())).thenReturn(stored);
+        var request = authenticatedRequest();
+        var principal = new SessionPrincipal(stored.id(), stored.passwordChangedAt(), now.plusSeconds(60));
+        var open = new SessionAuthenticationService(users, new HttpSessionSecurityContextRepository(),
+                new AuthProperties(Duration.ofDays(7), Duration.ofMinutes(45), false,
+                        Duration.ofMinutes(15), 10, 100, "test:auth"), Clock.fixed(now, ZoneOffset.UTC),
+                new ParticipationPolicy(new com.FoodtimeNeo.config.properties.ParticipationProperties(false)));
+        open.validate(principal, request);
+        assertThat(((UserProfile)request.getAttribute(SessionAuthenticationService.CURRENT_USER)).role()).isEqualTo("user");
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority").containsExactly("ROLE_user");
+        sessions.validate(principal, request);
+        assertThat(request.getAttribute(SessionAuthenticationService.CURRENT_USER)).isEqualTo(stored);
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority").containsExactly("ROLE_visitor");
+        verify(users, never()).bindSchoolEmail(any(), any());
     }
 }

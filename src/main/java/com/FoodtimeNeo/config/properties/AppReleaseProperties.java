@@ -22,4 +22,7 @@ public record AppReleaseProperties(@Min(0) int versionCode,
         apkUrl = apkUrl == null ? "" : apkUrl.strip();
         notes = notes == null ? "" : notes.strip();
     }
+    public boolean testing() {
+        return !versionName.isBlank()&&!versionName.matches("[0-9]+\\.[0-9]+\\.[0-9]+");
+    }
 }

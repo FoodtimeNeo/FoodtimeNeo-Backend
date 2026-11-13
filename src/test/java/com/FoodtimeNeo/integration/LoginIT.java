@@ -112,7 +112,7 @@ class LoginIT {
     }
 
     @Test
-    void wrongUnknownAndDisabledAccountsHaveTheSame401AndNeverReceiveAuthSessions() throws Exception {
+    void wrongAndUnknownAccountsNeverReceiveSessionsWhileDisabledAccountsReceiveRestrictedOnes() throws Exception {
         String email = registeredEmail();
         String unknown = newEmail();
         Browser browser = new Browser();
@@ -121,11 +121,30 @@ class LoginIT {
         for (String[] attempt : List.of(new String[]{email, "Wrong123!"}, new String[]{unknown, PASSWORD})) {
             assertInvalidCredentials(browser.login(attempt[0], attempt[1]));
         }
-        jdbc.update("update foodtime.users set status = 'disabled' where email = ?", email);
-        assertInvalidCredentials(browser.login(email, PASSWORD));
         assertThat(browser.sessionId()).isEqualTo(anonymousId);
-        assertThat(browser.send("GET", "/me", null, false).statusCode()).isEqualTo(401);
-        assertThat(jdbc.queryForObject("select last_login_at from foodtime.users where email = ?", Object.class, email)).isNull();
+
+        jdbc.update("update foodtime.users set status = 'disabled' where email = ?", email);
+        Instant before = Instant.now();
+        HttpResponse<String> restricted = browser.login(email, PASSWORD);
+        assertThat(restricted.statusCode()).isEqualTo(200);
+        JsonNode data = json.readTree(restricted.body()).path("data");
+        assertThat(data.path("sessionMode").asString()).isEqualTo("appeal_only");
+        assertThat(Instant.parse(data.path("expiresAt").asString()))
+                .isBetween(before.plus(Duration.ofMinutes(45)), Instant.now().plus(Duration.ofMinutes(45)));
+        assertThat(jdbc.queryForObject("select last_login_at from foodtime.users where email = ?", Object.class, email)).isNotNull();
+        assertThat(browser.send("GET", "/me", null, false).statusCode()).isEqualTo(200);
+        assertThat(json.readTree(browser.send("GET", "/me", null, false).body()).path("data").path("sessionMode").asString())
+                .isEqualTo("appeal_only");
+        var restrictedDecisions = browser.send("GET", "/api/v1/users/me/moderation-decisions", null, false);
+        assertThat(restrictedDecisions.statusCode()).as(restrictedDecisions.body()).isEqualTo(200);
+        var restrictedAppeals = browser.send("GET", "/api/v1/users/me/appeals", null, false);
+        assertThat(restrictedAppeals.statusCode()).as(restrictedAppeals.body()).isEqualTo(200);
+        assertThat(browser.send("GET", "/api/v1/users/me/profile", null, false).statusCode()).isEqualTo(403);
+        assertThat(json.readTree(browser.send("GET", "/api/v1/users/me/profile", null, false).body()).path("code").asString())
+                .isEqualTo("RESTRICTED_SESSION");
+        assertThat(browser.send("GET", "/api/v1/community/posts", null, false).statusCode()).isEqualTo(403);
+        browser.csrf();
+        assertThat(browser.send("POST", "/logout", null, true).statusCode()).isEqualTo(200);
     }
 
     @Test
@@ -299,7 +318,11 @@ class LoginIT {
         assertThat(body.path("message").asString()).isEqualTo("账号或密码错误");
     }
 
-    private URI uri(String path) { return URI.create("http://127.0.0.1:" + port + "/api/v1/auth" + path); }
+    private URI uri(String path) {
+        String base = "http://127.0.0.1:" + port + "/api/v1";
+        String suffix = path.startsWith("/api/v1/") ? path.substring("/api/v1".length()) : "/auth" + path;
+        return URI.create(base + suffix);
+    }
     private String loginBody(String email, String password) { return json.writeValueAsString(Map.of("account", email, "password", password)); }
 
     private class Browser {

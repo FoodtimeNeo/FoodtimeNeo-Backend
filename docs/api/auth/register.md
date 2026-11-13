@@ -6,9 +6,17 @@
 
 先通过 `POST /api/v1/auth/register/email-code` 发送验证码，再提交邮箱、密码和验证码；校验通过才创建账号。发送接口及SMTP配置详见 [邮箱验证码](email-verification.md)。
 
+注册前先读取 `GET /api/v1/auth/registration-policy`，按返回的 `mode` 决定是否显示邀请码、是否允许发码与提交：
+
+- `open`：正常注册，邀请码可选；
+- `invitation`：必须填写有效邀请码；
+- `closed`：注册与发码均被拒绝，客户端应停止提交并说明暂未开放。
+
+详见 [注册策略](registration-policy.md)。普通账号参与权限独立于注册模式，见 [参与权限策略](participation-policy.md)：当前默认学校／非学校邮箱均获得普通用户有效权限，学校认证状态保持真实，后续可用一个服务器配置恢复原限制。
+
 ## 设计依据与额外约定
 
-[数据库设计](../../database-design.md#users用户表) 规定邮箱最多254位、规范化后唯一、仅存密码哈希、角色由服务端控制，以及未设置昵称时由系统生成。以下是现有接口的额外约定，数据库设计未规定：数字前缀的 `@bjtu.edu.cn` 邮箱、8至128位ASCII密码及字母/数字复杂度、强制6位邮箱验证码、昵称使用“干饭人”加6位数字、注册不接受自定义昵称或头像、邀请码仅作为可选归因（数据库设计没有邀请规则，发放与核销均为本接口的额外约定）。
+[数据库设计](../../database-design.md#users用户表) 规定邮箱最多254位、规范化后唯一、仅存密码哈希、角色由服务端控制，以及未设置昵称时由系统生成。以下是现有接口的额外约定，数据库设计未规定：邮箱域名白名单、8至128位ASCII密码及字母/数字复杂度、强制6位邮箱验证码、昵称使用“干饭人”加6位数字、注册不接受自定义昵称或头像、三种注册模式，以及 open 模式可选的邀请码归因（发放与核销均为本接口的额外约定）。
 
 本次核查按用户选择保留这些规则；邮箱范围、密码策略、验证码作为注册前置条件，以及昵称/头像的设置入口均为待确认的产品事项，不能将这些限制解释为数据库约束。邮箱发送和依赖真实投递的注册联调本次暂不验证，配置示例不表示邮箱已经接通。
 
@@ -25,7 +33,7 @@
 
 | 字段 | 必填 | 规则 |
 | --- | --- | --- |
-| `email` | 是 | 去除首尾空白、转为小写后，必须完全匹配 `[0-9]+@bjtu.edu.cn`；至少一位数字前缀，最多254位 |
+| `email` | 是 | 去除首尾空白、转为小写后，须为合法邮箱且域名属于部署配置的主流邮箱白名单（允许子域）；最多254位。学校邮箱存储角色为 `user`，其它为 `visitor`；响应角色由参与权限策略解析 |
 | `password` | 是 | 8至128位，仅允许英文字母（A–Z / a–z）、数字（0–9）和ASCII半角符号；至少包含一个数字和一个英文字母；符号非必需；保持原样，不修改大小写 |
 | `verificationCode` | 是 | 与该邮箱绑定的6位ASCII数字验证码；作为字符串提交以保留前导零；发送成功后15分钟内有效，最多5次错误尝试 |
 | `invitationCode` | 否 | 可选；平台发放的12位邀请码，大小写均可，仅用于记录邀请归因，不填不影响注册；填写后须为有效未失效码，详见 [邀请码](invitation-codes.md) |
@@ -38,7 +46,7 @@
 
 不允许空格、制表符、换行、中文、全角字符、emoji及其他非ASCII字符；非法Unicode转义也返回400参数校验失败，不进入密码哈希或数据库写入。
 
-示例合法邮箱：`20260001@bjtu.edu.cn`、`00123@bjtu.edu.cn`。`abc@bjtu.edu.cn`、`123@example.com`、`123@bjtu.edu.cn.example.com` 均不合法。
+示例合法邮箱：`20260001@bjtu.edu.cn`、`00123@bjtu.edu.cn`、`user@qq.com`、`user@gmail.com`。`123@example.com`、`123@bjtu.edu.cn.example.com` 不在白名单或不是合法邮箱，均不合法。
 
 请求仅支持设置邮箱、密码和验证码。即使额外提交 `role`、`displayName`、`status`、`email_verified_at` 等属性，也不会写入这些客户端值。验证成功才创建账号，`email_verified_at` 由服务端填写；注册不会自动登录或签发Token。此前已经存在的未验证账号不会被自动标记为已验证。
 
@@ -59,7 +67,7 @@
 }
 ```
 
-用户ID为服务端生成的 UUID；昵称为 `干饭人` 加随机6位数字（000000–999999，保留前导零，允许不同用户昵称相同）；角色固定为 `user`，账号状态为 `active`。
+用户ID为服务端生成的 UUID；昵称为 `干饭人` 加随机6位数字（000000–999999，保留前导零，允许不同用户昵称相同）；账号状态为 `active`。`role` 表示有效权限角色，默认学校／非学校邮箱均返回 `user`；启用学校邮箱门槛时，未绑定的非学校账号返回 `visitor`。数据库保留原角色及真实学校邮箱认证状态，不因权限放开自动认证或批量升级；登录后仍可绑定／解绑学校邮箱。
 
 密码使用 Spring Security `PasswordEncoder` 的 Argon2id 加盐哈希：19 MiB 内存、2次迭代、并行度1、16字节随机盐、32字节哈希，存储格式为 `{argon2id}$argon2id$...`。同一密码的哈希不同，后续登录应使用 `PasswordEncoder.matches` 校验。参数依据 [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)，算法标识遵循 [Spring Security 密码存储格式](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html)。接口响应不会返回密码、密码哈希或盐。
 
@@ -70,7 +78,9 @@
 | 400 | `VALIDATION_ERROR` | `请求参数校验失败`；`data` 返回字段名和具体失败原因 |
 | 400 | `BAD_REQUEST` | `请求参数或请求格式错误`；例如请求体缺失或JSON无法解析 |
 | 400 | `EMAIL_CODE_INVALID` | 验证码错误、过期、已用或达到5次错误上限，不创建账号 |
+| 400 | `INVITATION_REQUIRED` | `invitation` 模式下未填写邀请码，不创建账号 |
 | 400 | `INVITATION_CODE_INVALID` | 邀请码无效、过期、停用或次数用尽，不创建账号 |
+| 403 | `REGISTRATION_CLOSED` | 注册暂未开放；注册与发送验证码均被拒绝 |
 | 409 | `EMAIL_ALREADY_REGISTERED` | 持有有效邮箱验证码后发现该邮箱已注册；未通过验证码不返回此信息 |
 | 409 | `REGISTRATION_IN_PROGRESS` | 同一邮箱的有效验证码正在被另一注册请求使用，稍后重试 |
 | 429 | `REGISTRATION_RATE_LIMITED` | 发码与注册请求共用邮箱/设备/IP限流，响应含Retry-After |

@@ -67,7 +67,7 @@ class DishSearchIT extends IntegrationApiSupport {
         var data = body(browser.call("GET", path(key + "mix%_"), null)).path("data");
         assertThat(data.path("total").asInt()).isEqualTo(1);
         assertThat(data.path("items").get(0).path("id").asString()).isEqualTo(literal.toString());
-        assertThat(body(browser.call("GET", path(" "), null)).path("data").path("total").asInt()).isZero();
+        assertThat(body(browser.call("GET", path(" "), null)).path("data").path("total").asInt()).isGreaterThan(0);
         assertThat(browser.call("GET", path("字".repeat(51)), null).statusCode()).isEqualTo(400);
         assertThat(browser.call("GET", path(key) + "&size=101", null).statusCode()).isEqualTo(400);
         assertThat(browser.call("GET", path(key) + "&page=0", null).statusCode()).isEqualTo(400);

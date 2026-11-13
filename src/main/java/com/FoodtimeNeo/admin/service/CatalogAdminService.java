@@ -30,13 +30,13 @@ public class CatalogAdminService {
     @Transactional
     public AdminCatalogResponse save(UserProfile actor,String type,UUID id,@Valid CatalogEditRequest body) {
         guard(actor); type(type);
+        if (type.equals("dishes") && body.priceUnit()!=null) com.FoodtimeNeo.pricehistory.PriceUnit.require(body.priceUnit());
         if (!type.equals("dishes") && body.name().length() > 100) throw bad("名称不能超过100字");
         boolean create = id == null;
         AdminCatalogResponse old = create ? null : existing(type,id,true);
         UUID parent = create ? body.parentId() : old.parentId();
         if (!create && body.parentId() != null && !Objects.equals(body.parentId(),parent)) throw bad("修改已有记录时不能改变所属关系");
         if (!type.equals("dining-halls") && (parent == null || !catalog.parentExists(type,parent))) throw bad("上级记录不存在");
-        if (type.equals("dishes") && body.price() == null) throw bad("菜品价格必须填写");
         if (!type.equals("dishes") && body.coverImageUrl() != null && !body.coverImageUrl().isBlank()
                 && (create || !Objects.equals(old.coverImageUrl(),body.coverImageUrl()))) images.requireOwnedReference(body.coverImageUrl(),actor.id());
         String status = body.status() == null ? create ? "active" : old.status() : body.status();

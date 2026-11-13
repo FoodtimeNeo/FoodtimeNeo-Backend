@@ -10,13 +10,17 @@
 
 | 功能 | 方法与路径 | 接口文档 |
 | --- | --- | --- |
+| 注册策略 | `GET /api/v1/auth/registration-policy` | [注册策略](auth/registration-policy.md) |
 | 用户注册 | `POST /api/v1/auth/register` | [注册接口](auth/register.md) |
 | 邀请码发放与管理 | `POST/GET /api/v1/admin/invitation-codes`、`PUT /api/v1/admin/invitation-codes/{id}` | [邀请码](auth/invitation-codes.md) |
 | 注册邮箱验证码 | `POST /api/v1/auth/register/email-code` | [邮箱验证码](auth/email-verification.md) |
 | 邮箱密码登录 | `POST /api/v1/auth/login` | [登录与会话](auth/login.md) |
+| 登录算术图片验证码 | `GET /api/v1/auth/captcha` | [登录验证码](auth/captcha.md) |
 | CSRF令牌 | `GET /api/v1/auth/csrf` | [登录与会话](auth/login.md) |
 | 当前登录用户 | `GET /api/v1/auth/me` | [登录与会话](auth/login.md) |
 | 当前用户个人资料与头像 | `GET /api/v1/users/me/profile` | [个人资料](user/profile.md) |
+| 当前账号有效能力 | `GET /api/v1/users/me/capabilities` | [能力授权](user/capabilities.md) |
+| 收藏分组 | `GET/POST/PUT/DELETE /api/v1/users/me/favorite-groups` | [收藏分组](user/favorite-groups.md) |
 | 修改当前用户昵称与头像 | `PUT /api/v1/users/me/profile` | [个人资料](user/profile.md) |
 | 按用户名搜索用户 | `GET /api/v1/users/search` | [搜索用户](user/user-search.md) |
 | 退出登录 | `POST /api/v1/auth/logout` | [登录与会话](auth/login.md) |
@@ -27,6 +31,7 @@
 | 获取食堂列表 | `GET /api/v1/dining-halls` | [食堂列表](dining/list.md) |
 | 获取食堂下档口列表 | `GET /api/v1/dining-halls/{diningHallId}/stalls` | [档口列表](dining/stalls.md) |
 | 获取档口下菜品列表 | `GET /api/v1/stalls/{stallId}/dishes` | [菜品列表](dish/list.md) |
+| 跨食堂搜索与筛选菜品 | `GET /api/v1/dishes/search` | [菜品搜索](dish/search.md) |
 | 获取菜品基础详情 | `GET /api/v1/dishes/{dishId}` | [菜品基础详情](dish/detail.md) |
 | 获取菜品图册 | `GET /api/v1/dishes/{dishId}/images` | [菜品图册](dish/images.md) |
 | 上传及读取图片文件 | `POST /api/v1/uploads/images`、`GET /api/v1/media/{id}` | [图片文件](dish/uploads.md) |
@@ -36,6 +41,10 @@
 | 管理审核队列、操作和日志 | GET/POST管理接口 | [管理审核](user/moderation.md) |
 | 社区动态、信息流与社区审核 | GET/POST社区及管理接口 | [社区动态](community.md) |
 | 管理基础数据与违规评论 | GET/POST/PUT/DELETE接口 | [数据管理](user/catalog-admin.md) |
+| 已有目录纠错提案与审核 | POST/GET 用户接口；GET/POST 管理接口 | [目录纠错](user/catalog-corrections.md) |
+| 浏览历史设置、列表、记录与清理 | GET/PUT/DELETE 用户接口 | [浏览历史](user/browsing-history.md) |
+| 通知事件、游标与七类提醒开关 | GET/POST/PUT 用户接口 | [通知基础](user/notifications.md) |
+| 举报回执、决定、追问、双方申诉与关联动作 | GET/POST 用户接口；GET/POST 管理接口 | [举报回执](user/reports.md) |
 | 平台管理员查询用户与调整角色/状态 | GET/PUT接口 | [用户管理](user/user-admin.md) |
 | HTTP 检查 | `GET /api/v1/system/ping` | 返回服务名称与状态；依赖状态见 `/actuator/health/readiness` |
 
@@ -51,8 +60,9 @@
 
 可按 [auth.http](auth.http) 的顺序逐条发送请求。请求客户端须保留服务器设置的Cookie；填写自己的测试邮箱、密码、邮件验证码和CSRF令牌，勿将真实凭据提交到Git。
 
-1. 获取CSRF令牌，再发送注册邮箱验证码。
-2. 收到邮件后提交邮箱、密码和验证码完成注册。注册成功不会自动登录。
+1. 读取注册策略，按 `mode` 决定是否显示邀请码；`closed` 时停止发码与注册。
+2. 获取CSRF令牌，再发送注册邮箱验证码。
+3. 收到邮件后提交邮箱、密码、验证码和（invitation 模式必填的）邀请码完成注册。注册成功不会自动登录。
 3. 携带Cookie和CSRF令牌提交邮箱账号与密码登录。
 4. 登录会替换旧会话；重新获取CSRF令牌，再查询当前用户或退出登录。
 

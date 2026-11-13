@@ -77,7 +77,9 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/system/ping", "/api/v1/system/app-release",
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/auth/registration-policy",
+                                "/api/v1/auth/captcha",
+                                "/api/v1/system/ping", "/api/v1/system/app-release",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",

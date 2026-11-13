@@ -15,7 +15,7 @@ class FeedbackServiceTest {
             var input=new FeedbackDtos.Create("usage","时区检查",UUID.randomUUID());
             when(store.create(eq(id),eq(input),eq(input.content()),eq("device"),eq(true),eq(now)))
                     .thenReturn(new FeedbackDtos.Row(UUID.randomUUID(),input.type(),input.content(),"pending",now,now,"用户",null));
-            var service=new FeedbackService(store,Clock.fixed(now,ZoneId.of("America/New_York")),mock(PlatformTransactionManager.class));
+            var service=new FeedbackService(store,Clock.fixed(now,ZoneId.of("America/New_York")),mock(PlatformTransactionManager.class),mock(com.FoodtimeNeo.notification.NotificationPublisher.class));
             service.create(actor,input,"device");
             Instant start=Instant.parse(time.endsWith("59Z")?"2026-11-10T16:00:00Z":"2026-11-11T16:00:00Z");
             verify(store).ownerCount(id,start,start.plus(Duration.ofDays(1)));

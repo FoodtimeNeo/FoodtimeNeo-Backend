@@ -18,8 +18,8 @@ class DiningHallServiceTest {
     @Test
     void preservesDatabaseOrderingAndNullableFieldsInPublicProjection() {
         var one = new DiningHall(UUID.randomUUID(), "第一食堂", "https://example.test/hall.jpg", "食堂简介",
-                new BigDecimal("39.9520000"), new BigDecimal("116.3500000"), "active", 0);
-        var two = new DiningHall(UUID.randomUUID(), "第二食堂", null, null, null, null, "active", 1);
+                new BigDecimal("39.9520000"), new BigDecimal("116.3500000"), "active", 0, null, 0, 0);
+        var two = new DiningHall(UUID.randomUUID(), "第二食堂", null, null, null, null, "active", 1, null, 0, 0);
         when(mapper.findActive()).thenReturn(List.of(one, two));
         var result = service.list();
         assertThat(result).extracting(hall -> hall.id()).containsExactly(one.id(), two.id());

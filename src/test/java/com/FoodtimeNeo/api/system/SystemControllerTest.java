@@ -35,4 +35,21 @@ class SystemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.versionCode").value(0));
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"2.0.0α","2.0.0β","2.0.0-alpha"})
+    void testingReleaseRemainsExplicitAndOptionalForExistingClients(String name)throws Exception {
+        MockMvc endpoint=MockMvcBuilders.standaloneSetup(new SystemController(new AppReleaseProperties(
+                23,name,"https://example.test/v2.0.0%CE%B1/app-release.apk","新功能",23))).build();
+        endpoint.perform(get("/api/v1/system/app-release")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.versionName").value(name))
+                .andExpect(jsonPath("$.data.versionCode").value(23))
+                .andExpect(jsonPath("$.data.minVersionCode").value(0))
+                .andExpect(jsonPath("$.data.notes").value(org.hamcrest.Matchers.containsString("测试版")));
+    }
+    @Test void formalReleaseRetainsItsConfiguredMinimum()throws Exception {
+        MockMvc endpoint=MockMvcBuilders.standaloneSetup(new SystemController(new AppReleaseProperties(
+                24,"2.0.0","https://example.test/app-release.apk","正式版",24))).build();
+        endpoint.perform(get("/api/v1/system/app-release"))
+                .andExpect(jsonPath("$.data.minVersionCode").value(24));
+    }
 }

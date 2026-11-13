@@ -3,6 +3,8 @@ package com.FoodtimeNeo.feedback;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.notification.NotificationCategory;
+import com.FoodtimeNeo.notification.NotificationPublisher;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,8 +23,11 @@ public class FeedbackService {
     private final FeedbackStore store;
     private final Clock clock;
     private final TransactionTemplate transactions;
-    public FeedbackService(FeedbackStore store,Clock clock,PlatformTransactionManager manager) {
+    private final NotificationPublisher notifications;
+    public FeedbackService(FeedbackStore store,Clock clock,PlatformTransactionManager manager,
+            NotificationPublisher notifications) {
         this.store=store;this.clock=clock;this.transactions=new TransactionTemplate(manager);
+        this.notifications=notifications;
     }
     @Transactional
     public FeedbackDtos.Row create(UserProfile actor,FeedbackDtos.Create input,String device) {
@@ -71,7 +76,13 @@ public class FeedbackService {
         if(row.status().equals("completed"))throw new BusinessException("FEEDBACK_COMPLETED","反馈已完成，请查看历史记录",HttpStatus.CONFLICT);
         String reply=text(input.reply()),status=status(row,input.status());
         if(reply.isBlank()&&status.equals(row.status()))throw invalid("请填写回复或将反馈标为已完成");
-        if(store.action(id,"manual:"+input.clientRequestId()))store.update(id,actor.id(),reply,status);
+        boolean actionCreated=store.action(id,"manual:"+input.clientRequestId());
+        if(actionCreated)store.update(id,actor.id(),reply,status);
+        if(actionCreated&&!reply.isBlank()) {
+            UUID owner=store.owner(id);
+            if(owner!=null)notifications.publishEventOnly(NotificationCategory.FEEDBACK,owner,UUID.randomUUID(),
+                    "反馈有新回复","你的建议反馈收到新的回复，请到反馈记录查看。","feedback",id,null,null);
+        }
         return store.find(id,null);
     }
     @Transactional

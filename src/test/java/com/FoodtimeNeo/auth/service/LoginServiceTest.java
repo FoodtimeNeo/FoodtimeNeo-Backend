@@ -23,7 +23,7 @@ class LoginServiceTest {
     @BeforeEach
     void setUp() {
         when(passwords.encode(anyString())).thenReturn("dummy-hash");
-        service = new LoginService(users, passwords);
+        service = new LoginService(users, passwords, new com.FoodtimeNeo.auth.security.ParticipationPolicy(new com.FoodtimeNeo.config.properties.ParticipationProperties(true)));
     }
 
     @Test
@@ -52,13 +52,14 @@ class LoginServiceTest {
     }
 
     @Test
-    void disabledAccountsReturnTheSameErrorEvenWithCorrectPassword() {
+    void disabledAccountsCanAuthenticateForTheRestrictedAppealSession() {
         var disabled = new LoginAccount(account.id(), account.email(), account.passwordHash(), account.displayName(),
                 account.role(), "disabled", account.passwordChangedAt());
         when(users.findLoginAccount(account.email())).thenReturn(disabled);
         when(passwords.matches("Abc12345", account.passwordHash())).thenReturn(true);
-        assertBadCredentials(new LoginRequest(account.email(), "Abc12345"));
-        verify(users, never()).recordSuccessfulLogin(any(), anyString());
+        when(users.recordSuccessfulLogin(disabled.id(), disabled.passwordHash())).thenReturn(1);
+        assertThat(service.authenticate(new LoginRequest(account.email(), "Abc12345"))).isEqualTo(disabled.profile());
+        verify(users).recordSuccessfulLogin(disabled.id(), disabled.passwordHash());
     }
 
     @Test

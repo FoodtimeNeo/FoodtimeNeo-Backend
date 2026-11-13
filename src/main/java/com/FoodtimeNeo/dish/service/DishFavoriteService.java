@@ -22,8 +22,9 @@ public class DishFavoriteService {
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public PageResponse<DishSearchResponse> list(UUID user, PageRequest page) {
-        return PageResponse.of(favorites.list(user, page.size(), page.offset()), favorites.count(user), page);
+    public PageResponse<DishSearchResponse> list(UUID user, UUID groupId, boolean unfiled, PageRequest page) {
+        return PageResponse.of(favorites.list(user, groupId, unfiled, page.size(), page.offset()),
+                favorites.count(user, groupId, unfiled), page);
     }
 
     public State state(UUID user, UUID dish) {

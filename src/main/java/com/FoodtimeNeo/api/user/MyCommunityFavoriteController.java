@@ -20,8 +20,11 @@ public class MyCommunityFavoriteController {
     @GetMapping
     @Operation(summary = "我的收藏", description = "已收藏且仍可见的动态（已通过或本人发布），最新收藏在前")
     public ApiResponse<PageResponse<CommunityPostResponse>> favorites(HttpServletRequest request,
+            @RequestParam(required = false) java.util.UUID groupId,
+            @RequestParam(defaultValue = "false") boolean unfiled,
             @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
         UserProfile user = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
-        return ApiResponse.success(interactions.myFavorites(user.id(), new PageRequest(page, size)));
+        return ApiResponse.success(interactions.myFavorites(user.id(), groupId, unfiled,
+                new PageRequest(page, size)));
     }
 }

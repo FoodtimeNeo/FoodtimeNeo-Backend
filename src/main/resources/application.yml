@@ -147,6 +147,9 @@ springdoc:
   paths-to-match: /api/**
 
 app:
+  participation:
+    # false: all registered members have ordinary-user access; true: restore school-mail gating.
+    school-email-required: ${PARTICIPATION_SCHOOL_EMAIL_REQUIRED:false}
   # Tomcat's max-http-form-post-size only guards form posts; JSON bodies need their own cap.
   request:
     max-json-bytes: ${REQUEST_MAX_JSON_BYTES:1048576}
@@ -200,6 +203,7 @@ app:
       cache-namespace: ${EMAIL_MAILBOX_VERIFY_CACHE_NAMESPACE:foodtime:auth:mailbox}
   auth:
     session-ttl: ${AUTH_SESSION_TTL:P7D}
+    appeal-session-ttl: ${AUTH_APPEAL_SESSION_TTL:PT45M}
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     login-window: ${AUTH_LOGIN_WINDOW:PT15M}
     login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
@@ -226,6 +230,17 @@ app:
       secret: ${AUTH_DEVICE_SECRET:${EMAIL_VERIFICATION_SECRET:}}
       cookie-name: ${AUTH_DEVICE_COOKIE_NAME:foodtime_device}
       max-age: ${AUTH_DEVICE_COOKIE_MAX_AGE:P365D}
+    captcha:
+      # 发布于新版时由部署方显式启用；默认关闭，避免未授权改变现有登录行为。
+      enabled: ${LOGIN_CAPTCHA_ENABLED:false}
+      window: ${LOGIN_CAPTCHA_WINDOW:PT15M}
+      trigger-after: ${LOGIN_CAPTCHA_TRIGGER_AFTER:1}
+      challenge-ttl: ${LOGIN_CAPTCHA_TTL:PT2M}
+      issue-window: ${LOGIN_CAPTCHA_ISSUE_WINDOW:PT15M}
+      issue-device-limit: ${LOGIN_CAPTCHA_ISSUE_DEVICE_LIMIT:30}
+      issue-ip-limit: ${LOGIN_CAPTCHA_ISSUE_IP_LIMIT:300}
+      redis-namespace: ${LOGIN_CAPTCHA_REDIS_NAMESPACE:foodtime:auth:captcha}
+      secret: ${LOGIN_CAPTCHA_SECRET:${AUTH_DEVICE_SECRET:${EMAIL_VERIFICATION_SECRET:}}}
     password-change:
       window: ${PASSWORD_CHANGE_WINDOW:PT15M}
       user-limit: ${PASSWORD_CHANGE_USER_LIMIT:5}

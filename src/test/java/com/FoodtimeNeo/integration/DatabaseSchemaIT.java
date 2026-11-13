@@ -40,7 +40,13 @@ class DatabaseSchemaIT {
                 "venue_review_targets", "venue_reviews", "venue_review_submissions", "venue_rating_stats",
                 "venue_review_stats", "venue_review_likes", "venue_review_replies", "venue_review_reply_stats", "venue_review_reply_likes",
                 "daily_recommendation_batch", "daily_recommendation_item", "user_blocks", "content_reports", "dish_favorites",
-                "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions");
+                "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions",
+                "favorite_groups", "dish_favorite_group_members", "community_favorite_group_members",
+                "catalog_corrections", "catalog_correction_evidence", "catalog_correction_events",
+                "browsing_history_settings", "browsing_history",
+                "notification_events", "notification_preferences", "notification_deliveries",
+                "report_decisions", "report_decision_recipients",
+                "report_followups", "report_appeals", "report_evidence", "report_actions", "dish_price_history", "dish_price_history_audit", "community_pin_state", "community_post_pins", "community_post_versions", "community_post_edit_requests");
         assertThat(jdbc.queryForObject("""
                 select exists(select 1 from pg_views where schemaname = 'foodtime' and viewname = 'dish_rating_summary')
                 """, Boolean.class)).isTrue();
@@ -52,7 +58,7 @@ class DatabaseSchemaIT {
                 select column_name from information_schema.columns
                 where table_schema = 'foodtime' and table_name = 'stalls'
                 """, String.class)).containsExactlyInAnyOrder("id", "dining_hall_id", "name", "description",
-                "cover_image_url", "status", "sort_order", "created_at", "updated_at");
+                "cover_image_url", "status", "sort_order", "created_at", "updated_at", "revision");
     }
 
     @Test

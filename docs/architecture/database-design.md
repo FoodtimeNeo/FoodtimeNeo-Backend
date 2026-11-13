@@ -56,7 +56,7 @@
 | `stall_id` | `UUID` | `NOT NULL REFERENCES stalls(id) ON DELETE RESTRICT` | 所属档口 ID。 |
 | `name` | `VARCHAR(120)` | `NOT NULL` | 菜品名称。 |
 | `description` | `TEXT` | 可空 | 菜品简介。 |
-| `price` | `NUMERIC(10,2)` | `NOT NULL CHECK (price >= 0)` | 菜品当前价格。 |
+| `price` | `NUMERIC(10,2)` | 可空；`CHECK (price >= 0)` | 菜品当前价格；`NULL` 表示价格未知，`0` 是有效价格（V47 起）。 |
 | `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'active'`；`active` / `inactive` | 展示状态；`inactive` 时不向学生展示。 |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录创建时间。 |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` | 记录最后更新时间。 |

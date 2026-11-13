@@ -2,6 +2,8 @@
 
 账号使用注册时的完整邮箱。登录通过服务端验证 Argon2id 密码哈希，使用 Spring Security 和 Spring Session Redis 保存登录状态。浏览器持有不透明的 `FOODTIME_SESSION` Cookie；JSON响应不返回会话ID或密码。禁止将会话凭据存入 localStorage。
 
+登录与 `/me` 的 `role` 是[参与权限策略](participation-policy.md)解析后的有效角色。默认启用账号中的非学校邮箱 `visitor` 与普通 `user` 权限一致，不修改数据库身份或学校认证；会话每次请求重新解析策略。停用账号的受限申诉会话不获得普通权限。
+
 ## 设计依据与额外约定
 
 [数据库设计](../../database-design.md#users用户表) 定义邮箱账号、密码哈希、账号状态、服务端角色、密码变更时间和成功登录时间。接口根据这些字段校验身份、拒绝禁用账号并更新登录时间。
@@ -13,7 +15,8 @@ Cookie/Redis会话、CSRF、默认7天期限、登录次数配额、8至128位AS
 | 方法与路径 | 登录要求 | 用途 |
 | --- | --- | --- |
 | `GET /api/v1/auth/csrf` | 无 | 获取当前浏览器会话的CSRF令牌；必要时创建匿名会话 |
-| `POST /api/v1/auth/login` | 无，但需要Cookie和CSRF令牌 | 校验邮箱账号与密码，创建新的登录会话 |
+| `GET /api/v1/auth/captcha` | 无 | 获取一次性设备绑定的算术图片验证码，详见 [登录验证码](captcha.md) |
+| `POST /api/v1/auth/login` | 无，但需要Cookie和CSRF令牌 | 校验邮箱账号与密码，创建新的登录会话；达到设备阈值时需携带挑战 |
 | `GET /api/v1/auth/me` | 是 | 返回当前用户，并检查账号和会话是否仍有效 |
 | `POST /api/v1/auth/logout` | 是，且需要CSRF令牌 | 删除当前Redis会话并清除浏览器Cookie |
 
@@ -23,6 +26,7 @@ Cookie/Redis会话、CSRF、默认7天期限、登录次数配额、8至128位AS
 
 1. `GET /csrf`，保存响应中的 `data.headerName` 和 `data.token`；浏览器接收会话Cookie。
 2. `POST /login`，携带Cookie、`Content-Type: application/json` 和 `X-CSRF-TOKEN: <token>`。
+   若返回 `CAPTCHA_REQUIRED`，先 `GET /captcha` 获取图片和 `challengeId`，再携带 `challengeId`/`challengeAnswer` 重试登录。挑战在密码校验前一次性消费。
 3. 登录成功后再次 `GET /csrf`：登录会替换整个会话，旧CSRF令牌已失效。
 4. 之后通过Cookie访问 `/me` 或业务接口；所有有副作用的请求携带最新CSRF令牌。
 5. `POST /logout` 后Cookie被清除，原凭据即使重放也不能继续访问。
@@ -101,12 +105,16 @@ Redis通过Lua原子计数，默认每个规范化账号15分钟最多10次登�
 | --- | --- | --- |
 | 400 | `VALIDATION_ERROR` | 缺少字段或非法字段；data包含字段名与原因，非法Unicode不进入密码哈希 |
 | 400 | `BAD_REQUEST` | JSON无法解析或请求体缺失 |
+| 400 | `CAPTCHA_REQUIRED` | 设备已达到挑战阈值，但登录请求未携带 `challengeId`/`challengeAnswer` |
+| 400 | `CAPTCHA_INVALID` | 挑战无效、过期、已消费或设备不匹配；不泄露密码正确性 |
 | 401 | `INVALID_CREDENTIALS` | 账号或密码错误（也用于不存在及禁用账号） |
 | 401 | `UNAUTHENTICATED` | 未登录、Cookie被伪造、会话失效或到期 |
 | 403 | `CSRF_INVALID` | CSRF令牌缺失或无效；重新获取后重试 |
 | 403 | `ACCESS_DENIED` | 无权访问资源 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 登录请求须为JSON |
 | 429 | `LOGIN_RATE_LIMITED` | 登录尝试过于频繁；响应 `Retry-After` 表示至少等待的秒数 |
+| 429 | `CAPTCHA_RATE_LIMITED` | 取题过于频繁；响应含 `Retry-After` |
+| 503 | `CAPTCHA_UNAVAILABLE` | Redis 或图片生成暂时不可用；不降级放行 |
 | 503 | `AUTH_UNAVAILABLE` | PostgreSQL或Redis无法完成认证/会话读写，稍后重试 |
 | 500 | `INTERNAL_ERROR` | 未预期服务端错误，不返回内部详情 |
 
@@ -129,3 +137,6 @@ Redis通过Lua原子计数，默认每个规范化账号15分钟最多10次登�
 `api/auth` 管理HTTP协议；`auth/service` 校验凭据与登录限流；`auth/security` 管理会话、期限、账号状态和过滤器错误；`user/mapper` 读取用户和更新登录时间；`config/SecurityConfig` 统一配置安全链和Cookie。新增了 `spring-boot-starter-security`、`spring-boot-starter-session-data-redis`，版本交由Spring Boot管理；Maven自动解析，无需手动安装额外服务。
 
 框架依据：[Spring Boot会话配置](https://docs.spring.io/spring-boot/reference/web/spring-session.html)、[Spring Security自定义认证持久化](https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html)、[Spring Security CSRF](https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html)。
+
+
+停用账号正确密码登录返回受限申诉会话：`sessionMode=appeal_only`，45 分钟绝对到期；仅可读取本人处理决定、提交/查看本人申诉和上传本人申诉证据。详见[举报回执](../user/reports.md#停用账号的受限申诉会话)。

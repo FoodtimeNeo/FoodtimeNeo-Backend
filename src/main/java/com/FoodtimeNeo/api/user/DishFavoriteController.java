@@ -24,8 +24,10 @@ public class DishFavoriteController {
 
     @GetMapping
     public ApiResponse<PageResponse<DishSearchResponse>> list(HttpServletRequest request,
+            @RequestParam(required = false) UUID groupId,
+            @RequestParam(defaultValue = "false") boolean unfiled,
             @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(favorites.list(actor(request), new PageRequest(page, size)));
+        return ApiResponse.success(favorites.list(actor(request), groupId, unfiled, new PageRequest(page, size)));
     }
 
     @GetMapping("/{dish}")

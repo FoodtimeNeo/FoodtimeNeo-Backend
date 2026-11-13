@@ -11,7 +11,7 @@
   </parent>
   <groupId>com.foodtime</groupId>
   <artifactId>foodtime-neo-backend</artifactId>
-  <version>1.8.0</version>
+  <version>2.0.0-alpha</version>
   <name>FoodTimeNeo Backend</name>
   <description>校园食堂菜品展示与点评平台后端</description>
   <properties>
@@ -166,6 +166,10 @@
             <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
               <argLine>${test.jvm.args}</argLine>
+              <systemPropertyVariables>
+                <!-- Cached test contexts share a disposable database; tests invoke jobs explicitly. -->
+                <app.recommendation.daily.scheduling-enabled>false</app.recommendation.daily.scheduling-enabled>
+              </systemPropertyVariables>
             </configuration>
             <executions>
               <execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution>

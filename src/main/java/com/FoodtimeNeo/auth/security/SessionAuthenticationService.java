@@ -25,23 +25,32 @@ public class SessionAuthenticationService {
     private final SecurityContextRepository contexts;
     private final AuthProperties properties;
     private final Clock clock;
+    private final ParticipationPolicy participation;
 
     public SessionAuthenticationService(UserMapper users, SecurityContextRepository contexts,
-                                        AuthProperties properties, Clock clock) {
+                                        AuthProperties properties, Clock clock, ParticipationPolicy participation) {
         this.users = users;
         this.contexts = contexts;
         this.properties = properties;
         this.clock = clock;
+        this.participation = participation;
     }
 
     public Instant establish(UserProfile user, HttpServletRequest request, HttpServletResponse response) {
+        return establish(user, request, response, SessionMode.NORMAL);
+    }
+
+    public Instant establish(UserProfile user, HttpServletRequest request, HttpServletResponse response,
+                             SessionMode mode) {
         // Start a new session without copying anonymous attributes or the pre-login CSRF token.
         clear(request);
-        Instant expiresAt = clock.instant().plus(properties.sessionTtl());
-        request.getSession(true).setMaxInactiveInterval(Math.toIntExact(properties.sessionTtl().toSeconds()));
-        var principal = new SessionPrincipal(user.id(), user.passwordChangedAt(), expiresAt);
+        Duration ttl = mode == SessionMode.APPEAL_ONLY
+                ? properties.appealSessionTtl() : properties.sessionTtl();
+        Instant expiresAt = clock.instant().plus(ttl);
+        request.getSession(true).setMaxInactiveInterval(Math.toIntExact(ttl.toSeconds()));
+        var principal = new SessionPrincipal(user.id(), user.passwordChangedAt(), expiresAt, mode);
         var context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication(principal, user.role()));
+        context.setAuthentication(authentication(principal, participation.resolve(user).role()));
         SecurityContextHolder.setContext(context);
         contexts.saveContext(context, request, response);
         return expiresAt;
@@ -54,11 +63,14 @@ public class SessionAuthenticationService {
         }
         UserProfile user;
         try {
-            user = users.findProfile(principal.userId());
+            user = participation.resolve(users.findProfile(principal.userId()));
         } catch (DataAccessException exception) {
             throw LoginService.unavailable();
         }
-        if (user == null || !"active".equals(user.status())
+        boolean statusAllowed = principal.mode() == SessionMode.APPEAL_ONLY
+                ? "disabled".equals(user == null ? null : user.status())
+                : "active".equals(user == null ? null : user.status());
+        if (user == null || !statusAllowed
                 || !user.passwordChangedAt().equals(principal.passwordChangedAt())) {
             clear(request);
             return;

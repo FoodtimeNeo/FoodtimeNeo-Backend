@@ -19,15 +19,21 @@ public final class VisitorPolicy {
             "/api/v1/users/me/bind-email",
             "/api/v1/users/me/password",
             "/api/v1/users/me/profile",
+            "/api/v1/users/me/browsing-history",
             "/api/v1/users/me/feedback");
     private static final List<String> ALLOWED_WRITE_PREFIXES = List.of(
             "/api/v1/users/me/notices/",
             "/api/v1/users/me/account-lifecycle/",
+            "/api/v1/users/me/browsing-history/",
             "/api/v1/users/me/messages/");
     /** 私信可读、可标已读、可隐藏，但发送与新建会话仍受只读限制。 */
     private static final Pattern DIRECT_MESSAGE_BOOKKEEPING =
             Pattern.compile("^/api/v1/users/me/conversations/[0-9a-fA-F-]{36}(/read)?$");
     private static final Pattern USER_BLOCK = Pattern.compile("^/api/v1/users/[0-9a-fA-F-]{36}/block$");
+    private static final Pattern REPORT_FOLLOW_UP =
+            Pattern.compile("^/api/v1/users/me/reports/[0-9a-fA-F-]{36}/follow-ups$");
+    private static final Pattern REPORT_APPEAL =
+            Pattern.compile("^/api/v1/users/me/moderation-decisions/[0-9a-fA-F-]{36}/appeals$");
 
     private VisitorPolicy() { }
 
@@ -42,7 +48,9 @@ public final class VisitorPolicy {
         String path = request.getRequestURI();
         // A read-only account can still receive unwanted messages and report visible content.
         if (("POST".equals(method) && "/api/v1/reports".equals(path))
-                || (("PUT".equals(method) || "DELETE".equals(method)) && USER_BLOCK.matcher(path).matches())) {
+                || (("PUT".equals(method) || "DELETE".equals(method)) && USER_BLOCK.matcher(path).matches())
+                || ("POST".equals(method) && (REPORT_FOLLOW_UP.matcher(path).matches()
+                        || REPORT_APPEAL.matcher(path).matches()))) {
             return false;
         }
         if (ALLOWED_WRITE_PATHS.contains(path)) {

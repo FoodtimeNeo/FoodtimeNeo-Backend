@@ -28,6 +28,11 @@ public class FeedbackStore {
         jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",r->{},"feedback-device:"+device);
         jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",r->{},"feedback-owner:"+owner);
     }
+    public UUID owner(UUID id) {
+        return jdbc.query("SELECT user_id FROM foodtime.user_feedback WHERE id=?", (r,n)->r.getObject(1,UUID.class), id)
+                .stream().findFirst().orElse(null);
+    }
+
     public FeedbackDtos.Row requested(UUID owner,UUID request) {
         var rows=jdbc.query(SELECT+" WHERE f.user_id=? AND f.client_request_id=?",this::row,owner,request);
         return rows.isEmpty()?null:rows.getFirst();

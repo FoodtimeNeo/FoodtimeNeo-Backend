@@ -2,7 +2,7 @@
 
 本文档是 `FoodtimeNeo-Backend` Spring Boot 4.x / Java 21 后端服务的系统级技术导航与运维操作速查中心。
 
-当前后端工程版本为 [v1.7.0](releases/release-1.7.0.md)。日常开发主分支为 `dev`，生产发布基线为 `main`。
+当前后端工程版本为 v1.8.0（迁移 V47）。日常开发主分支为 `dev`，生产发布基线为 `main`。
 
 ---
 

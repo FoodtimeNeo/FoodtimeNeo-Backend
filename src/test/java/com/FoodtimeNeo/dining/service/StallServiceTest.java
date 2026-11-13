@@ -26,8 +26,8 @@ class StallServiceTest {
 
     @Test
     void preservesOrderingAndProjectsOnlyDisplayFields() {
-        var one = new Stall(hall, UUID.randomUUID(), "第一档口", "简介", "https://example.test/stall.jpg", "active", 1);
-        var two = new Stall(hall, UUID.randomUUID(), "第二档口", null, null, "active", 2);
+        var one = new Stall(hall, UUID.randomUUID(), "第一档口", "简介", "https://example.test/stall.jpg", "active", 1, null, 0, 0);
+        var two = new Stall(hall, UUID.randomUUID(), "第二档口", null, null, "active", 2, null, 0, 0);
         when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(one, two));
         var result = service.listByDiningHall(hall);
         assertThat(result).extracting(row -> row.id()).containsExactly(one.id(), two.id());
@@ -37,7 +37,7 @@ class StallServiceTest {
     }
     @Test
     void activeHallWithoutActiveStallsReturnsEmptyArray() {
-        when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(new Stall(hall, null, null, null, null, null, null)));
+        when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(new Stall(hall, null, null, null, null, null, null, null, 0, 0)));
         assertThat(service.listByDiningHall(hall)).isEmpty();
     }
     @Test
@@ -60,7 +60,7 @@ class StallServiceTest {
     @Test
     void listAttachesGalleryAndKeepsSortOrder() {
         var stallId = UUID.randomUUID();
-        var stall = new Stall(hall, stallId, "面食档口", null, "https://example.test/cover.jpg", "active", 1);
+        var stall = new Stall(hall, stallId, "面食档口", null, "https://example.test/cover.jpg", "active", 1, null, 0, 0);
         when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(stall));
         // Mapper 按 sort_order ASC, id ASC 返回；service 保持该顺序供前端直接轮播。
         var first = new StallImage(stallId, UUID.randomUUID(), "https://example.test/1.jpg", 0);
@@ -74,7 +74,7 @@ class StallServiceTest {
 
     @Test
     void listWithoutImagesReturnsEmptyGallery() {
-        var stall = new Stall(hall, UUID.randomUUID(), "无图档口", null, null, "active", 1);
+        var stall = new Stall(hall, UUID.randomUUID(), "无图档口", null, null, "active", 1, null, 0, 0);
         when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(stall));
         var result = service.listByDiningHall(hall);
         assertThat(result.get(0).images()).isEmpty();
@@ -82,9 +82,9 @@ class StallServiceTest {
 
     @Test
     void listOnlyKeepsImagesOfVisibleStalls() {
-        var visible = new Stall(hall, UUID.randomUUID(), "可见档口", null, null, "active", 1);
+        var visible = new Stall(hall, UUID.randomUUID(), "可见档口", null, null, "active", 1, null, 0, 0);
         when(mapper.findActiveByDiningHall(hall)).thenReturn(List.of(visible,
-                new Stall(hall, null, null, null, null, null, null)));
+                new Stall(hall, null, null, null, null, null, null, null, 0, 0)));
         var orphan = new StallImage(UUID.randomUUID(), UUID.randomUUID(), "https://example.test/orphan.jpg", 0);
         var mine = new StallImage(visible.id(), UUID.randomUUID(), "https://example.test/mine.jpg", 0);
         when(imageMapper.findActiveByDiningHall(hall)).thenReturn(List.of(orphan, mine));
@@ -98,7 +98,7 @@ class StallServiceTest {
     void detailReturnsGalleryFromFirstImage() {
         var stallId = UUID.randomUUID();
         when(mapper.findVisibleById(stallId))
-                .thenReturn(new Stall(hall, stallId, "面食档口", "简介", "https://example.test/cover.jpg", "active", 1));
+                .thenReturn(new Stall(hall, stallId, "面食档口", "简介", "https://example.test/cover.jpg", "active", 1, null, 0, 0));
         var first = new StallImage(stallId, UUID.randomUUID(), "https://example.test/1.jpg", 0);
         var second = new StallImage(stallId, UUID.randomUUID(), "https://example.test/2.jpg", 5);
         when(imageMapper.findByStall(stallId)).thenReturn(List.of(first, second));
@@ -112,7 +112,7 @@ class StallServiceTest {
     void detailWithoutImagesReturnsEmptyGallery() {
         var stallId = UUID.randomUUID();
         when(mapper.findVisibleById(stallId))
-                .thenReturn(new Stall(hall, stallId, "无图档口", null, null, "active", 1));
+                .thenReturn(new Stall(hall, stallId, "无图档口", null, null, "active", 1, null, 0, 0));
         when(imageMapper.findByStall(stallId)).thenReturn(List.of());
         assertThat(service.getById(stallId).images()).isEmpty();
     }

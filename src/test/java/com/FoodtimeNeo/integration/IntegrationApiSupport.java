@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Real HTTP/cookies/CSRF, with independently owned users and catalog fixtures. */
 // Local .env may enable real AI triage; the suite stays hermetic on these flags
 // (AiTriageIT opts back in via its own dynamic properties, which take precedence).
-@TestPropertySource(properties = {"app.ai.triage.enabled=false",
+@TestPropertySource(properties = {"app.participation.school-email-required=true", "app.ai.triage.enabled=false",
         "app.ai.triage.auto-approve-above=0.95", "app.ai.triage.auto-reject-above=0.9"})
 abstract class IntegrationApiSupport {
     private static final String PREFIX = "foodtime:integration:api:" + UUID.randomUUID();
@@ -72,6 +72,7 @@ abstract class IntegrationApiSupport {
     @AfterEach
     void cleanFixtures() {
         for (UUID user : users) {
+            jdbc.update("DELETE FROM foodtime.catalog_corrections WHERE submitter_id = ?", user);
             jdbc.update("DELETE FROM foodtime.content_moderation_logs WHERE dish_review_reply_id IN"
                     + " (SELECT c.id FROM foodtime.dish_review_replies c JOIN foodtime.dish_reviews r ON r.id=c.review_id WHERE c.user_id=? OR r.user_id=?)",user,user);
             jdbc.update("DELETE FROM foodtime.ai_moderation_results WHERE submission_type='dish-review-reply' AND submission_id IN"

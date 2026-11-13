@@ -43,7 +43,7 @@ public class CommunityInteractionService {
             throw new BusinessException("TARGET_NOT_FOUND", "点赞目标不存在或暂不可见", HttpStatus.NOT_FOUND);
         }
         boolean liked = posts.toggleLike(userId, targetType, targetId);
-        notifications.likeChanged(userId, targetType, targetId);
+        notifications.likeChanged(userId, targetType, targetId, liked);
         return Map.of("liked", liked, "likeCount", posts.likeCount(targetType, targetId));
     }
 
@@ -63,7 +63,7 @@ public class CommunityInteractionService {
         if(!Set.of("post","comment").contains(type))throw new BusinessException("VALIDATION_ERROR","点赞类型不合法",HttpStatus.BAD_REQUEST);
         if(!posts.targetVisible(type,id,user))throw new BusinessException("TARGET_NOT_FOUND","点赞目标已不可见",HttpStatus.NOT_FOUND);
         posts.setLike(user,type,id,active);
-        notifications.likeChanged(user,type,id);
+        notifications.likeChanged(user,type,id,active);
         return Map.of("liked",active,"likeCount",posts.likeCount(type,id));
     }
     @Transactional
@@ -75,9 +75,10 @@ public class CommunityInteractionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CommunityPostResponse> myFavorites(@NotNull UUID userId, @NotNull PageRequest page) {
-        return PageResponse.of(posts.favorites(userId, page.size(), page.offset()),
-                posts.favoriteCount(userId), page);
+    public PageResponse<CommunityPostResponse> myFavorites(@NotNull UUID userId, UUID groupId,
+                                                           boolean unfiled, @NotNull PageRequest page) {
+        return PageResponse.of(posts.favorites(userId, groupId, unfiled, page.size(), page.offset()),
+                posts.favoriteCount(userId, groupId, unfiled), page);
     }
 
     @Transactional

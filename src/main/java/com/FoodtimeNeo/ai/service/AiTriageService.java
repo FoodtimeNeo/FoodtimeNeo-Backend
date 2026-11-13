@@ -107,7 +107,7 @@ public class AiTriageService {
                 checked += diagnosePendingCommunityPost(provider, item);
             } catch (RuntimeException exception) {
                 if (!(exception instanceof AiUnavailableException)) {
-                    community.routeToManual("community-post",item.id(),"ai_unavailable");
+                    community.routePostToManual(item.id(),item.revision(),"ai_unavailable");
                 }
                 LOG.error("AI community triage failed for {}", item.id(), exception);
             }
@@ -168,7 +168,7 @@ public class AiTriageService {
                 store.pendingCommunityComment(event.submissionId()).ifPresent(item -> diagnosePendingCommunityComment(provider, item));
             }
         } catch (RuntimeException exception) {
-            if (event.type().startsWith("community-") && !(exception instanceof AiUnavailableException)) {
+            if (event.type().equals("community-comment") && !(exception instanceof AiUnavailableException)) {
                 community.routeToManual(event.type(),event.submissionId(),"ai_unavailable");
             }
             LOG.warn("AI instant triage deferred for {} {}, sweep will retry: {}",
@@ -288,25 +288,32 @@ public class AiTriageService {
      * through the photo chain. Any HIGH rejects; approval needs a confident LOW text
      * and confident LOW on every image. Missing staging files are flagged, not dropped.
      */
+    private void maybeAutoDecidePost(AiVerdict verdict,AiModerationStore.PendingCommunityPost item) {
+        boolean approve=verdict.riskLevel().equals("LOW")&&verdict.confidence()>=properties.communityApproveAbove();
+        boolean reject=verdict.riskLevel().equals("HIGH")&&verdict.confidence()>=properties.autoRejectAbove();
+        if(!approve&&!reject)return;
+        try{moderation.autoDecidePost(item.id(),item.revision(),verdict,approve);}
+        catch(BusinessException changed){LOG.info("AI post decision skipped for {}: {}",item.id(),changed.getCode());}
+    }
+
     private int diagnosePendingCommunityPost(AiProvider provider, AiModerationStore.PendingCommunityPost item) {
         try {
             AiVerdict text = diagnoseCommunityText(provider, item.content());
-            int rows = store.insert(UUID.randomUUID(), "community-post", item.id(), text.riskLevel(),
-                    BigDecimal.valueOf(text.confidence()), text.labels().toArray(new String[0]),
-                    text.reason(), text.model());
+            int rows = moderation.recordPostVerdict(item.id(),item.revision(),text);
+            if(rows<0)return 0;
             if (text.riskLevel().equals("HIGH") && text.confidence() >= properties.autoRejectAbove()) {
-                maybeAutoDecide(text,"community-post",item.id());
+                maybeAutoDecidePost(text,item);
                 return rows;
             }
             boolean imagesClean = true;
             for (var image : community.postImages(item.id())) {
-                AiVerdict seen = diagnoseCommunityImage(provider, item.id(), image);
+                AiVerdict seen = diagnoseCommunityImage(provider, item.id(), item.revision(), image);
                 if (seen != null && seen.riskLevel().equals("HIGH")
                         && seen.confidence() >= properties.autoRejectAbove()) {
-                    maybeAutoDecide(new AiVerdict("HIGH", seen.confidence(), seen.labels(),
-                            "配图" + seen.reason(), seen.model()), "community-post", item.id());
-                    community.routeToManual("community-post",item.id(),"uncertain");
-            return rows;
+                    maybeAutoDecidePost(new AiVerdict("HIGH", seen.confidence(), seen.labels(),
+                            "配图" + seen.reason(), seen.model()), item);
+                    community.routePostToManual(item.id(),item.revision(),"uncertain");
+                    return rows;
                 }
                 if (seen == null) {
                     LOG.warn("AI community image deferred for {}; sweep will retry", item.id());
@@ -317,17 +324,20 @@ public class AiTriageService {
                     imagesClean = false;
                 }
             }
-            if (imagesClean) maybeAutoDecide(text, "community-post", item.id());
+            if (imagesClean) maybeAutoDecidePost(text,item);
             else if (text.riskLevel().equals("LOW")
                     && text.confidence() >= properties.communityApproveAbove()) {
                 LOG.info("AI community post {} stays human: an image needs a human look", item.id());
             }
-            community.routeToManual("community-post",item.id(),"uncertain");
+            community.routePostToManual(item.id(),item.revision(),"uncertain");
             return rows;
         } catch (AiUnavailableException exception) {
             LOG.warn("AI community triage deferred for {}: {} (sweep will retry)",
                     item.id(), exception.getCode());
             return 0;
+        } catch(RuntimeException failure) {
+            community.routePostToManual(item.id(),item.revision(),"ai_unavailable");
+            throw failure;
         }
     }
 
@@ -390,20 +400,17 @@ public class AiTriageService {
      * Diagnoses one attached image; null means deferred (sweep retries),
      * a HIGH system verdict means the staging file is gone.
      */
-    private AiVerdict diagnoseCommunityImage(AiProvider provider, UUID postId, CommunityStore.ImageRef image) throws AiUnavailableException {
+    private AiVerdict diagnoseCommunityImage(AiProvider provider, UUID postId, long revision, CommunityStore.ImageRef image) throws AiUnavailableException {
         try {
             ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(image.url()));
             AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
-            store.insert(UUID.randomUUID(), "community-image", image.id(), verdict.riskLevel(),
-                    BigDecimal.valueOf(verdict.confidence()), verdict.labels().toArray(new String[0]),
-                    verdict.reason(), verdict.model());
+            moderation.recordPostImageVerdict(postId,revision,image.id(),verdict);
             return verdict;
         } catch (BusinessException missing) {
             if (!"IMAGE_NOT_FOUND".equals(missing.getCode())) throw missing;
             AiVerdict gone = new AiVerdict("HIGH", 1.0, List.of("文件缺失"),
                     missing.getMessage() + "，无法完成审核", "system");
-            store.insert(UUID.randomUUID(), "community-image", image.id(), "HIGH", BigDecimal.ONE,
-                    new String[] {"文件缺失"}, gone.reason(), "system");
+            moderation.recordPostImageVerdict(postId,revision,image.id(),gone);
             return gone;
         } catch (IOException exception) {
             LOG.warn("AI community image triage deferred for {}: staging file unreadable", image.id());
