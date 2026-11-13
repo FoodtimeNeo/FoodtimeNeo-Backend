@@ -20,7 +20,7 @@ class DishDetailIT extends ReadApiITSupport {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().firstValue("X-Request-Id")).isNotEmpty();
         var data = json.readTree(response.body()).path("data");
-        assertThat(data.size()).isEqualTo(9);
+        assertThat(data.size()).isEqualTo(10);
         assertThat(data.path("id").asString()).isEqualTo(dish.toString());
         assertThat(data.path("stallId").asString()).isEqualTo(stall.toString());
         assertThat(data.path("diningHallId").asString()).isEqualTo(hall.toString());
@@ -31,6 +31,7 @@ class DishDetailIT extends ReadApiITSupport {
         assertThat(data.path("price").isNumber()).isTrue();
         assertThat(new BigDecimal(data.path("price").asString())).isEqualByComparingTo("99999999.99");
         assertThat(data.path("revision").asLong()).isEqualTo(1);
+        assertThat(data.path("priceUnit").asString()).isEqualTo("unspecified");
     }
 
     @Test
@@ -77,8 +78,9 @@ class DishDetailIT extends ReadApiITSupport {
         var get = document.path("paths").path("/api/v1/dishes/{dishId}").path("get");
         assertThat(get.path("security").get(0).has("sessionCookie")).isTrue();
         var properties = document.path("components").path("schemas").path("DishDetailResponse").path("properties");
-        assertThat(properties.size()).isEqualTo(9);
+        assertThat(properties.size()).isEqualTo(10);
         assertThat(properties.has("revision")).isTrue();
+        assertThat(properties.path("priceUnit").path("type").asString()).isEqualTo("string");
         assertThat(properties.path("price").path("type").asString()).isEqualTo("number");
         var description = properties.path("description");
         assertThat(description.path("nullable").asBoolean() || description.path("type").toString().contains("\"null\"")).isTrue();

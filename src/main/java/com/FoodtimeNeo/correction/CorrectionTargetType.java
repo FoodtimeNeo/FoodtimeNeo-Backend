@@ -10,7 +10,7 @@ public enum CorrectionTargetType {
     STALL("stall", "stall", "foodtime.stalls", 100,
             Set.of("name", "description")),
     DISH("dish", "dish", "foodtime.dishes", 120,
-            Set.of("name", "description", "price"));
+            Set.of("name", "description", "price", "priceUnit"));
 
     private final String wireName;
     private final String mediaType;

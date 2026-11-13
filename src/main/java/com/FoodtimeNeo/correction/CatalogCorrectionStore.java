@@ -34,7 +34,7 @@ public class CatalogCorrectionStore {
             BigDecimal originalPrice, String proposedName, String proposedDescription,
             BigDecimal proposedPrice, List<String> changedFields, String reason, String status,
             String reviewNote, UUID reviewedBy, Instant reviewedAt, Instant createdAt, long revision,
-            String requestHash) {}
+            String requestHash, String originalPriceUnit, String proposedPriceUnit) {}
 
     public record AdminRow(CorrectionRow correction, String submitterName, String submitterEmail) {}
 
@@ -59,7 +59,7 @@ public class CatalogCorrectionStore {
             instant(rs, "reviewed_at"),
             instant(rs, "created_at"),
             rs.getLong("revision"),
-            rs.getString("request_hash"));
+            rs.getString("request_hash"),rs.getString("original_price_unit"),rs.getString("proposed_price_unit"));
 
     public Optional<CorrectionRow> find(UUID owner, UUID id) {
         return jdbc.query("SELECT * FROM foodtime.catalog_corrections WHERE id = ? AND submitter_id = ?",
@@ -168,8 +168,8 @@ public class CatalogCorrectionStore {
                     (id, submitter_id, target_type, target_id, target_summary, base_revision,
                      original_name, original_description, original_price,
                      proposed_name, proposed_description, proposed_price, changed_fields,
-                     reason, idempotency_key, request_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     reason, idempotency_key, request_hash, original_price_unit, proposed_price_unit)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """);
             statement.setObject(1, row.id());
             statement.setObject(2, row.submitterId());
@@ -188,6 +188,8 @@ public class CatalogCorrectionStore {
             statement.setString(14, row.reason());
             statement.setString(15, idempotencyKey);
             statement.setString(16, row.requestHash());
+            statement.setString(17, row.originalPriceUnit());
+            statement.setString(18, row.proposedPriceUnit());
             return statement;
         });
     }
@@ -205,16 +207,16 @@ public class CatalogCorrectionStore {
     public void insertEvent(UUID id, UUID correctionId, UUID actorId, String action,
             String publicNote, String internalNote, String originalName, String originalDescription,
             BigDecimal originalPrice, String proposedName, String proposedDescription,
-            BigDecimal proposedPrice) {
+            BigDecimal proposedPrice, String originalUnit, String proposedUnit) {
         jdbc.update("""
                 INSERT INTO foodtime.catalog_correction_events
                 (id, correction_id, actor_id, action, public_note, internal_note, before_values, after_values)
                 VALUES (?, ?, ?, ?, ?, ?,
-                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric),
-                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric))
+                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric, 'priceUnit', ?::text),
+                    jsonb_build_object('name', ?::text, 'description', ?::text, 'price', ?::numeric, 'priceUnit', ?::text))
                 """, id, correctionId, actorId, action, publicNote, internalNote,
-                originalName, originalDescription, originalPrice,
-                proposedName, proposedDescription, proposedPrice);
+                originalName, originalDescription, originalPrice, originalUnit,
+                proposedName, proposedDescription, proposedPrice, proposedUnit);
     }
 
     public boolean decide(UUID id, long expectedRevision, String status, String reviewNote, UUID reviewer) {
@@ -229,20 +231,20 @@ public class CatalogCorrectionStore {
     public TargetSnapshot target(CorrectionTargetType type, UUID id, boolean lock) {
         String sql = switch (type) {
             case DINING_HALL -> """
-                    SELECT h.id, h.revision, h.name, h.description, NULL::numeric AS price,
+                    SELECT h.id, h.revision, h.name, h.description, NULL::numeric AS price, 'unspecified'::text AS price_unit,
                            h.status AS hall_status, NULL::varchar AS stall_status, NULL::varchar AS dish_status,
                            h.name AS target_summary
                     FROM foodtime.dining_halls h WHERE h.id = ?
                     """ + (lock ? " FOR UPDATE OF h" : "");
             case STALL -> """
-                    SELECT s.id, s.revision, s.name, s.description, NULL::numeric AS price,
+                    SELECT s.id, s.revision, s.name, s.description, NULL::numeric AS price, 'unspecified'::text AS price_unit,
                            h.status AS hall_status, s.status AS stall_status, NULL::varchar AS dish_status,
                            concat_ws(' / ', h.name, s.name) AS target_summary
                     FROM foodtime.stalls s JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id
                     WHERE s.id = ?
                     """ + (lock ? " FOR UPDATE OF s" : "");
             case DISH -> """
-                    SELECT d.id, d.revision, d.name, d.description, d.price,
+                    SELECT d.id, d.revision, d.name, d.description, d.price, d.price_unit,
                            h.status AS hall_status, s.status AS stall_status, d.status AS dish_status,
                            concat_ws(' / ', h.name, s.name, d.name) AS target_summary
                     FROM foodtime.dishes d
@@ -259,12 +261,12 @@ public class CatalogCorrectionStore {
                         && (type == CorrectionTargetType.DINING_HALL
                             || "active".equals(rs.getString("stall_status")))
                         && (type != CorrectionTargetType.DISH
-                            || "active".equals(rs.getString("dish_status")))), id)
+                            || "active".equals(rs.getString("dish_status"))),rs.getString("price_unit")), id)
                 .stream().findFirst().orElse(null);
     }
 
     public boolean apply(CorrectionTargetType type, UUID id, long baseRevision,
-            List<String> fields, String name, String description, BigDecimal price) {
+            List<String> fields, String name, String description, BigDecimal price, String priceUnit) {
         List<String> sets = new ArrayList<>();
         List<Object> args = new ArrayList<>();
         if (fields.contains("name")) {
@@ -279,6 +281,7 @@ public class CatalogCorrectionStore {
             sets.add("price = ?");
             args.add(price);
         }
+        if (fields.contains("priceUnit")) { sets.add("price_unit = ?"); args.add(priceUnit); }
         if (sets.isEmpty()) return false;
         sets.add("revision = revision + 1");
         sets.add("updated_at = now()");
