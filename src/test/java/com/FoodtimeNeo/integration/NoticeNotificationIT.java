@@ -38,6 +38,22 @@ class NoticeNotificationIT extends IntegrationApiSupport {
     }
 
     @Test
+    void pendingNoticeThatExpiresBeforePollingIsNotRemindedButStaysInArchive() throws Exception {
+        var browser = login(owner);
+        assertThat(browser.call("PUT", PREFS + "/notice", Map.of("enabled", true, "expectedRevision", 1)).statusCode()).isEqualTo(200);
+        Instant now = Instant.now();
+        UUID id = notice("# 有截止时间的公告", true, now.minusSeconds(3600), now.minusSeconds(3600), now.plusSeconds(60));
+        var before = body(browser.call("GET", EVENTS, null)).path("data");
+        assertThat(before.path("items").get(0).path("deliveryStatus").asString()).isEqualTo("pending");
+        jdbc.update("UPDATE foodtime.notices SET display_ends_at = ? WHERE notice_id = ?", Timestamp.from(now.minusSeconds(1)), id);
+        var expired = body(browser.call("GET", EVENTS, null)).path("data");
+        assertThat(expired.path("items").get(0).path("deliveryStatus").asString()).isEqualTo("skipped");
+        assertThat(expired.path("nextSeq").asLong()).isEqualTo(before.path("nextSeq").asLong());
+        assertThat(body(browser.call("GET", "/api/v1/users/me/notices?page=1&size=20", null))
+                .path("data").toString()).contains(id.toString());
+    }
+
+    @Test
     void onlyEligibleNoticesCreateEventsAndEnableBaselineDoesNotReplay() throws Exception {
         Instant now = Instant.now();
         UUID active = notice("# 当前公告\n\n正文", true, now, now, null);

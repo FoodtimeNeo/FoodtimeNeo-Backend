@@ -19,9 +19,16 @@ public final class NotificationDtos {
 
     public record PreferenceRequest(@NotNull Boolean enabled, @NotNull Long expectedRevision) {}
 
+    public record LegacyMessagePreferenceRequest(@NotNull Boolean enabled) {}
+
     public record Event(UUID eventId, long seq, String category, String title, String body,
                         String refType, UUID refId, UUID refCommentId, UUID refRootCommentId,
-                        Instant createdAt, String deliveryStatus) {}
+                        Instant createdAt, String deliveryStatus) {
+        public Event withDeliveryStatus(String status) {
+            return new Event(eventId, seq, category, title, body, refType, refId, refCommentId,
+                    refRootCommentId, createdAt, status);
+        }
+    }
 
     public record EventPage(List<Event> items, long nextSeq) {
         public EventPage {

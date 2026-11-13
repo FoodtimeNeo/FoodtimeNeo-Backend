@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Lazily materializes eligible notice events for one account; never for drafts/future/expired notices. */
@@ -25,7 +26,7 @@ public class NoticeEventService {
     }
 
     @Transactional
-    public void ensureVisible(UUID user) {
+    public Set<UUID> ensureVisible(UUID user) {
         var now = clock.instant();
         List<NoticeRow> eligible = jdbc.query("""
                 SELECT notice_id, is_update
@@ -45,6 +46,7 @@ public class NoticeEventService {
                     row.update() ? "公告有更新" : "收到一条新公告",
                     "请到公告栏查看详情。", "notice", row.id(), null, null);
         }
+        return Set.copyOf(eligible.stream().map(NoticeRow::id).toList());
     }
 
     private record NoticeRow(UUID id, boolean update) {}
