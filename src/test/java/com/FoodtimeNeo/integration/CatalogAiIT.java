@@ -32,6 +32,8 @@ class CatalogAiIT extends IntegrationApiSupport {
     @MockitoSpyBean ModerationStore store;
     @Autowired AiTriageService triage;
     @Autowired ModerationService moderation;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("aiTriageExecutor")
+    java.util.concurrent.Executor executor;
     private AiVerdict verdict(String risk,double confidence,String model){return new AiVerdict(risk,confidence,List.of("测试结论"),"本地测试建议",model);}
     private void answer(String risk,double confidence){
         doReturn(verdict(risk,confidence,"text-test")).when(provider).checkText(anyString(),anyString());
@@ -102,11 +104,20 @@ class CatalogAiIT extends IntegrationApiSupport {
     }
     @Test void modelOutageKeepsPendingAndSweepCanRetry()throws Exception{
         CountDownLatch called=new CountDownLatch(2);
-        doAnswer(invocation->{called.countDown();throw new AiUnavailableException("本地测试故障");}).when(provider).checkImage(anyString(),any(),anyString());
+        var unavailable=new java.util.concurrent.atomic.AtomicBoolean(true);
+        doReturn(verdict("LOW",1,"text-test")).when(provider).checkText(anyString(),anyString());
+        doAnswer(invocation->{
+            if(unavailable.get()) {called.countDown();throw new AiUnavailableException("本地测试故障");}
+            return verdict("LOW",1,"vision-test");
+        }).when(provider).checkImage(anyString(),any(),anyString());
         Browser user=login(owner);String image=image(user);UUID d=dish(user,image),p=photo(user,image);assertThat(called.await(8,TimeUnit.SECONDS)).isTrue();
+        // A provider invocation is not the end of its asynchronous task. Do not reset/re-stub a running spy.
+        var pool=((org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor)executor).getThreadPoolExecutor();
+        for(int i=0;i<100&&(pool.getActiveCount()>0||!pool.getQueue().isEmpty());i++)Thread.sleep(20);
+        assertThat(pool.getActiveCount()).isZero();assertThat(pool.getQueue()).isEmpty();
         status("dish",d,"pending");status("photo",p,"pending");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM foodtime.ai_moderation_results WHERE submission_id IN (?,?)",Long.class,d,p)).isZero();
-        answer("LOW",1);triage.triageOnce();awaitVerdict("dish",d);awaitVerdict("photo",p);status("dish",d,"pending");status("photo",p,"pending");
+        unavailable.set(false);triage.triageOnce();awaitVerdict("dish",d);awaitVerdict("photo",p);status("dish",d,"pending");status("photo",p,"pending");
     }
     @Test void missingFileIsAdviceNotAutomaticRejection(){
         UUID d=seeded("dish"),p=seeded("photo");triage.triageOnce();status("dish",d,"pending");status("photo",p,"pending");
