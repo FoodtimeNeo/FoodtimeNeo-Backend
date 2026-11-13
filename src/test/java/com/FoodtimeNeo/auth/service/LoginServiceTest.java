@@ -23,7 +23,7 @@ class LoginServiceTest {
     @BeforeEach
     void setUp() {
         when(passwords.encode(anyString())).thenReturn("dummy-hash");
-        service = new LoginService(users, passwords);
+        service = new LoginService(users, passwords, new com.FoodtimeNeo.auth.security.ParticipationPolicy(new com.FoodtimeNeo.config.properties.ParticipationProperties(true)));
     }
 
     @Test

@@ -13,13 +13,19 @@ import java.util.UUID;
 public class ProfileService {
     private final ProfileMapper profiles;
     private final ImageStorageService images;
-    public ProfileService(ProfileMapper profiles, ImageStorageService images) {
+    private final com.FoodtimeNeo.auth.security.ParticipationPolicy participation;
+    public ProfileService(ProfileMapper profiles, ImageStorageService images,
+                          com.FoodtimeNeo.auth.security.ParticipationPolicy participation) {
         this.profiles = profiles; this.images = images;
+        this.participation = participation;
     }
     public ProfileResponse current(UUID userId) {
         ProfileResponse profile = profiles.current(userId);
         if (profile == null) throw new BusinessException("UNAUTHENTICATED", "请重新登录", HttpStatus.UNAUTHORIZED);
-        return profile;
+        String role = participation.effectiveRole(profile.role());
+        return new ProfileResponse(profile.id(), profile.email(), profile.displayName(), role,
+                profile.avatarUrl(), profile.followingCount(), profile.followerCount(),
+                profile.schoolEmail(), profile.schoolEmailVerified());
     }
     public ProfileResponse update(UUID userId, UpdateProfileRequest body) {
         String displayName = body.displayName().trim();

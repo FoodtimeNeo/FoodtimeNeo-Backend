@@ -49,7 +49,7 @@ class RegistrationVerificationTest {
                                 com.FoodtimeNeo.config.properties.RegistrationMode.OPEN,
                                 Duration.ofMinutes(15), 10, 10, 1000, "test:registration",
                 com.FoodtimeNeo.config.properties.RegistrationLimitsProperties.DEFAULT_ALLOWED_EMAIL_DOMAINS)),
-                Clock.systemUTC(), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class));
+                Clock.systemUTC(), mock(com.FoodtimeNeo.user.lifecycle.EmailCooldowns.class), new com.FoodtimeNeo.auth.security.ParticipationPolicy(new com.FoodtimeNeo.config.properties.ParticipationProperties(true)));
         return MockMvcBuilders.standaloneSetup(new RegistrationController(registration,
                         mock(com.FoodtimeNeo.auth.service.RegistrationRateLimiter.class), devices))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();

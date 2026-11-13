@@ -25,13 +25,15 @@ public class SessionAuthenticationService {
     private final SecurityContextRepository contexts;
     private final AuthProperties properties;
     private final Clock clock;
+    private final ParticipationPolicy participation;
 
     public SessionAuthenticationService(UserMapper users, SecurityContextRepository contexts,
-                                        AuthProperties properties, Clock clock) {
+                                        AuthProperties properties, Clock clock, ParticipationPolicy participation) {
         this.users = users;
         this.contexts = contexts;
         this.properties = properties;
         this.clock = clock;
+        this.participation = participation;
     }
 
     public Instant establish(UserProfile user, HttpServletRequest request, HttpServletResponse response) {
@@ -48,7 +50,7 @@ public class SessionAuthenticationService {
         request.getSession(true).setMaxInactiveInterval(Math.toIntExact(ttl.toSeconds()));
         var principal = new SessionPrincipal(user.id(), user.passwordChangedAt(), expiresAt, mode);
         var context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication(principal, user.role()));
+        context.setAuthentication(authentication(principal, participation.resolve(user).role()));
         SecurityContextHolder.setContext(context);
         contexts.saveContext(context, request, response);
         return expiresAt;
@@ -61,7 +63,7 @@ public class SessionAuthenticationService {
         }
         UserProfile user;
         try {
-            user = users.findProfile(principal.userId());
+            user = participation.resolve(users.findProfile(principal.userId()));
         } catch (DataAccessException exception) {
             throw LoginService.unavailable();
         }

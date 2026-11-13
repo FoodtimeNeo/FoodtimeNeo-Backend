@@ -2,6 +2,8 @@
 
 账号使用注册时的完整邮箱。登录通过服务端验证 Argon2id 密码哈希，使用 Spring Security 和 Spring Session Redis 保存登录状态。浏览器持有不透明的 `FOODTIME_SESSION` Cookie；JSON响应不返回会话ID或密码。禁止将会话凭据存入 localStorage。
 
+登录与 `/me` 的 `role` 是[参与权限策略](participation-policy.md)解析后的有效角色。默认启用账号中的非学校邮箱 `visitor` 与普通 `user` 权限一致，不修改数据库身份或学校认证；会话每次请求重新解析策略。停用账号的受限申诉会话不获得普通权限。
+
 ## 设计依据与额外约定
 
 [数据库设计](../../database-design.md#users用户表) 定义邮箱账号、密码哈希、账号状态、服务端角色、密码变更时间和成功登录时间。接口根据这些字段校验身份、拒绝禁用账号并更新登录时间。

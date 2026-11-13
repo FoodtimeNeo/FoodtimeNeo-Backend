@@ -23,10 +23,13 @@ public class LoginService {
     private final UserMapper users;
     private final PasswordEncoder passwords;
     private final String dummyHash;
+    private final com.FoodtimeNeo.auth.security.ParticipationPolicy participation;
 
-    public LoginService(UserMapper users, PasswordEncoder passwords) {
+    public LoginService(UserMapper users, PasswordEncoder passwords,
+                        com.FoodtimeNeo.auth.security.ParticipationPolicy participation) {
         this.users = users;
         this.passwords = passwords;
+        this.participation = participation;
         // Unknown accounts still perform a password hash comparison to reduce timing differences.
         this.dummyHash = passwords.encode(UUID.randomUUID().toString());
     }
@@ -42,7 +45,7 @@ public class LoginService {
             if (users.recordSuccessfulLogin(account.id(), account.passwordHash()) != 1) {
                 throw invalidCredentials();
             }
-            return account.profile();
+            return participation.resolve(account.profile());
         } catch (DataAccessException exception) {
             LOG.error("Login persistence failed: {}", exception.getClass().getSimpleName());
             throw unavailable();

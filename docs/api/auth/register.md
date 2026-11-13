@@ -12,7 +12,7 @@
 - `invitation`：必须填写有效邀请码；
 - `closed`：注册与发码均被拒绝，客户端应停止提交并说明暂未开放。
 
-详见 [注册策略](registration-policy.md)。
+详见 [注册策略](registration-policy.md)。普通账号参与权限独立于注册模式，见 [参与权限策略](participation-policy.md)：当前默认学校／非学校邮箱均获得普通用户有效权限，学校认证状态保持真实，后续可用一个服务器配置恢复原限制。
 
 ## 设计依据与额外约定
 
@@ -33,7 +33,7 @@
 
 | 字段 | 必填 | 规则 |
 | --- | --- | --- |
-| `email` | 是 | 去除首尾空白、转为小写后，须为合法邮箱且域名属于部署配置的主流邮箱白名单（允许子域）；最多254位。使用 `@bjtu.edu.cn` 邮箱注册获得 `user`，其他白名单邮箱注册为 `visitor` |
+| `email` | 是 | 去除首尾空白、转为小写后，须为合法邮箱且域名属于部署配置的主流邮箱白名单（允许子域）；最多254位。学校邮箱存储角色为 `user`，其它为 `visitor`；响应角色由参与权限策略解析 |
 | `password` | 是 | 8至128位，仅允许英文字母（A–Z / a–z）、数字（0–9）和ASCII半角符号；至少包含一个数字和一个英文字母；符号非必需；保持原样，不修改大小写 |
 | `verificationCode` | 是 | 与该邮箱绑定的6位ASCII数字验证码；作为字符串提交以保留前导零；发送成功后15分钟内有效，最多5次错误尝试 |
 | `invitationCode` | 否 | 可选；平台发放的12位邀请码，大小写均可，仅用于记录邀请归因，不填不影响注册；填写后须为有效未失效码，详见 [邀请码](invitation-codes.md) |
@@ -67,7 +67,7 @@
 }
 ```
 
-用户ID为服务端生成的 UUID；昵称为 `干饭人` 加随机6位数字（000000–999999，保留前导零，允许不同用户昵称相同）；使用 `@bjtu.edu.cn` 邮箱注册时角色为 `user`，其他白名单邮箱注册为 `visitor`，账号状态为 `active`。访客可在登录后绑定学校邮箱升级。
+用户ID为服务端生成的 UUID；昵称为 `干饭人` 加随机6位数字（000000–999999，保留前导零，允许不同用户昵称相同）；账号状态为 `active`。`role` 表示有效权限角色，默认学校／非学校邮箱均返回 `user`；启用学校邮箱门槛时，未绑定的非学校账号返回 `visitor`。数据库保留原角色及真实学校邮箱认证状态，不因权限放开自动认证或批量升级；登录后仍可绑定／解绑学校邮箱。
 
 密码使用 Spring Security `PasswordEncoder` 的 Argon2id 加盐哈希：19 MiB 内存、2次迭代、并行度1、16字节随机盐、32字节哈希，存储格式为 `{argon2id}$argon2id$...`。同一密码的哈希不同，后续登录应使用 `PasswordEncoder.matches` 校验。参数依据 [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)，算法标识遵循 [Spring Security 密码存储格式](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html)。接口响应不会返回密码、密码哈希或盐。
 

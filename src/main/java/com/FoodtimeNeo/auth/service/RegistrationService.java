@@ -37,10 +37,12 @@ public class RegistrationService {
     private final RegistrationGate gate;
     private final Clock clock;
     private final com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns;
+    private final com.FoodtimeNeo.auth.security.ParticipationPolicy participation;
 
     public RegistrationService(UserMapper users, PasswordEncoder passwords, DefaultDisplayNameGenerator names,
                                EmailVerificationService verification, InvitationService invitations,
-                               RegistrationGate gate, Clock clock,com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns) {
+                               RegistrationGate gate, Clock clock,com.FoodtimeNeo.user.lifecycle.EmailCooldowns cooldowns,
+                               com.FoodtimeNeo.auth.security.ParticipationPolicy participation) {
         this.users = users;
         this.passwords = passwords;
         this.names = names;
@@ -49,6 +51,7 @@ public class RegistrationService {
         this.gate = gate;
         this.clock = clock;
         this.cooldowns=cooldowns;
+        this.participation=participation;
     }
 
     @Transactional
@@ -66,7 +69,7 @@ public class RegistrationService {
                 if (request.invitationCode() != null) {
                     invitationCodeId = invitations.consume(request.invitationCode());
                 }
-                // 校园邮箱注册即拥有发布权限；其他邮箱先以只读访客身份进入。
+                // Keep stored mailbox identity so the deployment participation policy is reversible.
                 boolean school = request.email().endsWith(SCHOOL_EMAIL_SUFFIX);
                 Instant now = clock.instant();
                 NewUser user = new NewUser(UUID.randomUUID(), request.email(),
@@ -76,7 +79,7 @@ public class RegistrationService {
                 // PostgreSQL remains the final authority for uniqueness, including concurrent claims.
                 if (users.insertRegisteredUser(user) == 0) { throw duplicateEmail(); }
                 registered = true;
-                return new RegisterResponse(user.id(), user.email(), user.displayName(), user.role());
+                return new RegisterResponse(user.id(), user.email(), user.displayName(), participation.effectiveRole(user.role()));
             } finally {
                 verification.finish(claim, registered);
             }

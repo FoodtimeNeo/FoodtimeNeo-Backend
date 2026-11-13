@@ -1,6 +1,6 @@
 # 个人资料
 
-`GET /api/v1/users/me/profile`：需登录，返回 `id/email/displayName/role/avatarUrl`，头像允许null。字段全部来自 `users`；身份由已验证会话取得，查询参数不能指定其他用户。没有画像统计、虚构头像或密码字段。
+`GET /api/v1/users/me/profile`：需登录，返回本人资料、关注统计及学校邮箱认证信息，头像允许 null。身份由已验证会话取得，查询参数不能指定其他用户，不返回密码字段。`role` 按[参与权限策略](../auth/participation-policy.md)解析为有效权限角色；学校认证以 `schoolEmail/schoolEmailVerified` 为准，不因普通权限放开自动标为已认证。
 
 401表示会话或账号无效；503表示基础设施不可用。角色由服务器读取，Android不能依靠本地预设角色授权。昵称与头像修改见下节PUT接口；修改不添加新的业务规则或数据库字段。
 
