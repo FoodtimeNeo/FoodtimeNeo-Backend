@@ -11,9 +11,9 @@ class FeedbackCsvTest {
         String content="功能反馈，包含逗号,\"引号\"\n以及第二行😊";
         var row=new FeedbackDtos.Row(UUID.randomUUID(),"function",content,"pending",Instant.EPOCH,Instant.EPOCH,"用户",null);
         String csv=FeedbackCsv.export(List.of(row));
-        assertThat(csv).startsWith("\uFEFF反馈编号,反馈类型,反馈内容\r\n");
-        assertThat(FeedbackCsv.parse(csv)).containsExactly(List.of("反馈编号","反馈类型","反馈内容"),
-                List.of(row.id().toString(),"功能反馈",content));
+        assertThat(csv).startsWith("\uFEFF反馈编号,反馈类型,反馈内容,处理状态,处理建议\r\n");
+        assertThat(FeedbackCsv.parse(csv)).containsExactly(List.of("反馈编号","反馈类型","反馈内容","处理状态","处理建议"),
+                List.of(row.id().toString(),"功能反馈",content,"处理中",""));
     }
     @Test void spreadsheetFormulaPrefixesAreExportedAsText() {
         for(String value:List.of("=HYPERLINK(\"bad\")","+1","-1","@SUM(1)"," \t=1","\t123","\n123"))

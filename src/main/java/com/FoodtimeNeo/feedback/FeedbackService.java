@@ -100,9 +100,12 @@ public class FeedbackService {
         catch(IllegalArgumentException error){throw invalid(error.getMessage());}
         if(rows.isEmpty())throw invalid("CSV 为空");
         var headers=rows.getFirst().stream().map(String::strip).toList();
-        Set<String> expected=Set.of("反馈编号","反馈类型","反馈内容","回复","处理状态");
-        if(headers.size()!=5||!new HashSet<>(headers).equals(expected))
-            throw invalid("请保留反馈编号、反馈类型、反馈内容，并添加回复、处理状态两列；列名不能重复");
+        Set<String> current=Set.of("反馈编号","反馈类型","反馈内容","处理建议","处理状态");
+        Set<String> legacy=Set.of("反馈编号","反馈类型","反馈内容","回复","处理状态");
+        var actual=new HashSet<>(headers);
+        if(headers.size()!=5||!(actual.equals(current)||actual.equals(legacy)))
+            throw invalid("请使用导出的反馈编号、反馈类型、反馈内容、处理状态、处理建议五列；兼容旧版回复列，但不能与处理建议同时出现，列名不能重复");
+        int replyColumn=headers.indexOf(headers.contains("处理建议")?"处理建议":"回复");
         int updated=0,skipped=0;var issues=new ArrayList<FeedbackDtos.ImportIssue>();var seen=new HashSet<UUID>();
         for(int index=1;index<rows.size();index++) {
             var values=rows.get(index);int record=index+1;
@@ -116,7 +119,7 @@ public class FeedbackService {
                 if(!seen.add(id))throw invalid("反馈编号重复，未重复处理");
                 String type=values.get(headers.indexOf("反馈类型")).strip();
                 String content=values.get(headers.indexOf("反馈内容")).replace("\r\n","\n").replace('\r','\n');
-                String reply=text(values.get(headers.indexOf("回复")));
+                String reply=text(values.get(replyColumn));
                 String rawStatus=values.get(headers.indexOf("处理状态")).strip();
                 String status=rawStatus.isBlank()?null:FeedbackCsv.STATUSES.entrySet().stream()
                         .filter(entry->entry.getValue().equals(rawStatus)).map(Map.Entry::getKey).findFirst()
