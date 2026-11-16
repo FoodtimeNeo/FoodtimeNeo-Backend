@@ -16,9 +16,11 @@ public final class FeedbackCsv {
         return text;
     }
     public static String export(List<FeedbackDtos.Row> rows) {
-        StringBuilder out=new StringBuilder("\uFEFF反馈编号,反馈类型,反馈内容\r\n");
+        StringBuilder out=new StringBuilder("\uFEFF反馈编号,反馈类型,反馈内容,处理状态,处理建议\r\n");
         for(var row:rows)out.append(quote(row.id().toString())).append(',').append(quote(TYPES.get(row.type())))
-                .append(',').append(quote(cell(row.content()))).append("\r\n");
+                .append(',').append(quote(cell(row.content())))
+                .append(',').append(quote(STATUSES.get(row.status().equals("pending")?"processing":row.status())))
+                .append(',').append(quote("")).append("\r\n");
         return out.toString();
     }
     private static String quote(String value) { return "\""+value.replace("\"","\"\"")+"\""; }

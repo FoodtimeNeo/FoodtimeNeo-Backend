@@ -78,6 +78,30 @@ class FeedbackIT extends IntegrationApiSupport {
         assertThat(body(author.call("GET",OWN+"/"+changed+"/replies",null)).path("data").path("items")).isEmpty();
         assertThat(body(author.call("GET",OWN+"/"+done+"/replies",null)).path("data").path("total").asInt()).isEqualTo(1);
     }
+    @Test void exportedTemplateCanBeReturnedUnchangedOrFilledWithPublicAdvice()throws Exception {
+        Browser author=login(owner),admin=login(account("superadmin"));String id=create(author,"直接填写模板");
+        String exported=body(admin.call("POST",ADMIN+"/export",null)).path("data").path("csv").asString();
+        var rows=FeedbackCsv.parse(exported);
+        assertThat(rows.getFirst()).containsExactly("反馈编号","反馈类型","反馈内容","处理状态","处理建议");
+        assertThat(rows.get(1)).containsExactly(id,"功能反馈","直接填写模板","处理中","");
+        var unchanged=body(admin.call("POST",ADMIN+"/import",Map.of("csv",exported))).path("data");
+        assertThat(unchanged.path("updated").asInt()).isZero();
+        assertThat(body(author.call("GET",OWN+"/"+id+"/replies",null)).path("data").path("total").asInt()).isZero();
+        String advice="已修复，包含,逗号与\"引号\"\n第二行😊";
+        String filled="\uFEFF反馈编号,反馈类型,反馈内容,处理状态,处理建议\r\n"+
+            String.join(",",quote(id),quote("功能反馈"),quote("直接填写模板"),quote("已完成"),quote(advice))+"\r\n";
+        assertThat(body(admin.call("POST",ADMIN+"/import",Map.of("csv",filled))).path("data").path("updated").asInt()).isEqualTo(1);
+        assertThat(body(author.call("GET",OWN+"/"+id+"/replies",null)).path("data").path("items").get(0).path("content").asString()).isEqualTo(advice);
+        assertThat(body(admin.call("POST",ADMIN+"/export",null)).path("data").path("count").asInt()).isZero();
+    }
+    @Test void ambiguousAdviceAndReplyHeadersAreRejectedBeforeUpdatingAnyRow()throws Exception {
+        Browser author=login(owner),admin=login(account("superadmin"));String id=create(author,"表头歧义");
+        String ambiguous="反馈编号,反馈类型,反馈内容,处理状态,处理建议,回复\r\n"+
+            String.join(",",quote(id),quote("功能反馈"),quote("表头歧义"),quote("已完成"),quote("建议"),quote("另一回复"))+"\r\n";
+        assertThat(admin.call("POST",ADMIN+"/import",Map.of("csv",ambiguous)).statusCode()).isEqualTo(400);
+        assertThat(body(author.call("GET",OWN+"/"+id,null)).path("data").path("status").asString()).isEqualTo("pending");
+        assertThat(body(author.call("GET",OWN+"/"+id+"/replies",null)).path("data").path("total").asInt()).isZero();
+    }
     @Test void repeatedImportAndBlankCellsNeverDuplicateOrEraseReplies()throws Exception {
         Browser author=login(owner),admin=login(account("superadmin"));String id=create(author,"保留历史");
         String sheet=csv(line(id,"保留历史","第一次回复",""));
