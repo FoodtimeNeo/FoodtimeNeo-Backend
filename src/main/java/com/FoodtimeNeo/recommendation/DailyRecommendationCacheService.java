@@ -34,9 +34,9 @@ public class DailyRecommendationCacheService {
         }
     }
 
-    public void put(LocalDate date, UUID batchId, List<UUID> dishIds) {
+    public void put(LocalDate date, UUID batchId, List<UUID> stallIds) {
         try {
-            String ids = dishIds.stream().map(UUID::toString).reduce((a, b) -> a + "," + b).orElse("");
+            String ids = stallIds.stream().map(UUID::toString).reduce((a, b) -> a + "," + b).orElse("");
             redis.opsForValue().set(key(date), batchId + "|" + ids,
                     properties.cacheTtl().toSeconds(), TimeUnit.SECONDS);
         } catch (RuntimeException exception) {
@@ -45,5 +45,5 @@ public class DailyRecommendationCacheService {
         }
     }
 
-    public String key(LocalDate date) { return "foodtime:recommendations:daily:v2:" + date.toString().replace("-", ""); }
+    public String key(LocalDate date) { return "foodtime:recommendations:daily:v4-stall:" + date.toString().replace("-", ""); }
 }

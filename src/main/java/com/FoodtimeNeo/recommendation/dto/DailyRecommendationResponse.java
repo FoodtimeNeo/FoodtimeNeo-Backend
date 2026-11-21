@@ -7,4 +7,4 @@ import java.util.List;
 
 @Schema(description = "全站统一每日推荐")
 public record DailyRecommendationResponse(LocalDate date, String algorithmVersion, int total,
-                                          List<RecommendedDishResponse> items) { }
+                                          List<RecommendedStallResponse> items) { }

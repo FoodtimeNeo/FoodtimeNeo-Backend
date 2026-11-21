@@ -39,7 +39,7 @@ class DatabaseSchemaIT {
                 "stall_images", "notices", "notice_reads", "messages", "conversations", "direct_messages", "config", "user_follows",
                 "venue_review_targets", "venue_reviews", "venue_review_submissions", "venue_rating_stats",
                 "venue_review_stats", "venue_review_likes", "venue_review_replies", "venue_review_reply_stats", "venue_review_reply_likes",
-                "daily_recommendation_batch", "daily_recommendation_item", "user_blocks", "content_reports", "dish_favorites",
+                "daily_recommendation_batch", "daily_recommendation_item", "daily_recommendation_stall_item", "user_blocks", "content_reports", "dish_favorites",
                 "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions",
                 "favorite_groups", "dish_favorite_group_members", "community_favorite_group_members",
                 "catalog_corrections", "catalog_correction_evidence", "catalog_correction_events",

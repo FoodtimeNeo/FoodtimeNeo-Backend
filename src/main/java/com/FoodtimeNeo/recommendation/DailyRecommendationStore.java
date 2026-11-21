@@ -23,50 +23,71 @@ public class DailyRecommendationStore {
 
     public List<Candidate> findCandidates(Instant recentFrom, Instant recentTo) {
         return jdbc.query("""
-                SELECT d.id AS dish_id, d.name, d.price,
-                       s.id AS stall_id, s.name AS stall_name,
+                WITH dish_reviews AS (
+                    SELECT d.stall_id, SUM(ds.review_count)::bigint AS review_count,
+                           SUM(ds.rating_sum)::bigint AS rating_sum
+                    FROM foodtime.dishes d
+                    LEFT JOIN foodtime.dish_stats ds ON ds.dish_id = d.id
+                    WHERE d.status = 'active'
+                    GROUP BY d.stall_id
+                ), venue_reviews AS (
+                    SELECT t.stall_id, COALESCE(SUM(vs.review_count), 0)::bigint AS review_count,
+                           COALESCE(SUM(vs.rating * vs.review_count), 0)::bigint AS rating_sum
+                    FROM foodtime.venue_review_targets t
+                    LEFT JOIN foodtime.venue_rating_summary vs ON vs.target_id = t.id
+                    WHERE t.stall_id IS NOT NULL
+                    GROUP BY t.stall_id
+                ), recent_reviews AS (
+                    SELECT target.stall_id, SUM(target.review_count)::bigint AS reviews_7d
+                    FROM (
+                        SELECT d.stall_id, COUNT(*) AS review_count
+                        FROM foodtime.dish_reviews r JOIN foodtime.dishes d ON d.id = r.dish_id
+                        WHERE d.status = 'active' AND r.deleted_at IS NULL AND r.created_at >= ? AND r.created_at < ?
+                        GROUP BY d.stall_id
+                        UNION ALL
+                        SELECT t.stall_id, COUNT(*) AS review_count
+                        FROM foodtime.venue_reviews r
+                        JOIN foodtime.venue_review_targets t ON t.id = r.target_id
+                        WHERE r.deleted_at IS NULL AND r.current_submission_id IS NOT NULL
+                          AND r.first_published_at >= ? AND r.first_published_at < ?
+                          AND t.stall_id IS NOT NULL
+                        GROUP BY t.stall_id
+                    ) target GROUP BY target.stall_id
+                )
+                SELECT s.id AS stall_id, s.name AS stall_name,
                        h.id AS dining_hall_id, h.name AS dining_hall_name,
-                       COALESCE(ds.review_count, 0) AS review_count,
-                       CASE WHEN COALESCE(ds.review_count, 0) = 0 THEN NULL
-                            ELSE ds.rating_sum::numeric / ds.review_count END AS average_rating,
-                       COALESCE(recent.reviews_7d, 0) AS reviews_7d,
-                       image.image_url
-                FROM foodtime.dishes d
-                JOIN foodtime.stalls s ON s.id = d.stall_id AND s.status = 'active'
+                       (COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0)) AS review_count,
+                       CASE WHEN COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0) = 0 THEN NULL
+                            ELSE (COALESCE(dr.rating_sum, 0) + COALESCE(vr.rating_sum, 0))::numeric
+                                 / (COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0)) END AS average_rating,
+                       COALESCE(recent.reviews_7d, 0) AS reviews_7d, s.cover_image_url AS image_url
+                FROM foodtime.stalls s
                 JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
-                LEFT JOIN foodtime.dish_stats ds ON ds.dish_id = d.id
-                LEFT JOIN (
-                    SELECT r.dish_id, COUNT(*) AS reviews_7d
-                    FROM foodtime.dish_reviews r
-                    WHERE r.deleted_at IS NULL AND r.created_at >= ? AND r.created_at < ?
-                    GROUP BY r.dish_id
-                ) recent ON recent.dish_id = d.id
-                LEFT JOIN LATERAL (
-                    SELECT i.image_url FROM foodtime.dish_images i
-                    WHERE i.dish_id = d.id AND i.status = 'approved'
-                    ORDER BY i.created_at DESC, i.id ASC LIMIT 1
-                ) image ON TRUE
-                WHERE d.status = 'active'
-                ORDER BY d.id
-                """, (rs, row) -> new Candidate(rs.getObject("dish_id", UUID.class), rs.getString("name"),
+                LEFT JOIN dish_reviews dr ON dr.stall_id = s.id
+                LEFT JOIN venue_reviews vr ON vr.stall_id = s.id
+                LEFT JOIN recent_reviews recent ON recent.stall_id = s.id
+                WHERE s.status = 'active' AND NULLIF(BTRIM(s.cover_image_url), '') IS NOT NULL
+                ORDER BY s.id
+                """, (rs, row) -> new Candidate(rs.getObject("stall_id", UUID.class), rs.getString("stall_name"),
                 rs.getObject("dining_hall_id", UUID.class), rs.getString("dining_hall_name"),
-                rs.getObject("stall_id", UUID.class), rs.getString("stall_name"), rs.getBigDecimal("price"),
+                rs.getObject("stall_id", UUID.class), rs.getString("stall_name"), null,
                 rs.getBigDecimal("average_rating"), rs.getLong("review_count"), rs.getLong("reviews_7d"),
-                rs.getString("image_url"), 0L, null), Timestamp.from(recentFrom), Timestamp.from(recentTo));
+                rs.getString("image_url"), 0L, null), Timestamp.from(recentFrom), Timestamp.from(recentTo),
+                Timestamp.from(recentFrom), Timestamp.from(recentTo));
     }
 
     public Map<UUID, Exposure> findExposure(LocalDate fromInclusive, LocalDate toExclusive) {
         return jdbc.query("""
-                SELECT i.dish_id, COUNT(*) FILTER (WHERE b.recommendation_date >= ?) AS exposure_count,
+                SELECT i.stall_id, COUNT(*) FILTER (WHERE b.recommendation_date >= ?) AS exposure_count,
                        MAX(b.recommendation_date) AS last_date
-                FROM foodtime.daily_recommendation_item i
+                FROM foodtime.daily_recommendation_stall_item i
                 JOIN foodtime.daily_recommendation_batch b ON b.id = i.batch_id
                 WHERE b.generation_status = 'success'
                   AND b.recommendation_date < ?
-                GROUP BY i.dish_id
+                GROUP BY i.stall_id
                 """, rs -> {
             Map<UUID, Exposure> result = new HashMap<>();
-            while (rs.next()) result.put(rs.getObject("dish_id", UUID.class),
+            while (rs.next()) result.put(rs.getObject("stall_id", UUID.class),
                     new Exposure(rs.getLong("exposure_count"), rs.getObject("last_date", LocalDate.class)));
             return result;
         }, fromInclusive, toExclusive);
@@ -100,15 +121,15 @@ public class DailyRecommendationStore {
     }
 
     public void clearItems(UUID batchId) {
-        jdbc.update("DELETE FROM foodtime.daily_recommendation_item WHERE batch_id = ?", batchId);
+        jdbc.update("DELETE FROM foodtime.daily_recommendation_stall_item WHERE batch_id = ?", batchId);
     }
 
     public void insertItem(UUID batchId, StoredItem item) {
         jdbc.update("""
-                INSERT INTO foodtime.daily_recommendation_item
-                    (id, batch_id, dish_id, position, recommendation_type, recommendation_score, reason_code)
+                INSERT INTO foodtime.daily_recommendation_stall_item
+                    (id, batch_id, stall_id, position, recommendation_type, recommendation_score, reason_code)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, UUID.randomUUID(), batchId, item.dishId(), item.position(), item.type(), item.score(), item.reasonCode());
+                """, UUID.randomUUID(), batchId, item.stallId(), item.position(), item.type(), item.score(), item.reasonCode());
     }
 
     public void markSuccess(UUID batchId) {
@@ -121,8 +142,14 @@ public class DailyRecommendationStore {
 
     public double findGlobalAverage() {
         return jdbc.queryForObject("""
-                SELECT COALESCE(SUM(rating_sum)::numeric / NULLIF(SUM(review_count), 0), 3.5)
-                FROM foodtime.dish_stats
+                WITH ratings AS (
+                    SELECT rating_sum, review_count FROM foodtime.dish_stats
+                    UNION ALL
+                    SELECT SUM(rating * review_count), SUM(review_count)
+                    FROM foodtime.venue_rating_stats
+                    GROUP BY target_id
+                )
+                SELECT COALESCE(SUM(rating_sum)::numeric / NULLIF(SUM(review_count), 0), 3.5) FROM ratings
                 """, Double.class);
     }
 
@@ -151,32 +178,36 @@ public class DailyRecommendationStore {
 
     public List<RecommendationRow> findVisibleItems(UUID batchId) {
         return jdbc.query("""
-                SELECT i.dish_id, i.position, i.recommendation_type, i.recommendation_score, i.reason_code,
-                       d.name, d.price, s.id AS stall_id, s.name AS stall_name,
+                SELECT i.stall_id, i.position, i.recommendation_type, i.recommendation_score, i.reason_code,
+                       s.name AS stall_name,
                        h.id AS dining_hall_id, h.name AS dining_hall_name,
-                       COALESCE(ds.review_count, 0) AS review_count,
-                       CASE WHEN COALESCE(ds.review_count, 0) = 0 THEN NULL
-                            ELSE ROUND(ds.rating_sum::numeric / ds.review_count, 2) END AS average_rating,
-                       image.image_url
-                FROM foodtime.daily_recommendation_item i
+                       (COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0)) AS review_count,
+                       CASE WHEN COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0) = 0 THEN NULL
+                            ELSE ROUND((COALESCE(dr.rating_sum, 0) + COALESCE(vr.rating_sum, 0))::numeric
+                                 / (COALESCE(dr.review_count, 0) + COALESCE(vr.review_count, 0)), 2) END AS average_rating,
+                       s.cover_image_url AS image_url
+                FROM foodtime.daily_recommendation_stall_item i
                 JOIN foodtime.daily_recommendation_batch b
                   ON b.id = i.batch_id AND b.generation_status = 'success'
-                JOIN foodtime.dishes d ON d.id = i.dish_id AND d.status = 'active'
-                JOIN foodtime.stalls s ON s.id = d.stall_id AND s.status = 'active'
+                JOIN foodtime.stalls s ON s.id = i.stall_id AND s.status = 'active'
                 JOIN foodtime.dining_halls h ON h.id = s.dining_hall_id AND h.status = 'active'
-                LEFT JOIN foodtime.dish_stats ds ON ds.dish_id = d.id
                 LEFT JOIN LATERAL (
-                    SELECT image_url FROM foodtime.dish_images
-                    WHERE dish_id = d.id AND status = 'approved'
-                    ORDER BY created_at DESC, id ASC LIMIT 1
-                ) image ON TRUE
-                WHERE i.batch_id = ?
+                    SELECT SUM(ds.review_count)::bigint AS review_count, SUM(ds.rating_sum)::bigint AS rating_sum
+                    FROM foodtime.dishes d LEFT JOIN foodtime.dish_stats ds ON ds.dish_id = d.id
+                    WHERE d.stall_id = s.id AND d.status = 'active'
+                ) dr ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(vs.review_count), 0)::bigint AS review_count,
+                           COALESCE(SUM(vs.rating * vs.review_count), 0)::bigint AS rating_sum
+                    FROM foodtime.venue_review_targets t LEFT JOIN foodtime.venue_rating_summary vs ON vs.target_id=t.id
+                    WHERE t.stall_id=s.id
+                ) vr ON TRUE
+                WHERE i.batch_id = ? AND NULLIF(BTRIM(s.cover_image_url), '') IS NOT NULL
                 ORDER BY i.position
                 """, (rs, row) -> new RecommendationRow(
-                rs.getObject("dish_id", UUID.class), rs.getInt("position"), rs.getString("recommendation_type"),
-                rs.getDouble("recommendation_score"), rs.getString("reason_code"), rs.getString("name"),
+                rs.getObject("stall_id", UUID.class), rs.getInt("position"), rs.getString("recommendation_type"),
+                rs.getDouble("recommendation_score"), rs.getString("reason_code"), rs.getString("stall_name"),
                 rs.getObject("dining_hall_id", UUID.class), rs.getString("dining_hall_name"),
-                rs.getObject("stall_id", UUID.class), rs.getString("stall_name"), rs.getBigDecimal("price"),
                 rs.getBigDecimal("average_rating"), rs.getLong("review_count"), rs.getString("image_url")), batchId);
     }
 
@@ -185,8 +216,7 @@ public class DailyRecommendationStore {
     public record Exposure(long count, LocalDate lastDate) { }
     public record Batch(UUID id, LocalDate date, String algorithmVersion, String configHash,
                         String status, Instant generatedAt) { }
-    public record RecommendationRow(UUID dishId, int position, String type, double score, String reasonCode,
-                                    String dishName, UUID diningHallId, String diningHallName,
-                                    UUID stallId, String stallName, BigDecimal price, BigDecimal averageRating,
-                                    long reviewCount, String imageUrl) { }
+    public record RecommendationRow(UUID stallId, int position, String type, double score, String reasonCode,
+                                    String stallName, UUID diningHallId, String diningHallName,
+                                    BigDecimal averageRating, long reviewCount, String imageUrl) { }
 }

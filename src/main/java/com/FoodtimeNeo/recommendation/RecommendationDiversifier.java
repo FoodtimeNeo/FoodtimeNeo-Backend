@@ -13,7 +13,7 @@ public class RecommendationDiversifier {
     private static final Comparator<ScoredCandidate> SCORE_ORDER =
             Comparator.comparingDouble(ScoredCandidate::score).reversed()
                     .thenComparing(Comparator.comparingDouble(ScoredCandidate::rotation).reversed())
-                    .thenComparing(c -> c.candidate().id());
+                    .thenComparing(c -> c.candidate().stallId());
     private static final Predicate<ScoredCandidate> QUALITY = c -> c.candidate().reviewCount() >= 1;
     private static final Predicate<ScoredCandidate> EXPLORE =
             c -> c.candidate().reviewCount() < 5 || c.candidate().exposure90d() <= 1;
@@ -76,14 +76,14 @@ public class RecommendationDiversifier {
                         .thenComparing(SCORE_ORDER);
                 if (oldestFirst) order = Comparator
                         .comparing((ScoredCandidate c) -> c.candidate().lastRecommendedDate()).thenComparing(order);
-                ScoredCandidate next = pool.stream().filter(c -> !ids.contains(c.candidate().id()))
+                ScoredCandidate next = pool.stream().filter(c -> !ids.contains(c.candidate().stallId()))
                         .filter(c -> halls.getOrDefault(c.candidate().diningHallId(), 0) < hallCap)
                         .filter(c -> stalls.getOrDefault(c.candidate().stallId(), 0) < stallCap)
                         .min(order).orElse(null);
                 if (next == null) return;
                 String actualType = type != null ? type : EXPLORE.test(next) ? "EXPLORE" : "QUALITY";
                 items.add(new SelectedCandidate(next, actualType, reason(next)));
-                ids.add(next.candidate().id());
+                ids.add(next.candidate().stallId());
                 halls.merge(next.candidate().diningHallId(), 1, Integer::sum);
                 stalls.merge(next.candidate().stallId(), 1, Integer::sum);
             }

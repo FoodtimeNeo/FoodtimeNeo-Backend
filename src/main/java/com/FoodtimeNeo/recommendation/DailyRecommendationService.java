@@ -2,7 +2,7 @@ package com.FoodtimeNeo.recommendation;
 
 import com.FoodtimeNeo.config.properties.DailyRecommendationProperties;
 import com.FoodtimeNeo.recommendation.dto.DailyRecommendationResponse;
-import com.FoodtimeNeo.recommendation.dto.RecommendedDishResponse;
+import com.FoodtimeNeo.recommendation.dto.RecommendedStallResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -47,10 +47,11 @@ public class DailyRecommendationService {
     public DailyRecommendationResponse get(LocalDate date) {
         UUID cachedBatchId = cache.getBatchId(date);
         DailyRecommendationStore.Batch batch = store.findSuccessfulBatch(date);
-        if (batch == null) batch = generate(date);
+        if (batch == null || !properties.algorithmVersion().equals(batch.algorithmVersion())
+                || !properties.configHash().equals(batch.configHash())) batch = generate(date);
         else if (!batch.id().equals(cachedBatchId)) cacheBatch(batch);
-        List<RecommendedDishResponse> items = store.findVisibleItems(batch.id()).stream()
-                .map(RecommendedDishResponse::from).toList();
+        List<RecommendedStallResponse> items = store.findVisibleItems(batch.id()).stream()
+                .map(RecommendedStallResponse::from).toList();
         return new DailyRecommendationResponse(batch.date(), batch.algorithmVersion(), items.size(), items);
     }
 
@@ -78,13 +79,14 @@ public class DailyRecommendationService {
 
     private DailyRecommendationStore.Batch generateInTransaction(LocalDate date) {
         var batch = store.lockOrCreateBatch(date, properties.algorithmVersion(), properties.configHash());
-        if ("success".equals(batch.status())) return batch;
+        if ("success".equals(batch.status()) && properties.algorithmVersion().equals(batch.algorithmVersion())
+                && properties.configHash().equals(batch.configHash())) return batch;
         store.markGenerating(batch.id(), properties.algorithmVersion(), properties.configHash());
         var from = date.minusDays(properties.recentDays()).atStartOfDay(clock.getZone()).toInstant();
         var to = date.atStartOfDay(clock.getZone()).toInstant();
         var history = store.findExposure(date.minusDays(properties.historyDays()), date);
         var candidates = store.findCandidates(from, to).stream().map(candidate -> {
-            var exposure = history.get(candidate.id());
+            var exposure = history.get(candidate.stallId());
             return candidate.withExposure(exposure == null ? 0 : exposure.count(),
                     exposure == null ? null : exposure.lastDate());
         }).toList();
@@ -92,7 +94,7 @@ public class DailyRecommendationService {
         store.clearItems(batch.id());
         for (int i = 0; i < selected.size(); i++) {
             var item = selected.get(i);
-            store.insertItem(batch.id(), new RecommendationModels.StoredItem(item.scored().candidate().id(), i + 1,
+            store.insertItem(batch.id(), new RecommendationModels.StoredItem(item.scored().candidate().stallId(), i + 1,
                     item.type(), item.scored().score(), item.reasonCode()));
         }
         store.markSuccess(batch.id());
@@ -100,7 +102,7 @@ public class DailyRecommendationService {
     }
 
     private void cacheBatch(DailyRecommendationStore.Batch batch) {
-        var ids = store.findVisibleItems(batch.id()).stream().map(DailyRecommendationStore.RecommendationRow::dishId).toList();
+        var ids = store.findVisibleItems(batch.id()).stream().map(DailyRecommendationStore.RecommendationRow::stallId).toList();
         cache.put(batch.date(), batch.id(), ids);
     }
 }

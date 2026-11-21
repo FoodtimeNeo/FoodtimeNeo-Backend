@@ -29,7 +29,7 @@ public class RecommendationScoreCalculator {
             double q = bayesianQuality(c.reviewCount(), safe(c.averageRating(), globalAverage), globalAverage,
                     smoothingPrior);
             double h = maxRecent == 0 ? 0d : Math.log1p(c.reviews7d()) / Math.log1p(maxRecent);
-            double r = stableHash(date, c.id(), algorithmVersion);
+            double r = stableHash(date, c.stallId(), algorithmVersion);
             double e = 1d / (1d + Math.max(0L, c.exposure90d()));
             double score = weights.quality() * q + weights.heat() * h + weights.rotation() * r + weights.exposure() * e;
             return new RecommendationModels.ScoredCandidate(c, finite(q), finite(h), finite(r), finite(e), finite(score));
@@ -44,9 +44,9 @@ public class RecommendationScoreCalculator {
         return finite((n * avg + m * global) / (n + m) / 5d);
     }
 
-    public double stableHash(LocalDate date, java.util.UUID dishId, String algorithmVersion) {
+    public double stableHash(LocalDate date, java.util.UUID stallId, String algorithmVersion) {
         try {
-            byte[] input = (date + "\n" + dishId + "\n" + algorithmVersion).getBytes(StandardCharsets.UTF_8);
+            byte[] input = (date + "\n" + stallId + "\n" + algorithmVersion).getBytes(StandardCharsets.UTF_8);
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(input);
             // Big endian, high 53 bits; mapping is exact and cannot round to 1.
             long bits = ByteBuffer.wrap(digest, 0, Long.BYTES).getLong() >>> 11;
