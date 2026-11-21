@@ -29,6 +29,8 @@ class DailyRecommendationIT extends ReadApiITSupport {
     @Autowired Clock clock;
     @Autowired StringRedisTemplate redis;
     final Set<LocalDate> dates = new HashSet<>();
+    final Set<UUID> venueReviewIds = new HashSet<>();
+    final Set<UUID> venueSubmissionIds = new HashSet<>();
     List<UUID> previouslyActive;
 
     @BeforeEach void isolateCatalogueInDisposableTestDatabase() {
@@ -67,6 +69,12 @@ class DailyRecommendationIT extends ReadApiITSupport {
             jdbc.update("delete from foodtime.dish_review_submissions where dish_id = ?", dish);
             jdbc.update("delete from foodtime.dish_reviews where dish_id = ?", dish);
         }
+        for (UUID review : venueReviewIds) {
+            jdbc.update("delete from foodtime.venue_review_stats where review_id=?", review);
+            jdbc.update("delete from foodtime.venue_reviews where id=?", review);
+        }
+        for (UUID submission : venueSubmissionIds)
+            jdbc.update("delete from foodtime.venue_review_submissions where id=?", submission);
         jdbc.batchUpdate("update foodtime.dishes set status='active' where id=?",
                 previouslyActive.stream().map(id -> new Object[]{id}).toList());
     }
@@ -82,6 +90,27 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThat(service.generate(date).id()).isEqualTo(batch.id());
         assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_batch where recommendation_date = ?", Long.class, date)).isEqualTo(1L);
         assertThat(store.findExposure(date.minusDays(90), date.plusDays(1)).values()).allMatch(e -> e.count() == 1);
+    }
+
+    @Test void successfulDishSnapshotIsRebuiltForTheStallAlgorithmVersion() {
+        UUID oldDish = catalogue(12).getFirst();
+        LocalDate date = testDate(8);
+        var old = store.lockOrCreateBatch(date, "FT-HybridRec-v2", "old-config");
+        jdbc.update("""
+                insert into foodtime.daily_recommendation_item
+                    (id,batch_id,dish_id,position,recommendation_type,recommendation_score,reason_code)
+                values (?,?,?,1,'QUALITY',0.8,'GOOD_REPUTATION')
+                """, UUID.randomUUID(), old.id(), oldDish);
+        store.markSuccess(old.id());
+
+        var refreshed = service.get(date);
+        assertThat(refreshed.algorithmVersion()).isEqualTo("FT-HybridRec-v3-stall");
+        assertThat(refreshed.items()).hasSize(10).allSatisfy(item -> {
+            assertThat(item.stallId()).isNotNull();
+            assertThat(item.imageUrl()).isNotBlank();
+        });
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_item where batch_id=?", Long.class, old.id())).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_stall_item where batch_id=?", Long.class, old.id())).isEqualTo(10L);
     }
 
     @Test void concurrentIndependentInstancesCommitOnlyOneCompleteBatch() throws Exception {
@@ -190,6 +219,33 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThat(result.getFirst().reviewCount()).isZero();
         assertThat(result.getFirst().reviews7d()).isZero();
         assertThat(store.findGlobalAverage()).isEqualTo(3.5);
+    }
+
+    @Test void candidateRatingCombinesPublishedStallAndActiveDishReviews() {
+        UUID hall = hall("active"), stall = stallWithCover(hall, "active");
+        UUID dish = dish(stall, "active", "10");
+        UUID reviewer = user("user");
+        UUID target = jdbc.queryForObject("select id from foodtime.venue_review_targets where stall_id=?", UUID.class, stall);
+        UUID venueReview = UUID.randomUUID(), venueSubmission = UUID.randomUUID();
+        venueReviewIds.add(venueReview);
+        venueSubmissionIds.add(venueSubmission);
+        jdbc.update("insert into foodtime.venue_reviews(id,target_id,user_id) values (?,?,?)", venueReview, target, reviewer);
+        jdbc.update("""
+                insert into foodtime.venue_review_submissions
+                    (id,review_id,client_request_id,base_version,rating,content,status,reviewed_by_user_id,reviewed_at)
+                values (?,?,?,0,3,'档口评价','approved',?,now())
+                """, venueSubmission, venueReview, UUID.randomUUID(), reviewer);
+        jdbc.update("update foodtime.venue_reviews set current_submission_id=? where id=?", venueSubmission, venueReview);
+        jdbc.update("insert into foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at) values (?,?,?,5,'菜品评价',now())",
+                UUID.randomUUID(), dish, reviewer);
+
+        var candidates = store.findCandidates(Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2100-01-01T00:00:00Z"));
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.getFirst().stallId()).isEqualTo(stall);
+        assertThat(candidates.getFirst().reviewCount()).isEqualTo(2);
+        assertThat(candidates.getFirst().averageRating()).isEqualByComparingTo("4.0");
+        assertThat(candidates.getFirst().reviews7d()).isEqualTo(2);
+        assertThat(store.findGlobalAverage()).isEqualTo(4.0);
     }
 
     @Test void reviewEditsAndSoftDeletesReuseExistingStatsAndNeverInflateHeat() {
