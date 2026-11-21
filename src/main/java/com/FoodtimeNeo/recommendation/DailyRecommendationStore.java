@@ -34,7 +34,7 @@ public class DailyRecommendationStore {
                     SELECT t.stall_id, COALESCE(SUM(vs.review_count), 0)::bigint AS review_count,
                            COALESCE(SUM(vs.rating * vs.review_count), 0)::bigint AS rating_sum
                     FROM foodtime.venue_review_targets t
-                    LEFT JOIN foodtime.venue_rating_summary vs ON vs.target_id = t.id
+                    LEFT JOIN foodtime.venue_rating_stats vs ON vs.target_id = t.id
                     WHERE t.stall_id IS NOT NULL
                     GROUP BY t.stall_id
                 ), recent_reviews AS (
@@ -199,7 +199,7 @@ public class DailyRecommendationStore {
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(vs.review_count), 0)::bigint AS review_count,
                            COALESCE(SUM(vs.rating * vs.review_count), 0)::bigint AS rating_sum
-                    FROM foodtime.venue_review_targets t LEFT JOIN foodtime.venue_rating_summary vs ON vs.target_id=t.id
+                    FROM foodtime.venue_review_targets t LEFT JOIN foodtime.venue_rating_stats vs ON vs.target_id=t.id
                     WHERE t.stall_id=s.id
                 ) vr ON TRUE
                 WHERE i.batch_id = ? AND NULLIF(BTRIM(s.cover_image_url), '') IS NOT NULL
