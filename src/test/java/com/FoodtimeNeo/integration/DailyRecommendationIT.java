@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -32,9 +33,11 @@ class DailyRecommendationIT extends ReadApiITSupport {
     final Set<UUID> venueReviewIds = new HashSet<>();
     final Set<UUID> venueSubmissionIds = new HashSet<>();
     List<UUID> previouslyActive;
+    List<UUID> previouslyActiveStalls;
 
     @BeforeEach void isolateCatalogueInDisposableTestDatabase() {
         previouslyActive = jdbc.queryForList("update foodtime.dishes set status='inactive' where status='active' returning id", UUID.class);
+        previouslyActiveStalls = jdbc.queryForList("update foodtime.stalls set status='inactive' where status='active' returning id", UUID.class);
     }
 
     LocalDate testDate(int day) {
@@ -48,6 +51,7 @@ class DailyRecommendationIT extends ReadApiITSupport {
         for (int h = 0; h < 4; h++) {
             UUID hall = hall("active");
             for (int s = 0; s < 3; s++) {
+                if (h * 3 + s >= count) continue;
                 UUID stall = stallWithCover(hall, "active");
                 for (int d = h * 3 + s; d < count; d += 12) result.add(dish(stall, "active", "12.50"));
             }
@@ -69,14 +73,19 @@ class DailyRecommendationIT extends ReadApiITSupport {
             jdbc.update("delete from foodtime.dish_review_submissions where dish_id = ?", dish);
             jdbc.update("delete from foodtime.dish_reviews where dish_id = ?", dish);
         }
-        for (UUID review : venueReviewIds) {
-            jdbc.update("delete from foodtime.venue_review_stats where review_id=?", review);
-            jdbc.update("delete from foodtime.venue_reviews where id=?", review);
-        }
-        for (UUID submission : venueSubmissionIds)
-            jdbc.update("delete from foodtime.venue_review_submissions where id=?", submission);
+        // The published review and submission reference each other; defer the current-version FK until both are removed.
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            for (UUID submission : venueSubmissionIds)
+                jdbc.update("delete from foodtime.venue_review_submissions where id=?", submission);
+            for (UUID review : venueReviewIds) {
+                jdbc.update("delete from foodtime.venue_review_stats where review_id=?", review);
+                jdbc.update("delete from foodtime.venue_reviews where id=?", review);
+            }
+        });
         jdbc.batchUpdate("update foodtime.dishes set status='active' where id=?",
                 previouslyActive.stream().map(id -> new Object[]{id}).toList());
+        jdbc.batchUpdate("update foodtime.stalls set status='active' where id=?",
+                previouslyActiveStalls.stream().map(id -> new Object[]{id}).toList());
     }
 
     @Test void freshSchemaGeneratesAndRepeatedExecutionReturnsIdenticalSnapshot() {
@@ -219,6 +228,16 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThat(result.getFirst().reviewCount()).isZero();
         assertThat(result.getFirst().reviews7d()).isZero();
         assertThat(store.findGlobalAverage()).isEqualTo(3.5);
+    }
+
+    @Test void photographedActiveStallCanBeRecommendedWithoutActiveDishes() {
+        UUID stall = stallWithCover(hall("active"), "active");
+        dish(stall, "inactive", "10");
+        assertThat(store.findCandidates(Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2100-01-01T00:00:00Z")))
+                .singleElement().satisfies(candidate -> {
+                    assertThat(candidate.stallId()).isEqualTo(stall);
+                    assertThat(candidate.reviewCount()).isZero();
+                });
     }
 
     @Test void candidateRatingCombinesPublishedStallAndActiveDishReviews() {
