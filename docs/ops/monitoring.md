@@ -25,3 +25,9 @@
 ## 实现位置
 
 `micrometer-registry-prometheus` 由 `pom.xml` 引入，版本跟随 Spring Boot；`common/web` 负责请求ID与慢请求日志；`config` 负责 `app.monitoring` 与抓取IP门禁；`media/service` 负责暂存清理与目录水位。新增或修改接口时无需手工埋点，HTTP指标自动按路径打标签；高基数路径变量（ID）由框架归一化为模板，不会打爆标签。
+
+## Web 构建号关联
+
+网页通过 X-Foodtime-Web-Build 发送公开构建号，RequestIdFilter 校验为1–64位字母/数字/点/下划线/短横后放入 MDC clientBuild，异常/缺失记 unknown。此标记可被伪造，不参与权限或兼容豁免；无标记的旧网页与 Android 保持原行为。
+
+API 的5xx汇总记录方法、去查询的路径、状态、requestId和clientBuild；不记录请求体、验证码、密码、Cookie或令牌。按用户报错中的“请求编号”查询同号日志即可关联该次失败及网页构建，不能仅凭旧构建号就认定缓存是根因。已有API响应结构不变，无新增迁移。若反代另配CORS请求头白名单，应加入X-Foodtime-Web-Build，Origin规则保持原配置。
