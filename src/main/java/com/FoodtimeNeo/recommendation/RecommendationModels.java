@@ -27,5 +27,5 @@ public final class RecommendationModels {
 
     public record SelectedCandidate(ScoredCandidate scored, String type, String reasonCode) { }
 
-    public record StoredItem(UUID dishId, int position, String type, double score, String reasonCode) { }
+    public record StoredItem(UUID stallId, int position, String type, double score, String reasonCode) { }
 }

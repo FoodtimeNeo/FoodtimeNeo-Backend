@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -29,10 +30,14 @@ class DailyRecommendationIT extends ReadApiITSupport {
     @Autowired Clock clock;
     @Autowired StringRedisTemplate redis;
     final Set<LocalDate> dates = new HashSet<>();
+    final Set<UUID> venueReviewIds = new HashSet<>();
+    final Set<UUID> venueSubmissionIds = new HashSet<>();
     List<UUID> previouslyActive;
+    List<UUID> previouslyActiveStalls;
 
     @BeforeEach void isolateCatalogueInDisposableTestDatabase() {
         previouslyActive = jdbc.queryForList("update foodtime.dishes set status='inactive' where status='active' returning id", UUID.class);
+        previouslyActiveStalls = jdbc.queryForList("update foodtime.stalls set status='inactive' where status='active' returning id", UUID.class);
     }
 
     LocalDate testDate(int day) {
@@ -46,7 +51,8 @@ class DailyRecommendationIT extends ReadApiITSupport {
         for (int h = 0; h < 4; h++) {
             UUID hall = hall("active");
             for (int s = 0; s < 3; s++) {
-                UUID stall = stall(hall, "active");
+                if (h * 3 + s >= count) continue;
+                UUID stall = stallWithCover(hall, "active");
                 for (int d = h * 3 + s; d < count; d += 12) result.add(dish(stall, "active", "12.50"));
             }
         }
@@ -67,8 +73,19 @@ class DailyRecommendationIT extends ReadApiITSupport {
             jdbc.update("delete from foodtime.dish_review_submissions where dish_id = ?", dish);
             jdbc.update("delete from foodtime.dish_reviews where dish_id = ?", dish);
         }
+        // The published review and submission reference each other; defer the current-version FK until both are removed.
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            for (UUID submission : venueSubmissionIds)
+                jdbc.update("delete from foodtime.venue_review_submissions where id=?", submission);
+            for (UUID review : venueReviewIds) {
+                jdbc.update("delete from foodtime.venue_review_stats where review_id=?", review);
+                jdbc.update("delete from foodtime.venue_reviews where id=?", review);
+            }
+        });
         jdbc.batchUpdate("update foodtime.dishes set status='active' where id=?",
                 previouslyActive.stream().map(id -> new Object[]{id}).toList());
+        jdbc.batchUpdate("update foodtime.stalls set status='active' where id=?",
+                previouslyActiveStalls.stream().map(id -> new Object[]{id}).toList());
     }
 
     @Test void freshSchemaGeneratesAndRepeatedExecutionReturnsIdenticalSnapshot() {
@@ -82,6 +99,27 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThat(service.generate(date).id()).isEqualTo(batch.id());
         assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_batch where recommendation_date = ?", Long.class, date)).isEqualTo(1L);
         assertThat(store.findExposure(date.minusDays(90), date.plusDays(1)).values()).allMatch(e -> e.count() == 1);
+    }
+
+    @Test void successfulDishSnapshotIsRebuiltForTheStallAlgorithmVersion() {
+        UUID oldDish = catalogue(12).getFirst();
+        LocalDate date = testDate(8);
+        var old = store.lockOrCreateBatch(date, "FT-HybridRec-v2", "old-config");
+        jdbc.update("""
+                insert into foodtime.daily_recommendation_item
+                    (id,batch_id,dish_id,position,recommendation_type,recommendation_score,reason_code)
+                values (?,?,?,1,'QUALITY',0.8,'GOOD_REPUTATION')
+                """, UUID.randomUUID(), old.id(), oldDish);
+        store.markSuccess(old.id());
+
+        var refreshed = service.get(date);
+        assertThat(refreshed.algorithmVersion()).isEqualTo("FT-HybridRec-v3-stall");
+        assertThat(refreshed.items()).hasSize(10).allSatisfy(item -> {
+            assertThat(item.stallId()).isNotNull();
+            assertThat(item.imageUrl()).isNotBlank();
+        });
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_item where batch_id=?", Long.class, old.id())).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_stall_item where batch_id=?", Long.class, old.id())).isEqualTo(10L);
     }
 
     @Test void concurrentIndependentInstancesCommitOnlyOneCompleteBatch() throws Exception {
@@ -118,7 +156,7 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThatIllegalStateException().isThrownBy(() -> failing.generate(date));
         assertThat(store.findSuccessfulBatch(date)).isNull();
         assertThat(jdbc.queryForObject("select generation_status from foodtime.daily_recommendation_batch where recommendation_date = ?", String.class, date)).isEqualTo("failed");
-        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_item i join foodtime.daily_recommendation_batch b on b.id=i.batch_id where b.recommendation_date = ?", Long.class, date)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_stall_item i join foodtime.daily_recommendation_batch b on b.id=i.batch_id where b.recommendation_date = ?", Long.class, date)).isZero();
         verify(caching, never()).put(any(), any(), any());
         assertThat(service.get(date).items()).hasSize(10);
         var success = store.findSuccessfulBatch(date);
@@ -133,7 +171,7 @@ class DailyRecommendationIT extends ReadApiITSupport {
         doAnswer(call -> {
             // A separate connection can see success and every item only after commit.
             try (var connection = jdbc.getDataSource().getConnection();
-                 var statement = connection.prepareStatement("select count(*) from foodtime.daily_recommendation_item i join foodtime.daily_recommendation_batch b on b.id=i.batch_id where b.recommendation_date=? and b.generation_status='success'")) {
+                 var statement = connection.prepareStatement("select count(*) from foodtime.daily_recommendation_stall_item i join foodtime.daily_recommendation_batch b on b.id=i.batch_id where b.recommendation_date=? and b.generation_status='success'")) {
                 statement.setObject(1, date);
                 try (var result = statement.executeQuery()) {
                     result.next();
@@ -160,31 +198,29 @@ class DailyRecommendationIT extends ReadApiITSupport {
     }
 
     @Test void dishStallHallAndImageVisibilityAreRecheckedWithoutRewritingHistory() {
-        var dishes = catalogue(10);
+        catalogue(10);
         LocalDate date = testDate(5);
         var response = service.get(date);
         var first = response.items().getFirst();
-        UUID uploader = user("user");
-        jdbc.update("insert into foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status) values (?,?,?, '/unapproved.jpg','pending')", UUID.randomUUID(), first.dishId(), uploader);
-        jdbc.update("insert into foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status,reviewed_by_user_id,reviewed_at) values (?,?,?, '/approved.jpg','approved',?,now())", UUID.randomUUID(), first.dishId(), uploader, uploader);
-        assertThat(service.get(date).items().stream().filter(i -> i.dishId().equals(first.dishId())).findFirst().orElseThrow().imageUrl()).isEqualTo("/approved.jpg");
-        jdbc.update("update foodtime.dish_images set status='rejected', reviewed_by_user_id=?, reviewed_at=now() where dish_id=?", uploader, first.dishId());
-        assertThat(service.get(date).items().stream().filter(i -> i.dishId().equals(first.dishId())).findFirst().orElseThrow().imageUrl()).isNull();
-        jdbc.update("update foodtime.dishes set status='inactive' where id=?", first.dishId());
-        assertThat(service.get(date).items()).noneMatch(i -> i.dishId().equals(first.dishId()));
+        assertThat(first.imageUrl()).isNotBlank();
+        jdbc.update("update foodtime.stalls set cover_image_url='/changed.jpg' where id=?", first.stallId());
+        assertThat(service.get(date).items().stream().filter(i -> i.stallId().equals(first.stallId())).findFirst().orElseThrow().imageUrl()).isEqualTo("/changed.jpg");
+        jdbc.update("update foodtime.stalls set status='inactive' where id=?", first.stallId());
+        assertThat(service.get(date).items()).noneMatch(i -> i.stallId().equals(first.stallId()));
         jdbc.update("update foodtime.stalls set status='inactive' where id=?", response.items().get(1).stallId());
         assertThat(service.get(date).items()).noneMatch(i -> i.stallId().equals(response.items().get(1).stallId()));
         jdbc.update("update foodtime.dining_halls set status='inactive' where id=?", response.items().get(2).diningHallId());
         assertThat(service.get(date).items()).noneMatch(i -> i.diningHallId().equals(response.items().get(2).diningHallId()));
-        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_item where batch_id=?", Long.class, store.findSuccessfulBatch(date).id())).isEqualTo(10L);
+        assertThat(jdbc.queryForObject("select count(*) from foodtime.daily_recommendation_stall_item where batch_id=?", Long.class, store.findSuccessfulBatch(date).id())).isEqualTo(10L);
     }
 
     @Test void candidateQueryExcludesInactiveParentsAndPendingReviews() {
-        UUID hall = hall("active"), stall = stall(hall, "active");
+        UUID hall = hall("active"), stall = stallWithCover(hall, "active");
         UUID valid = dish(stall, "active", "10");
         dish(stall, "inactive", "10");
-        dish(stall(hall("inactive"), "active"), "active", "10");
-        dish(stall(hall, "inactive"), "active", "10");
+        stallWithCover(hall("inactive"), "active");
+        UUID noPhoto = stall(hall, "active");
+        dish(noPhoto, "active", "10");
         UUID user = user("user");
         jdbc.update("insert into foodtime.dish_review_submissions(id,dish_id,user_id,rating,content) values (?,?,?,5,'pending')", UUID.randomUUID(), valid, user);
         var result = store.findCandidates(Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2100-01-01T00:00:00Z"));
@@ -192,6 +228,43 @@ class DailyRecommendationIT extends ReadApiITSupport {
         assertThat(result.getFirst().reviewCount()).isZero();
         assertThat(result.getFirst().reviews7d()).isZero();
         assertThat(store.findGlobalAverage()).isEqualTo(3.5);
+    }
+
+    @Test void photographedActiveStallCanBeRecommendedWithoutActiveDishes() {
+        UUID stall = stallWithCover(hall("active"), "active");
+        dish(stall, "inactive", "10");
+        assertThat(store.findCandidates(Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2100-01-01T00:00:00Z")))
+                .singleElement().satisfies(candidate -> {
+                    assertThat(candidate.stallId()).isEqualTo(stall);
+                    assertThat(candidate.reviewCount()).isZero();
+                });
+    }
+
+    @Test void candidateRatingCombinesPublishedStallAndActiveDishReviews() {
+        UUID hall = hall("active"), stall = stallWithCover(hall, "active");
+        UUID dish = dish(stall, "active", "10");
+        UUID reviewer = user("user");
+        UUID target = jdbc.queryForObject("select id from foodtime.venue_review_targets where stall_id=?", UUID.class, stall);
+        UUID venueReview = UUID.randomUUID(), venueSubmission = UUID.randomUUID();
+        venueReviewIds.add(venueReview);
+        venueSubmissionIds.add(venueSubmission);
+        jdbc.update("insert into foodtime.venue_reviews(id,target_id,user_id) values (?,?,?)", venueReview, target, reviewer);
+        jdbc.update("""
+                insert into foodtime.venue_review_submissions
+                    (id,review_id,client_request_id,base_version,rating,content,status,reviewed_by_user_id,reviewed_at)
+                values (?,?,?,0,3,'档口评价','approved',?,now())
+                """, venueSubmission, venueReview, UUID.randomUUID(), reviewer);
+        jdbc.update("update foodtime.venue_reviews set current_submission_id=? where id=?", venueSubmission, venueReview);
+        jdbc.update("insert into foodtime.dish_reviews(id,dish_id,user_id,rating,content,created_at) values (?,?,?,5,'菜品评价',now())",
+                UUID.randomUUID(), dish, reviewer);
+
+        var candidates = store.findCandidates(Instant.parse("2000-01-01T00:00:00Z"), Instant.parse("2100-01-01T00:00:00Z"));
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.getFirst().stallId()).isEqualTo(stall);
+        assertThat(candidates.getFirst().reviewCount()).isEqualTo(2);
+        assertThat(candidates.getFirst().averageRating()).isEqualByComparingTo("4.0");
+        assertThat(candidates.getFirst().reviews7d()).isEqualTo(2);
+        assertThat(store.findGlobalAverage()).isEqualTo(4.0);
     }
 
     @Test void reviewEditsAndSoftDeletesReuseExistingStatsAndNeverInflateHeat() {
@@ -222,26 +295,28 @@ class DailyRecommendationIT extends ReadApiITSupport {
         LocalDate old = date.minusDays(100);
         dates.add(old);
         var batch = service.generate(old);
-        var exposure = store.findExposure(date.minusDays(90), date).get(dishes.getFirst());
+        UUID recommendedStall = jdbc.queryForObject("select stall_id from foodtime.daily_recommendation_stall_item where batch_id=? limit 1", UUID.class, batch.id());
+        var exposure = store.findExposure(date.minusDays(90), date).get(recommendedStall);
         assertThat(exposure.count()).isZero();
         assertThat(exposure.lastDate()).isEqualTo(old);
         LocalDate failedDate = testDate(199);
         store.recordFailure(failedDate, config.algorithmVersion(), config.configHash());
         var failedId = jdbc.queryForObject("select id from foodtime.daily_recommendation_batch where recommendation_date=?", UUID.class, failedDate);
-        store.insertItem(failedId, new RecommendationModels.StoredItem(dishes.getFirst(), 1, "EXPLORE", .5, "LESS_EXPOSED"));
+        store.insertItem(failedId, new RecommendationModels.StoredItem(recommendedStall, 1, "EXPLORE", .5, "LESS_EXPOSED"));
         assertThat(store.findVisibleItems(failedId)).isEmpty();
-        assertThat(store.findExposure(date.minusDays(90), date).get(dishes.getFirst())).isEqualTo(exposure);
+        assertThat(store.findExposure(date.minusDays(90), date).get(recommendedStall)).isEqualTo(exposure);
         assertThat(batch.generatedAt()).isNotNull();
     }
 
-    @Test void databaseEnforcesUniqueDateDishPositionAndPositivePosition() {
-        var dishes = catalogue(12);
+    @Test void databaseEnforcesUniqueDateStallPositionAndPositivePosition() {
+        catalogue(36);
         LocalDate date = testDate(6);
         var batch = service.generate(date);
         var first = store.findVisibleItems(batch.id()).getFirst();
         assertThatThrownBy(() -> store.insertItem(batch.id(), new RecommendationModels.StoredItem(
-                first.dishId(), 11, "EXPLORE", .5, "DAILY_DISCOVERY"))).isInstanceOf(DataIntegrityViolationException.class);
-        var spare = dishes.stream().filter(d -> store.findVisibleItems(batch.id()).stream().noneMatch(i -> i.dishId().equals(d))).findFirst().orElseThrow();
+                first.stallId(), 11, "EXPLORE", .5, "DAILY_DISCOVERY"))).isInstanceOf(DataIntegrityViolationException.class);
+        var spare = store.findCandidates(Instant.EPOCH, Instant.parse("2100-01-01T00:00:00Z")).stream().map(RecommendationModels.Candidate::stallId)
+                .filter(s -> store.findVisibleItems(batch.id()).stream().noneMatch(i -> i.stallId().equals(s))).findFirst().orElseThrow();
         assertThatThrownBy(() -> store.insertItem(batch.id(), new RecommendationModels.StoredItem(
                 spare, 1, "EXPLORE", .5, "DAILY_DISCOVERY"))).isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> store.insertItem(batch.id(), new RecommendationModels.StoredItem(
@@ -260,7 +335,10 @@ class DailyRecommendationIT extends ReadApiITSupport {
         var data = json.readTree(first.body()).path("data");
         assertThat(data).isEqualTo(json.readTree(second.body()).path("data"));
         assertThat(data.path("total").asInt()).isEqualTo(10);
-        assertThat(data.path("algorithmVersion").asString()).isEqualTo("FT-HybridRec-v2");
+        assertThat(data.path("algorithmVersion").asString()).isEqualTo("FT-HybridRec-v3-stall");
+        assertThat(data.path("items").get(0).has("stallId")).isTrue();
+        assertThat(data.path("items").get(0).has("dishId")).isFalse();
+        assertThat(data.path("items").get(0).path("imageUrl").asText()).isNotBlank();
     }
 
     @Test void zeroCandidatesProduceSuccessfulEmptySnapshot() {

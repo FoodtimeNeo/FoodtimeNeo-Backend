@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/recommendations")
-@Tag(name = "Recommendations", description = "全站统一每日菜品推荐")
+@Tag(name = "Recommendations", description = "全站统一每日档口推荐")
 public class DailyRecommendationController {
     private final DailyRecommendationService recommendations;
 

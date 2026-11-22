@@ -316,7 +316,7 @@ app:
     slow-request-threshold: ${SLOW_REQUEST_THRESHOLD:PT2S}
   recommendation:
     daily:
-      algorithm-version: ${RECOMMENDATION_ALGORITHM_VERSION:FT-HybridRec-v2}
+      algorithm-version: ${RECOMMENDATION_ALGORITHM_VERSION:FT-HybridRec-v3-stall}
       target-size: ${RECOMMENDATION_TARGET_SIZE:10}
       cooldown-days: ${RECOMMENDATION_COOLDOWN_DAYS:30}
       history-days: ${RECOMMENDATION_HISTORY_DAYS:90}

@@ -11,7 +11,7 @@ import java.util.HexFormat;
 
 @ConfigurationProperties(prefix = "app.recommendation.daily")
 public record DailyRecommendationProperties(
-        @DefaultValue("FT-HybridRec-v2") String algorithmVersion,
+        @DefaultValue("FT-HybridRec-v3-stall") String algorithmVersion,
         @DefaultValue("10") int targetSize,
         @DefaultValue("30") int cooldownDays,
         @DefaultValue("90") int historyDays,
@@ -39,7 +39,7 @@ public record DailyRecommendationProperties(
     }
 
     public static DailyRecommendationProperties defaults() {
-        return new DailyRecommendationProperties("FT-HybridRec-v2", 10, 30, 90, 7, 10,
+        return new DailyRecommendationProperties("FT-HybridRec-v3-stall", 10, 30, 90, 7, 10,
                 2, 4, 3, Duration.ofDays(2), "0 5 0 * * *", "Asia/Shanghai", null, null);
     }
 

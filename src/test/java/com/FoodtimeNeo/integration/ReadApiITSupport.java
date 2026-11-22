@@ -62,6 +62,11 @@ abstract class ReadApiITSupport {
         jdbc.update("insert into foodtime.stalls(id,dining_hall_id,name,status) values (?, ?, ?, ?)", id, hall, "查询测试档口-" + id, status);
         return id;
     }
+    protected UUID stallWithCover(UUID hall, String status) {
+        UUID id = stall(hall, status);
+        jdbc.update("update foodtime.stalls set cover_image_url=? where id=?", "/api/v1/media/stall-" + id, id);
+        return id;
+    }
     protected UUID dish(UUID stall, String status, String price) {
         UUID id = UUID.randomUUID();
         dishIds.add(id);

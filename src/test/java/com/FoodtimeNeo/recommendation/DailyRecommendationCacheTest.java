@@ -25,11 +25,11 @@ class DailyRecommendationCacheTest {
         when(operations.get(cache.key(date))).thenReturn("corrupt");
         assertThat(cache.getBatchId(date)).isNull();
         var batch = UUID.randomUUID();
-        var dish = UUID.randomUUID();
-        cache.put(date, batch, List.of(dish));
-        verify(operations).set("foodtime:recommendations:daily:v2:20261103", batch + "|" + dish,
+        var stall = UUID.randomUUID();
+        cache.put(date, batch, List.of(stall));
+        verify(operations).set("foodtime:recommendations:daily:v4-stall:20261103", batch + "|" + stall,
                 172800L, TimeUnit.SECONDS);
-        when(operations.get(cache.key(date))).thenReturn(batch + "|" + dish);
+        when(operations.get(cache.key(date))).thenReturn(batch + "|" + stall);
         assertThat(cache.getBatchId(date)).isEqualTo(batch);
         assertThat(cache.key(date.plusDays(1))).isNotEqualTo(cache.key(date));
     }

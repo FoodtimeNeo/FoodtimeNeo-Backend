@@ -25,7 +25,7 @@ class RecommendationAlgorithmTest {
     static UUID id(String text) { return UUID.nameUUIDFromBytes(text.getBytes(StandardCharsets.UTF_8)); }
     static Candidate candidate(int i, long reviews) {
         return new Candidate(id("dish-" + i), "dish" + i, id("hall-" + i % 6), "hall",
-                id("stall-" + i % 36), "stall", BigDecimal.TEN,
+                id("stall-" + i), "stall", BigDecimal.TEN,
                 reviews == 0 ? null : BigDecimal.valueOf(4), reviews, 0, null, 0, null);
     }
     List<Candidate> catalogue(int size, long reviews) {
@@ -161,11 +161,11 @@ class RecommendationAlgorithmTest {
         assertThat(generate(list)).hasSize(10).allMatch(c -> c.scored().candidate().reviewCount() == 0);
     }
     @Test void diversityRelaxesBeforeCooldown() {
-        UUID hall = id("only-hall"), stall = id("only-stall");
+        UUID hall = id("only-hall");
         var list = new ArrayList<Candidate>();
         for (int i = 0; i < 10; i++) {
             var c = candidate(i, 0);
-            list.add(new Candidate(c.id(), c.name(), hall, "hall", stall, "stall", c.price(), null, 0, 0, null, 0, null));
+            list.add(new Candidate(c.id(), c.name(), hall, "hall", c.stallId(), "stall", c.price(), null, 0, 0, null, 0, null));
         }
         list.add(candidate(100, 10).withExposure(0, date.minusDays(1)));
         assertThat(generate(list)).hasSize(10).allMatch(c -> c.scored().candidate().lastRecommendedDate() == null);
