@@ -99,15 +99,16 @@ class CommunityFavoriteGroupIT extends IntegrationApiSupport {
     @Test
     void defaultAndCustomGroupsRespectVisibilityAndDeletedGroupsReturnFavoritesToDefault() throws Exception {
         Browser browser = login(owner);
-        UUID visible = post(), pending = UUID.randomUUID(), deleted = post();
-        jdbc.update("""
-                INSERT INTO foodtime.community_posts
-                  (id,user_id,title,content,status,review_stage,manual_review_reason)
-                VALUES (?,?,'待审收藏','待审收藏','pending','manual_pending','ai_disabled')
-                """, pending, owner.id());
+        UUID visible = post(), pending = post(), deleted = post();
         for (UUID id : new UUID[]{visible, pending, deleted}) favorite(owner, id, 1);
         String group = group(browser, "测试收藏夹");
         for (UUID id : new UUID[]{visible, pending, deleted}) add(browser, group, id);
+        jdbc.update("""
+                UPDATE foodtime.community_posts SET content_revision=content_revision+1,edited_at=now(),
+                  status='pending',review_stage='manual_pending',manual_review_reason='ai_disabled',
+                  reviewed_at=NULL,reviewed_by_user_id=NULL,reviewed_by_ai_model=NULL,review_reason=NULL
+                WHERE id=?
+                """, pending);
         jdbc.update("UPDATE foodtime.community_posts SET deleted_at=now() WHERE id=?", deleted);
         saved(browser, "?groupId=" + group, 1, visible);
         saved(browser, "?unfiled=true", 0);

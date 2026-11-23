@@ -289,7 +289,7 @@ public class CommunityStore {
                 + POST_JOINS
                 // The group predicate must remain inside the favorite row's alias scope.
                 + " WHERE EXISTS(SELECT 1 FROM foodtime.community_favorites f WHERE f.user_id = ? AND f.post_id = p.id"
-                + filter + ")"
+                + " " + filter + ")"
                 + " AND p.deleted_at IS NULL AND p.status = 'approved' ORDER BY (SELECT created_at FROM foodtime.community_favorites WHERE user_id=? AND post_id=p.id) DESC,p.id DESC LIMIT ? OFFSET ?",
                 (r, n) -> row(r, userId), args.toArray());
     }
@@ -300,7 +300,7 @@ public class CommunityStore {
         args.add(userId);
         if (groupId != null) args.add(groupId);
         return jdbc.queryForObject("SELECT count(*) FROM foodtime.community_favorites f JOIN foodtime.community_posts p ON p.id=f.post_id"
-                + " WHERE f.user_id=?" + filter + " AND p.status='approved' AND p.deleted_at IS NULL", Long.class, args.toArray());
+                + " WHERE f.user_id=? " + filter + " AND p.status='approved' AND p.deleted_at IS NULL", Long.class, args.toArray());
     }
 
     private static String groupFilter(UUID groupId, boolean unfiled) {
