@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dish.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.dish.dto.DishDetailResponse;
 import com.FoodtimeNeo.dish.mapper.DishDetailMapper;
@@ -19,6 +20,7 @@ public class DishDetailService {
     private final DishDetailMapper dishes;
     public DishDetailService(DishDetailMapper dishes) { this.dishes = dishes; }
 
+    @CatalogQuery
     public DishDetailResponse get(@NotNull UUID dishId) {
         try {
             var dish = dishes.findVisible(dishId);

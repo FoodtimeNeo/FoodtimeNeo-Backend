@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dish.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
@@ -24,6 +25,7 @@ public class DishSearchService {
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
+    @CatalogQuery
     public PageResponse<DishSearchResponse> search(String query, List<UUID> diningHallIds,
                                                    BigDecimal minPrice, BigDecimal maxPrice,
                                                    BigDecimal minRating, String sort, PageRequest page) {
