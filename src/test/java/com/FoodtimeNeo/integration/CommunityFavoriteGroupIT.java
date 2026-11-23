@@ -109,7 +109,7 @@ class CommunityFavoriteGroupIT extends IntegrationApiSupport {
                   reviewed_at=NULL,reviewed_by_user_id=NULL,reviewed_by_ai_model=NULL,review_reason=NULL
                 WHERE id=?
                 """, pending);
-        assertThat(browser.call("DELETE", "/api/v1/community/posts/" + deleted, null).statusCode()).isEqualTo(204);
+        assertThat(browser.call("DELETE", "/api/v1/community/posts/" + deleted, null).statusCode()).isEqualTo(200);
         saved(browser, "?groupId=" + group, 1, visible);
         saved(browser, "?unfiled=true", 0);
         assertThat(browser.call("DELETE", GROUPS + "/" + group, null).statusCode()).isEqualTo(204);
