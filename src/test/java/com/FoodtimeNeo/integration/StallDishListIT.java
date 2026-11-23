@@ -45,7 +45,7 @@ class StallDishListIT {
 
     @AfterEach
     void cleanOnlyTestFixtures() {
-        for (UUID id : dishIds) { jdbc.update("delete from foodtime.dishes where id = ?", id); }
+        for (UUID id : dishIds) { jdbc.update("delete from foodtime.dish_images where dish_id = ?", id); jdbc.update("delete from foodtime.dishes where id = ?", id); }
         for (UUID id : stallIds) { jdbc.update("delete from foodtime.stalls where id = ?", id); }
         for (UUID id : hallIds) { jdbc.update("delete from foodtime.dining_halls where id = ?", id); }
         for (UUID id : userIds) { jdbc.update("delete from foodtime.users where id = ?", id); }
@@ -84,7 +84,7 @@ class StallDishListIT {
             ids.add(id);
             assertThat(item.path("stallId").asString()).isEqualTo(parent.toString());
             assertThat(item.path("name").asString()).isEqualTo("菜品测试-" + id);
-            assertThat(item.size()).isEqualTo(6);
+            assertThat(item.size()).isEqualTo(9);
             assertThat(item.path("averageScore").isNull()).isTrue();
             assertThat(item.path("reviewCount").asLong()).isZero();
             assertThat(item.path("price").isNumber()).isTrue();
@@ -186,9 +186,32 @@ class StallDishListIT {
         assertThat(get.path("security").get(0).has("sessionCookie")).isTrue();
         assertThat(get.path("parameters").get(0).path("schema").path("format").asString()).isEqualTo("uuid");
         var properties = document.path("components").path("schemas").path("DishListItemResponse").path("properties");
-        assertThat(properties.size()).isEqualTo(6);
+        assertThat(properties.size()).isEqualTo(9);
         assertThat(properties.has("stallId")).isTrue();
         assertThat(properties.path("price").path("type").asString()).isEqualTo("number");
+    }
+
+    @Test
+    void menuPreviewUsesOnlyLatestApprovedImageAndKeepsUnitWithoutDuplicatingDishes() throws Exception {
+        UUID parent = stall(hall("active"), "active");
+        UUID child = dish(parent, "active", "15.00", "2026-01-01T00:00:00Z");
+        UUID empty = dish(parent, "active", "5.00", "2026-01-02T00:00:00Z");
+        Browser browser = login("user");
+        jdbc.update("update foodtime.dishes set price_unit='bowl', description='现做热汤面' where id=?", child);
+        for (String status : List.of("approved", "pending", "rejected")) {
+            jdbc.update("insert into foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,status,created_at) values (?,?,?,?,?,?)",
+                    UUID.randomUUID(), child, userIds.get(0), "https://example.test/" + status + ".jpg", status,
+                    java.sql.Timestamp.from(Instant.parse(status.equals("approved") ? "2026-01-01T00:00:00Z" : "2026-02-01T00:00:00Z")));
+        }
+        var data = json.readTree(browser.get(path(parent)).body()).path("data");
+        assertThat(data.size()).isEqualTo(2);
+        assertThat(data.get(0).path("coverImageUrl").asString()).isEqualTo("https://example.test/approved.jpg");
+        assertThat(data.get(0).path("priceUnit").asString()).isEqualTo("bowl");
+        assertThat(data.get(0).path("description").asString()).isEqualTo("现做热汤面");
+        assertThat(data.get(1).path("id").asString()).isEqualTo(empty.toString());
+        assertThat(data.get(1).path("coverImageUrl").isNull()).isTrue();
+        jdbc.update("update foodtime.dish_images set status='rejected' where dish_id=? and status='approved'", child);
+        assertThat(json.readTree(browser.get(path(parent)).body()).path("data").get(0).path("coverImageUrl").isNull()).isTrue();
     }
 
     private UUID hall(String status) {

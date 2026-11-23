@@ -12,8 +12,12 @@ public record DishListItemResponse(
         @Schema(description = "菜品名称") String name,
         @Schema(description = "菜品价格，非负且最多两位小数", implementation = Number.class, type = "number", minimum = "0") BigDecimal price,
         @Schema(description = "实时评分汇总；暂无评分时为null", nullable = true) BigDecimal averageScore,
-        @Schema(description = "未删除的正式评论数，无快照时为0") long reviewCount) {
+        @Schema(description = "未删除的正式评论数，无快照时为0") long reviewCount,
+        @Schema(description = "计价单位编码") String priceUnit,
+        @Schema(description = "菜品介绍") String description,
+        @Schema(description = "最新审核通过的菜品图片；无图时为空", nullable = true) String coverImageUrl) {
     public static DishListItemResponse from(Dish dish) {
-        return new DishListItemResponse(dish.id(), dish.stallId(), dish.name(), dish.price(), dish.averageScore(), dish.reviewCount());
+        return new DishListItemResponse(dish.id(), dish.stallId(), dish.name(), dish.price(), dish.averageScore(),
+                dish.reviewCount(), dish.priceUnit(), dish.description(), dish.coverImageUrl());
     }
 }
