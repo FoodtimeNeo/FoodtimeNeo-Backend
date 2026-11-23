@@ -4,6 +4,7 @@ import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.aop.support.StaticMethodMatcherPointcut;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.*;
 import org.springframework.core.Ordered;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,20 +21,21 @@ public class CatalogCacheConfiguration {
     /** A single small revision read replaces repeated joins/counts while the catalog is unchanged. */
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public DefaultPointcutAdvisor catalogQueryAdvisor(JdbcTemplate jdbc,
-            PlatformTransactionManager manager, ObjectMapper json) {
-        var transaction = new TransactionTemplate(manager);
-        transaction.setReadOnly(true);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+    public static DefaultPointcutAdvisor catalogQueryAdvisor(ObjectProvider<JdbcTemplate> jdbc,
+            ObjectProvider<PlatformTransactionManager> manager, ObjectProvider<ObjectMapper> json) {
         var cache = new ProjectionCache();
         var pointcut = new StaticMethodMatcherPointcut() {
             @Override public boolean matches(Method method, Class<?> targetClass) {
                 return method.isAnnotationPresent(CatalogQuery.class);
             }
         };
-        MethodInterceptor interceptor = invocation -> transaction.execute(status -> {
-            long revision = Objects.requireNonNull(jdbc.queryForObject(
+        MethodInterceptor interceptor = invocation -> {
+          var transaction = new TransactionTemplate(manager.getObject());
+          transaction.setReadOnly(true);
+          transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+          transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+          return transaction.execute(status -> {
+            long revision = Objects.requireNonNull(jdbc.getObject().queryForObject(
                     "SELECT revision FROM foodtime.public_catalog_revision WHERE id = 1", Long.class));
             var key = new ArrayList<Object>();
             key.add(invocation.getMethod().toGenericString());
@@ -42,14 +44,15 @@ public class CatalogCacheConfiguration {
             if (hit != null) return hit;
             try {
                 Object result = invocation.proceed();
-                cache.put(revision, key, result, json.writeValueAsBytes(result).length);
+                cache.put(revision, key, result, json.getObject().writeValueAsBytes(result).length);
                 return result;
             } catch (RuntimeException | Error failure) {
                 throw failure;
             } catch (Throwable failure) {
                 throw new IllegalStateException("Catalog query failed", failure);
             }
-        });
+          });
+        };
         var advisor = new DefaultPointcutAdvisor(pointcut, interceptor);
         advisor.setOrder(Ordered.LOWEST_PRECEDENCE);
         return advisor;

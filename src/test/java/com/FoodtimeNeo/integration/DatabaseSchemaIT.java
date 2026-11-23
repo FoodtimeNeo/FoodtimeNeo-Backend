@@ -43,7 +43,7 @@ class DatabaseSchemaIT {
                 "user_feedback", "feedback_replies", "feedback_actions", "email_cooldowns", "account_email_actions",
                 "favorite_groups", "dish_favorite_group_members", "community_favorite_group_members",
                 "catalog_corrections", "catalog_correction_evidence", "catalog_correction_events",
-                "browsing_history_settings", "browsing_history",
+                "browsing_history_settings", "browsing_history", "public_catalog_revision",
                 "notification_events", "notification_preferences", "notification_deliveries",
                 "report_decisions", "report_decision_recipients",
                 "report_followups", "report_appeals", "report_evidence", "report_actions", "dish_price_history", "dish_price_history_audit", "community_pin_state", "community_post_pins", "community_post_versions", "community_post_edit_requests");
