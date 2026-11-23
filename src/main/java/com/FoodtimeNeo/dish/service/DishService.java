@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dish.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.dish.dto.DishListItemResponse;
 import com.FoodtimeNeo.dish.mapper.DishMapper;
@@ -20,6 +21,7 @@ public class DishService {
     private final DishMapper dishes;
     public DishService(DishMapper dishes) { this.dishes = dishes; }
 
+    @CatalogQuery
     public List<DishListItemResponse> listByStall(@NotNull UUID stallId) {
         try {
             var rows = dishes.findActiveByStall(stallId);

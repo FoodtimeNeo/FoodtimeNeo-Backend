@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.api.dish;
 
+import com.FoodtimeNeo.catalog.cache.PublicCatalog;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
+@PublicCatalog
 @RestController
 @RequestMapping("/api/v1/dishes/{dishId}/images")
 @Tag(name = "Dishes", description = "菜品展示信息")

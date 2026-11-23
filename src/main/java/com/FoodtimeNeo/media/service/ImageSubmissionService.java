@@ -26,7 +26,16 @@ public class ImageSubmissionService {
     public ImageSubmissionResponse submit(UserProfile actor,UUID dish,ImageSubmissionRequest body) {
         if(catalog.lockVisibleDish(dish)==null) throw new BusinessException("DISH_NOT_FOUND","菜品不存在或已停用",HttpStatus.NOT_FOUND);
         images.requireOwnedReference(body.imageUrl(),actor.id());
-        var created = submissions.create(dish,actor.id(),body.imageUrl());
+        if(body.reviewSubmissionId()!=null) {
+            if(!submissions.ownsReview(body.reviewSubmissionId(),dish,actor.id()))
+                throw new BusinessException("REVIEW_NOT_FOUND","点评不存在",HttpStatus.NOT_FOUND);
+            var existing=submissions.forReview(body.reviewSubmissionId());
+            if(existing.isPresent()) {
+                if(existing.get().imageUrl().equals(body.imageUrl())) return existing.get();
+                throw new BusinessException("REVIEW_PHOTO_EXISTS","该点评已有图片",HttpStatus.CONFLICT);
+            }
+        }
+        var created = submissions.create(dish,actor.id(),body.imageUrl(),body.reviewSubmissionId());
         events.publishEvent(new SubmissionDiagnoseEvent("photo", created.id()));
         return created;
     }

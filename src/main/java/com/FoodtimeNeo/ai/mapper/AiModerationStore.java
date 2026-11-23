@@ -8,7 +8,7 @@ import java.util.*;
 @Repository
 public class AiModerationStore {
     public record PendingReview(UUID id, int rating, String content) { }
-    public record PendingPhoto(UUID id, String imageUrl) { }
+    public record PendingPhoto(UUID id, String imageUrl, String dishName, UUID reviewSubmissionId) { }
     public record PendingDish(UUID id,String name,String content,String imageUrl) { }
 
     private final JdbcTemplate jdbc;
@@ -26,12 +26,12 @@ public class AiModerationStore {
 
     public List<PendingPhoto> pendingPhotos(int limit) {
         return jdbc.query("""
-                SELECT i.id, i.image_url FROM foodtime.dish_images i
+                SELECT i.id, i.image_url,d.name AS dish_name,i.review_submission_id FROM foodtime.dish_images i JOIN foodtime.dishes d ON d.id=i.dish_id
                 WHERE i.status = 'pending' AND NOT EXISTS (
                     SELECT 1 FROM foodtime.ai_moderation_results a
                     WHERE a.submission_type = 'photo' AND a.submission_id = i.id)
                 ORDER BY i.created_at ASC, i.id ASC LIMIT ?
-                """, (r, n) -> new PendingPhoto(r.getObject("id", UUID.class), r.getString("image_url")), limit);
+                """, (r, n) -> new PendingPhoto(r.getObject("id", UUID.class), r.getString("image_url"),r.getString("dish_name"),r.getObject("review_submission_id",UUID.class)), limit);
     }
 
     private static final String PENDING_DISHES="""
@@ -82,11 +82,11 @@ public class AiModerationStore {
     /** Single pending photo without a verdict yet; empty when already diagnosed, decided or gone. */
     public java.util.Optional<PendingPhoto> pendingPhoto(java.util.UUID id) {
         var rows = jdbc.query("""
-                SELECT i.id, i.image_url FROM foodtime.dish_images i
+                SELECT i.id, i.image_url,d.name AS dish_name,i.review_submission_id FROM foodtime.dish_images i JOIN foodtime.dishes d ON d.id=i.dish_id
                 WHERE i.id = ? AND i.status = 'pending' AND NOT EXISTS (
                     SELECT 1 FROM foodtime.ai_moderation_results a
                     WHERE a.submission_type = 'photo' AND a.submission_id = i.id)
-                """, (r, n) -> new PendingPhoto(r.getObject("id", java.util.UUID.class), r.getString("image_url")), id);
+                """, (r, n) -> new PendingPhoto(r.getObject("id", java.util.UUID.class), r.getString("image_url"),r.getString("dish_name"),r.getObject("review_submission_id",UUID.class)), id);
         return rows.stream().findFirst();
     }
 

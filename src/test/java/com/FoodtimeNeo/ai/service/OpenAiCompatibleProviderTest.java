@@ -38,6 +38,13 @@ class OpenAiCompatibleProviderTest {
     }
 
     @Test
+    void dishImageConfidenceOutsideProbabilityRangeIsNotClampedToApproval() {
+        assertThatThrownBy(() -> OpenAiCompatibleProvider.parseVerdict(
+                "{\"risk\":\"LOW\",\"confidence\":7,\"reason\":\"ok\"}", "m", true))
+                .isInstanceOf(AiUnavailableException.class);
+    }
+
+    @Test
     void keyListIgnoresBlanksAndSurroundingSpaces() {
         assertThat(OpenAiCompatibleProvider.splitKeys("k1,k2 , k3,,"))
                 .containsExactly("k1", "k2", "k3");

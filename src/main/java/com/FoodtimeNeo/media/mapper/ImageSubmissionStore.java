@@ -18,9 +18,18 @@ public class ImageSubmissionStore {
             r.getTimestamp("reviewed_at") == null ? null : r.getTimestamp("reviewed_at").toInstant(),r.getString("review_reason"),r.getTimestamp("created_at").toInstant());
     public ImageSubmissionStore(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     public ImageSubmissionResponse create(UUID dish,UUID owner,String image) {
+        return create(dish,owner,image,null);
+    }
+    public ImageSubmissionResponse create(UUID dish,UUID owner,String image,UUID review) {
         UUID id=UUID.randomUUID();
-        jdbc.update("INSERT INTO foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url) VALUES (?, ?, ?, ?)",id,dish,owner,image);
+        jdbc.update("INSERT INTO foodtime.dish_images(id,dish_id,uploaded_by_user_id,image_url,review_submission_id) VALUES (?, ?, ?, ?, ?)",id,dish,owner,image,review);
         return jdbc.queryForObject(SELECT+" WHERE i.id=?",ROW,id);
+    }
+    public boolean ownsReview(UUID review,UUID dish,UUID owner) {
+        return !jdbc.query("SELECT id FROM foodtime.dish_review_submissions WHERE id=? AND dish_id=? AND user_id=? FOR UPDATE",(r,n)->r.getObject(1,UUID.class),review,dish,owner).isEmpty();
+    }
+    public Optional<ImageSubmissionResponse> forReview(UUID review) {
+        return jdbc.query(SELECT+" WHERE i.review_submission_id=?",ROW,review).stream().findFirst();
     }
     public List<ImageSubmissionResponse> page(UUID owner,int size,long offset) {
         return jdbc.query(SELECT+" WHERE i.uploaded_by_user_id=? ORDER BY i.created_at DESC,i.id ASC LIMIT ? OFFSET ?",ROW,owner,size,offset);

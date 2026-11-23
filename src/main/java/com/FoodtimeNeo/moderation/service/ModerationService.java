@@ -139,6 +139,25 @@ public class ModerationService {
         return inserted;
     }
 
+    @Transactional
+    public int recordReviewPhotoVerdict(UUID id,AiVerdict verdict) {
+        ModerationItem item=store.lock("photo",id);
+        if(item==null||!item.status().equals("pending")||!store.isReviewPhoto(id))return 0;
+        int inserted=ai.insert(UUID.randomUUID(),"photo",id,verdict.riskLevel(),BigDecimal.valueOf(verdict.confidence()),
+                verdict.labels().toArray(String[]::new),verdict.reason(),verdict.model());
+        AiVerdict canonical=inserted==1?verdict:ai.catalogVerdict("photo",id).orElseThrow();
+        if(catalogRejectable(canonical)) decide("photo",item,"reject",canonical.reason(),null,null,"ai",canonical.model());
+        else if(reviewPhotoThreshold<=1.0 && reviewPhotoThreshold>=0.99 && "LOW".equals(canonical.riskLevel())
+                && Double.isFinite(canonical.confidence()) && canonical.confidence()>=reviewPhotoThreshold
+                && canonical.confidence()<=1.0 && !"system".equals(canonical.model()))
+            decide("photo",item,"approve",canonical.reason(),null,null,"ai",canonical.model());
+        return inserted;
+    }
+
+    // Enable only after the relevance threshold has been evaluated.
+    @org.springframework.beans.factory.annotation.Value("${app.ai.triage.review-photo-approve-above:1.01}")
+    private double reviewPhotoThreshold;
+
     private ModerationResult decide(String type, ModerationItem item, String action, String reason,
                                     BigDecimal price, UUID moderatorId, String actor, String aiModel) {
         UUID approved = null;

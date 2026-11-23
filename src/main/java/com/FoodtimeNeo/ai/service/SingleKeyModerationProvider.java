@@ -43,18 +43,27 @@ public class SingleKeyModerationProvider implements AiProvider {
 
     @Override
     public AiVerdict checkImage(String model, byte[] image, String contentType) throws AiUnavailableException {
+        return checkPicture(image,contentType,OpenAiCompatibleProvider.IMAGE_SYSTEM,OpenAiCompatibleProvider.IMAGE_USER);
+    }
+
+    @Override
+    public AiVerdict checkDishImage(String model, byte[] image, String contentType, String dishName) throws AiUnavailableException {
+        return checkPicture(image,contentType,OpenAiCompatibleProvider.DISH_IMAGE_SYSTEM,"待核验菜品名称：" + dishName);
+    }
+
+    private AiVerdict checkPicture(byte[] image,String contentType,String system,String prompt) {
         ObjectNode user = json.createObjectNode();
         user.put("role", "user");
         ArrayNode parts = user.putArray("content");
         ObjectNode text = parts.addObject();
         text.put("type", "text");
-        text.put("text", OpenAiCompatibleProvider.IMAGE_USER);
+        text.put("text", prompt);
         ObjectNode picture = parts.addObject();
         picture.put("type", "image_url");
         ObjectNode url = picture.putObject("image_url");
         String mime = contentType != null && contentType.equals("image/png") ? "image/png" : "image/jpeg";
         url.put("url", "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(image));
-        return complete(OpenAiCompatibleProvider.IMAGE_SYSTEM, user);
+        return complete(system, user);
     }
 
     /** 唯一 key 唯一模型；入参 model 被忽略，调用方传什么都不影响实际使用的模型。 */
@@ -80,7 +89,7 @@ public class SingleKeyModerationProvider implements AiProvider {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) throw new AiUnavailableException("AI服务返回" + response.statusCode());
             String text = json.readTree(response.body()).path("choices").path(0).path("message").path("content").asText("");
-            return OpenAiCompatibleProvider.parseVerdict(text, properties.model());
+            return OpenAiCompatibleProvider.parseVerdict(text, properties.model(), OpenAiCompatibleProvider.DISH_IMAGE_SYSTEM.equals(system));
         } catch (AiUnavailableException exception) {
             throw exception;
         } catch (Exception failure) {
