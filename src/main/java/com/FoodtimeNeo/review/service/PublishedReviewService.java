@@ -32,7 +32,9 @@ public class PublishedReviewService {
         readable(dishId);
         var rows = reviews.visiblePage(dishId, page.size(), page.offset());
         var counters = interactions.counters(rows.stream().map(PublishedReviewResponse::id).toList(), viewer);
-        return PageResponse.of(rows.stream().map(row -> new InteractiveReviewResponse(row, counters.get(row.id()))).toList(), reviews.countForDish(dishId), page);
+        var ids = rows.stream().map(PublishedReviewResponse::id).toList();
+        var images = ids.isEmpty() ? java.util.Map.<UUID,String>of() : reviews.approvedImages(ids).stream().collect(java.util.stream.Collectors.toMap(PublishedReviewMapper.ReviewImage::reviewId, PublishedReviewMapper.ReviewImage::imageUrl));
+        return PageResponse.of(rows.stream().map(row -> new InteractiveReviewResponse(row, counters.get(row.id()), images.get(row.id()))).toList(), reviews.countForDish(dishId), page);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)

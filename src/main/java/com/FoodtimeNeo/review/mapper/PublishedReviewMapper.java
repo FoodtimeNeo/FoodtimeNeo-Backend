@@ -9,6 +9,10 @@ import java.util.UUID;
 
 @Mapper
 public interface PublishedReviewMapper {
+    record ReviewImage(UUID reviewId, String imageUrl) { }
+
+    @Select({"<script>", "SELECT r.id AS review_id, i.image_url FROM foodtime.dish_reviews r JOIN foodtime.dish_images i ON i.review_submission_id=r.submission_id AND i.status='approved' WHERE r.deleted_at IS NULL AND r.id IN", "<foreach item='id' collection='ids' open='(' separator=',' close=')'>#{id,jdbcType=OTHER}</foreach>", "</script>"})
+    List<ReviewImage> approvedImages(@Param("ids") List<UUID> ids);
     @Select("""
             SELECT d.id FROM foodtime.dishes d
             JOIN foodtime.stalls s ON s.id = d.stall_id AND s.status = 'active'

@@ -230,6 +230,10 @@ public class AiTriageService {
     private int diagnosePendingPhoto(AiProvider provider, AiModerationStore.PendingPhoto item) {
         try {
             ImageStorageService.StagedFile file = images.stagedThumbnail(fileId(item.imageUrl()));
+            if(item.reviewSubmissionId()!=null) {
+                AiVerdict verdict = diagnoseDishPhoto(provider,file.bytes(),file.contentType(),item.dishName());
+                return moderation.recordReviewPhotoVerdict(item.id(),verdict);
+            }
             AiVerdict verdict = diagnosePhoto(provider, file.bytes(), file.contentType());
             return moderation.recordCatalogVerdict("photo",item.id(),verdict);
         } catch (AiUnavailableException exception) {
@@ -469,6 +473,15 @@ public class AiTriageService {
             }
             LOG.warn("AI photo model unavailable, trying fallback");
             return provider.checkImage(models.fallback(), image, contentType);
+        }
+    }
+
+    private AiVerdict diagnoseDishPhoto(AiProvider provider,byte[] image,String contentType,String dishName) {
+        if(singleMode())return provider.checkDishImage(single.model(),image,contentType,dishName);
+        try{return provider.checkDishImage(models.photo(),image,contentType,dishName);}
+        catch(AiUnavailableException failure){
+            if(!notBlank(models.fallback())||models.fallback().equals(models.photo()))throw failure;
+            return provider.checkDishImage(models.fallback(),image,contentType,dishName);
         }
     }
 

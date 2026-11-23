@@ -16,4 +16,8 @@ public interface AiProvider {
     }
 
     AiVerdict checkImage(String model, byte[] image, String contentType) throws AiUnavailableException;
+
+    default AiVerdict checkDishImage(String model, byte[] image, String contentType, String dishName) throws AiUnavailableException {
+        throw new AiUnavailableException("菜品图片关联性审核不可用");
+    }
 }

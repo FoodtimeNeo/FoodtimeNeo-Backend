@@ -1,3 +1,6 @@
 package com.FoodtimeNeo.media.dto;
 import jakarta.validation.constraints.NotBlank;
-public record ImageSubmissionRequest(@NotBlank String imageUrl) { }
+import java.util.UUID;
+public record ImageSubmissionRequest(@NotBlank String imageUrl, UUID reviewSubmissionId) {
+    public ImageSubmissionRequest(String imageUrl) { this(imageUrl, null); }
+}
