@@ -6,9 +6,9 @@
 
 ## 设计依据与额外约定
 
-[数据库设计](../../database-design.md#dishes菜品表) 定义菜品所属档口、名称、简介、非负两位小数价格和展示状态。实现通过 `stall_id` 取得档口与所属食堂，并检查三级展示状态；菜品表没有食堂ID、封面URL、排序值或评分字段，接口不会假定这些列存在。
+[数据库设计](../../database-design.md#dishes菜品表) 定义菜品所属档口、名称、简介、非负两位小数价格和展示状态。实现通过 `stall_id` 取得档口与所属食堂，并检查三级展示状态；菜品表本身没有食堂ID、封面URL、排序值或评分字段，接口通过关联 `dish_images` 与 `dish_rating_summary` 读取展示数据，不向菜品表假定这些列存在。
 
-必须登录、所有角色统一过滤、不分页、按创建时间与ID升序、父级不可见返回404，是现有接口的额外约定。列表返回ID/所属档口/名称/价格，以及来自 `dish_rating_summary` 的 averageScore/reviewCount。评分是实时汇总，无评分时为 null/0，不向菜品表增加评分字段，也不加载图片或评论正文。
+必须登录、所有角色统一过滤、不分页、按创建时间与ID升序、父级不可见返回404，是现有接口的额外约定。列表返回ID、所属档口、名称、价格、`priceUnit`、`description`，以及来自 `dish_rating_summary` 的 `averageScore`/`reviewCount` 和最新一张审核通过的 `coverImageUrl`。评分是实时汇总，无评分时为 null/0；图片不在菜品表冗余，也不加载评论正文或逐菜品额外请求。
 
 ## 请求与展示规则
 
@@ -17,8 +17,10 @@
 - 食堂和档口均启用，但没有菜品或所有菜品均停用时，返回200，`data` 为 `[]`。
 - 只返回路径指定档口下 `status = active` 的菜品，按 `created_at ASC, id ASC` 排列；创建时间相同的菜品使用ID保持顺序稳定。
 - 所有登录角色使用相同展示规则；查询参数不能覆盖所属档口或状态过滤。第一版不提供分页、搜索或客户端排序。
-- 食堂、档口状态和菜品数据由单条SQL在同一数据库快照读取，每次请求重新查询，后续请求体现名称、价格和启用/停用变更。
-- 评分与详情接口使用同一实时汇总；无评分时前端显示“暂无评分”，不得填充默认分数。列表在单条SQL中关联实时统计，无逐菜品额外请求。
+- 食堂、档口状态、菜品数据、评分汇总和封面图由单条SQL在同一数据库快照读取；封面图使用按菜品限制一条的关联，不产生逐菜品额外请求。每次请求重新查询，后续请求体现名称、价格和启用/停用变更。
+- 评分与详情接口使用同一实时汇总；无评分时前端显示“暂无评分”，不得填充默认分数。
+- `coverImageUrl` 只取该菜品 `status = approved` 的最新图片（`created_at DESC, id ASC`），无图时为 null；不返回待审或已驳回图片。
+- `priceUnit` 为计价单位编码，`unspecified` 表示未注明；`description` 可为空字符串。
 
 ## 成功响应
 
@@ -35,7 +37,10 @@
       "name": "红烧肉",
       "price": 12.30,
       "averageScore": null,
-      "reviewCount": 0
+      "reviewCount": 0,
+      "priceUnit": "serving",
+      "description": "肥瘦相间，慢炖入味",
+      "coverImageUrl": "https://example.test/media/approved.jpg"
     }
   ],
   "timestamp": "2026-10-09T08:00:00Z",
@@ -49,9 +54,11 @@
 | `stallId` | UUID字符串 | 所属档口ID，与路径一致 |
 | `name` | 字符串 | 菜品名称 |
 | `price` | JSON数字 | 非负价格，最多两位小数，允许0；数据库使用 `NUMERIC(10,2)`，后端使用 `BigDecimal` |
-
 | `averageScore` | 数字或null | 实时汇总平均评分；暂无评分时为null |
 | `reviewCount` | 整数 | 未删除正式评论数，无评分时为0 |
+| `priceUnit` | 字符串 | 计价单位编码；`unspecified` 表示未注明 |
+| `description` | 字符串 | 菜品简介，可为空字符串 |
+| `coverImageUrl` | 字符串或null | 最新一张审核通过的菜品图片；无图时为null |
 
 响应包含 `X-Request-Id`。前端显示价格时可按两位小数格式化；不要依赖JSON数字的尾随零。
 
