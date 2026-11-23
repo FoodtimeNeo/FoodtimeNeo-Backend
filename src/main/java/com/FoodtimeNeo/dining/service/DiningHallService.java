@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dining.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.dining.dto.DiningHallResponse;
 import com.FoodtimeNeo.dining.mapper.DiningHallMapper;
@@ -17,6 +18,7 @@ public class DiningHallService {
 
     public DiningHallService(DiningHallMapper halls) { this.halls = halls; }
 
+    @CatalogQuery
     public List<DiningHallResponse> list() {
         try {
             return halls.findActive().stream().map(DiningHallResponse::from).toList();

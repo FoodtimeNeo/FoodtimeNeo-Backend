@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dining.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.exception.BusinessException;
 import com.FoodtimeNeo.dining.dto.StallImageResponse;
 import com.FoodtimeNeo.dining.dto.StallResponse;
@@ -30,6 +31,7 @@ public class StallService {
         this.images = images;
     }
 
+    @CatalogQuery
     public List<StallResponse> listByDiningHall(@NotNull UUID diningHallId) {
         try {
             var rows = stalls.findActiveByDiningHall(diningHallId);
@@ -48,6 +50,7 @@ public class StallService {
         }
     }
 
+    @CatalogQuery
     public StallResponse getById(@NotNull UUID stallId) {
         try {
             var row = stalls.findVisibleById(stallId);

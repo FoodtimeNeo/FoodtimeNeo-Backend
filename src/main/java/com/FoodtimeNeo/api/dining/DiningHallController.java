@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.api.dining;
 
+import com.FoodtimeNeo.catalog.cache.PublicCatalog;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.dining.dto.DiningHallResponse;
 import com.FoodtimeNeo.dining.service.DiningHallService;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
+@PublicCatalog
 @RestController
 @RequestMapping("/api/v1/dining-halls")
 @Tag(name = "Dining", description = "食堂展示信息")

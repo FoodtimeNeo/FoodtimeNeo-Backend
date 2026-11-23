@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.api.dish;
 
+import com.FoodtimeNeo.catalog.cache.PublicCatalog;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.dish.dto.DishDetailResponse;
 import com.FoodtimeNeo.dish.service.DishDetailService;
@@ -12,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
+@PublicCatalog
 @RestController
 @RequestMapping("/api/v1/dishes/{dishId}")
 @Tag(name = "Dishes", description = "菜品展示信息")

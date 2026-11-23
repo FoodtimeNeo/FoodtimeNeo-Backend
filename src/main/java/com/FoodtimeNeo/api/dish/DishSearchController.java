@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.api.dish;
 
+import com.FoodtimeNeo.catalog.cache.PublicCatalog;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@PublicCatalog
 @RestController
 @RequestMapping("/api/v1/dishes/search")
 @SecurityRequirement(name = "sessionCookie")

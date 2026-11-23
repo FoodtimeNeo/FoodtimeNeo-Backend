@@ -1,5 +1,6 @@
 package com.FoodtimeNeo.dish.service;
 
+import com.FoodtimeNeo.catalog.cache.CatalogQuery;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
@@ -21,6 +22,7 @@ public class DishImageService {
     private final DishImageMapper images;
     public DishImageService(DishImageMapper images) { this.images = images; }
 
+    @CatalogQuery
     public PageResponse<DishImageResponse> list(@NotNull UUID dishId, @NotNull PageRequest page) {
         try {
             var rows = images.findVisiblePage(dishId, page.size(), page.offset());
