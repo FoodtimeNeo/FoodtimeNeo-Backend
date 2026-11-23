@@ -114,6 +114,7 @@ abstract class IntegrationApiSupport {
         } while(removed>0);
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.dish_reviews WHERE user_id = ?", user);
+            jdbc.update("DELETE FROM foodtime.dish_images WHERE uploaded_by_user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_review_submissions WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.dish_submissions WHERE submitted_by_user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.community_post_likes WHERE user_id=? OR post_id IN(SELECT id FROM foodtime.community_posts WHERE user_id=?)",user,user);
@@ -132,7 +133,6 @@ abstract class IntegrationApiSupport {
         for (UUID user : users) {
             jdbc.update("DELETE FROM foodtime.community_posts WHERE user_id = ?", user);
             jdbc.update("DELETE FROM foodtime.stall_submissions WHERE submitted_by_user_id = ?", user);
-            jdbc.update("DELETE FROM foodtime.dish_images WHERE uploaded_by_user_id = ?", user);
         }
         var ownedHalls = new ArrayList<>(additionalHalls); ownedHalls.add(hall);
         for (UUID hallId : ownedHalls) {

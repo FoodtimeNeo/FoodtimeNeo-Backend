@@ -13,6 +13,9 @@ import java.util.UUID;
 
 @Repository
 public class ModerationStore {
+    public boolean isReviewPhoto(UUID id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM foodtime.dish_images WHERE id=? AND review_submission_id IS NOT NULL)",Boolean.class,id));
+    }
     private static final String ITEMS = """
             SELECT r.id,'review' AS type,r.dish_id AS target_id,r.user_id,u.display_name AS user_display_name,
                    d.name,r.content,
