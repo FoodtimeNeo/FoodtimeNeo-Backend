@@ -10,6 +10,29 @@ import static org.assertj.core.api.Assertions.assertThat;
     "app.search.halls[10000000-0000-0000-0000-000000000001].longitude=116.34",
     "app.search.halls[10000000-0000-0000-0000-000000000001].source=isolated-test-fixture"})
 class UnifiedSearchIT extends IntegrationApiSupport {
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate searchJdbc;
+    @Test void publicSearchRevalidatesLocalReplicaAndSkipsUnchangedProjectionQueries() throws Exception {
+        var browser=login(owner);addDish(stall,key,10);
+        String path="/api/v1/search/stalls?q="+key+"&diningHallIds="+hall+"&previewSize=4";
+        org.mockito.Mockito.clearInvocations(searchJdbc);
+        var first=browser.call("GET",path,null);assertThat(first.statusCode()).isEqualTo(200);
+        String etag=first.headers().firstValue("ETag").orElseThrow();
+        assertThat(first.headers().firstValue("X-Foodtime-Public-Catalog")).contains("1");
+        assertThat(browser.imageIfNoneMatch(path,etag).statusCode()).isEqualTo(304);
+        org.mockito.Mockito.verify(searchJdbc,org.mockito.Mockito.times(1)).queryForObject(
+                org.mockito.ArgumentMatchers.contains("count(DISTINCT stall_id)"),
+                org.mockito.ArgumentMatchers.any(org.springframework.jdbc.core.namedparam.MapSqlParameterSource.class),
+                org.mockito.ArgumentMatchers.eq(Long.class));
+        jdbc.update("UPDATE foodtime.dishes SET price=20 WHERE stall_id=?",stall);
+        var changed=browser.imageIfNoneMatch(path,etag);assertThat(changed.statusCode()).isEqualTo(200);
+        assertThat(json.readTree(changed.body()).path("data").path("items").get(0).path("dishes").get(0).path("price").asInt()).isEqualTo(20);
+        String current=changed.headers().firstValue("ETag").orElseThrow();
+        jdbc.update("UPDATE foodtime.dining_halls SET status='inactive' WHERE id=?",hall);
+        assertThat(json.readTree(browser.imageIfNoneMatch(path,current).body()).path("data").path("total").asInt()).isZero();
+        assertThat(browser.call("GET",path+"&latitude=39&longitude=116",null).statusCode()).isEqualTo(400);
+        assertThat(browser.call("POST","/api/v1/search/stalls/query",Map.of("q",key)).headers().firstValue("X-Foodtime-Public-Catalog")).isEmpty();
+    }
     private final String key = "search-" + UUID.randomUUID().toString().substring(0,8);
     private UUID addDish(UUID target, String name, Integer price) {
         UUID id = UUID.randomUUID();

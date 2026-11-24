@@ -26,6 +26,23 @@ public class SearchController {
     public ApiResponse<PageResponse<CatalogSearchService.Stall>> stalls(@RequestBody SearchRequest request) {
         return ApiResponse.success(catalog.search(request));
     }
+    @GetMapping("/stalls")
+    @com.FoodtimeNeo.catalog.cache.PublicCatalog
+    public ApiResponse<PageResponse<CatalogSearchService.Stall>> publicStalls(@ModelAttribute SearchRequest request) {
+        publicQuery(request);
+        return ApiResponse.success(catalog.search(request));
+    }
+    @GetMapping("/dishes")
+    @com.FoodtimeNeo.catalog.cache.PublicCatalog
+    public ApiResponse<PageResponse<CatalogSearchService.Dish>> publicDishes(@ModelAttribute SearchRequest request) {
+        publicQuery(request);
+        return ApiResponse.success(catalog.dishes(request));
+    }
+    private static void publicQuery(SearchRequest request) {
+        if (request.latitude() != null || request.longitude() != null || "distance".equals(request.sort()))
+            throw new com.FoodtimeNeo.common.exception.BusinessException("VALIDATION_ERROR",
+                    "定位查询请使用临时请求", org.springframework.http.HttpStatus.BAD_REQUEST);
+    }
     @PostMapping("/dishes/query")
     public ApiResponse<PageResponse<CatalogSearchService.Dish>> dishes(@RequestBody SearchRequest request) {
         return ApiResponse.success(catalog.dishes(request));

@@ -30,6 +30,13 @@ public class CatalogCacheConfiguration {
             }
         };
         MethodInterceptor interceptor = invocation -> {
+          // Device positions and position-dependent ordering are never shared or persisted.
+          for (Object argument : invocation.getArguments()) {
+            if (argument instanceof com.FoodtimeNeo.search.SearchRequest search
+                    && (search.latitude() != null || search.longitude() != null || "distance".equals(search.sort()))) {
+                return invocation.proceed();
+            }
+          }
           var transaction = new TransactionTemplate(manager.getObject());
           transaction.setReadOnly(true);
           transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
