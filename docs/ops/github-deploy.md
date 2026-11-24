@@ -30,8 +30,9 @@ CI 通过 SSH 强制命令调用：
 1. 备份数据库、当前 jar 和 `.env` 到 `/var/backups/foodtime/`。
 2. 校验 workflow run 的 `head_sha` 与传入 commit 一致。
 3. 下载 `backend-jar` artifact。
-4. 合并 `release.env` 中公开的 `APP_RELEASE_*` 参数。
-5. 重启 `foodtime-backend`，等待健康检查；失败时自动回滚 jar 和 `.env`。
+4. 重启 `foodtime-backend`，等待健康检查；失败时自动回滚 jar 和 `.env`。
+
+`APP_RELEASE_*` 不在 Backend 部署时更新，而是由 Web 部署在新 APK 与补丁上线后合并，避免客户端先看到新版本号却下载到旧 APK。
 
 部署日志：`/var/log/foodtime-deploy.log`。
 
