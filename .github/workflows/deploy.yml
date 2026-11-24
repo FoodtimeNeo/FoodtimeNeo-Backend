@@ -17,6 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
     outputs:
       changed: ${{ steps.version.outputs.changed }}
     steps:
@@ -54,20 +57,26 @@ jobs:
         if: steps.version.outputs.changed == 'true'
         run: bash mvnw -q -DskipTests package
 
-      - name: Upload artifact
+      - name: Publish deploy artifact
         if: steps.version.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-jar
-          path: target/foodtime-neo-backend.jar
-          if-no-files-found: error
-          retention-days: 7
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view deploy-latest >/dev/null 2>&1; then
+            gh release create deploy-latest --prerelease \
+              --title "Deploy artifacts" \
+              --notes "Automated deployment artifacts. Do not install."
+          fi
+          gh release upload deploy-latest target/foodtime-neo-backend.jar --clobber
 
   deploy:
     needs: build
     if: needs.build.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
     environment: production
     steps:
       - name: Deploy over SSH
