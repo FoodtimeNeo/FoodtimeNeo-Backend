@@ -80,7 +80,7 @@ jobs:
     needs: build
     if: needs.build.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment: production
     steps:
       - name: Deploy over SSH
@@ -100,5 +100,6 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           printf '%s\n' "$GH_TOKEN" | ssh -i ~/.ssh/id_ed25519 \
             -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "backend ${{ github.run_id }} ${{ github.sha }}"
