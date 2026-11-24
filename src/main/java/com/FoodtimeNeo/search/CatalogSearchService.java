@@ -79,6 +79,7 @@ public class CatalogSearchService {
         LEFT JOIN LATERAL (SELECT image_url FROM foodtime.dish_images WHERE dish_id=m.id AND status='approved'
             ORDER BY created_at DESC,id LIMIT 1) image ON true
         """;
+    @com.FoodtimeNeo.catalog.cache.CatalogQuery
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public PageResponse<Stall> search(SearchRequest request) {
         var spec = spec(request);
@@ -107,6 +108,7 @@ public class CatalogSearchService {
         }
         return PageResponse.of(groups, total, page);
     }
+    @com.FoodtimeNeo.catalog.cache.CatalogQuery
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public PageResponse<Dish> dishes(SearchRequest request) {
         if (request.stallId() == null) throw new BusinessException("VALIDATION_ERROR", "请选择档口", HttpStatus.BAD_REQUEST);

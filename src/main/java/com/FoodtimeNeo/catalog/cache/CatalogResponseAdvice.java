@@ -17,7 +17,8 @@ public class CatalogResponseAdvice implements ResponseBodyAdvice<Object> {
     private final ObjectMapper json;
     public CatalogResponseAdvice(ObjectMapper json) { this.json = json; }
     @Override public boolean supports(MethodParameter method, Class<? extends HttpMessageConverter<?>> converter) {
-        return method.getContainingClass().isAnnotationPresent(PublicCatalog.class);
+        return method.getContainingClass().isAnnotationPresent(PublicCatalog.class)
+                || method.hasMethodAnnotation(PublicCatalog.class);
     }
     @Override public Object beforeBodyWrite(Object body, MethodParameter method, MediaType type,
             Class<? extends HttpMessageConverter<?>> converter, ServerHttpRequest request, ServerHttpResponse response) {
