@@ -1,6 +1,6 @@
 # FoodTimeNeo Backend
 
-当前版本 **2.1.2（正式版）**。发布范围与部署要求见 [2.1.2 正式版发布说明](docs/releases/release-2.1.2.md)，管理删除接口与权限见 [社区管理](docs/modules/community-management.md)。
+当前版本 **2.1.3（正式版）**。发布范围与部署要求见 [2.1.3 正式版发布说明](docs/releases/release-2.1.3.md)，管理删除接口与权限见 [社区管理](docs/modules/community-management.md)。
 
 校园食堂菜品展示与点评平台的后端项目。提供账号认证、会话与改密、三级目录、详情与图册、个人资料、评论与实时评分、图片上传、菜品/档口/图片投稿与个人记录、管理审核及日志、目录维护、违规评论删除和平台管理员的用户管理。三端接入的历史验证见各仓库验收文档；正式邮箱投递暂按用户要求跳过。完整文档入口见 [文档导航](docs/README.md)。
 
@@ -112,3 +112,5 @@ java -jar target/foodtime-neo-backend.jar
 | 个人记录联调请求 | [提交记录联调](docs/api/submissions.http) |
 
 HTTP入口统一位于 `src/main/java/com/FoodtimeNeo/api`，业务逻辑按 `auth`、`user`、`dish` 领域组织。注册需邮箱验证码，登录使用Redis会话和HttpOnly Cookie，默认7天到期。邮件配置模板为 [config/mail.example.yml](config/mail.example.yml)，正式配置填写与启用方式见 [邮箱验证码](docs/api/auth/email-verification.md#邮箱配置)。
+
+统一搜索：菜品按档口分组，笔记支持关联食堂筛选；紧凑布局、横滑续载及距离配置见 [统一搜索](docs/modules/unified-search.md)。真实食堂坐标待采集，本版包含上述统一搜索功能。

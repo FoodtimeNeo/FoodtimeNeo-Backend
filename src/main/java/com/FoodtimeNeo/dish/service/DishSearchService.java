@@ -29,6 +29,13 @@ public class DishSearchService {
     public PageResponse<DishSearchResponse> search(String query, List<UUID> diningHallIds,
                                                    BigDecimal minPrice, BigDecimal maxPrice,
                                                    BigDecimal minRating, String sort, PageRequest page) {
+        DishSearchQuery spec = normalize(query, diningHallIds, minPrice, maxPrice, minRating, sort);
+        return PageResponse.of(dishes.search(spec, page.size(), page.offset()), dishes.count(spec), page);
+    }
+
+    /** Shared validation; grouped search must obey the same catalog filter contract. */
+    public static DishSearchQuery normalize(String query, List<UUID> diningHallIds,
+            BigDecimal minPrice, BigDecimal maxPrice, BigDecimal minRating, String sort) {
         String keyword = query == null ? "" : query.strip();
         if (keyword.length() > 50) {
             throw new BusinessException("VALIDATION_ERROR", "菜品关键词最多50个字符", HttpStatus.BAD_REQUEST);
@@ -44,9 +51,8 @@ public class DishSearchService {
         }
         DishSearchSort order = DishSearchSort.fromWire(sort).orElseThrow(() ->
                 new BusinessException("VALIDATION_ERROR", "排序方式不合法", HttpStatus.BAD_REQUEST));
-        DishSearchQuery spec = new DishSearchQuery(keyword,
+        return new DishSearchQuery(keyword,
                 diningHallIds == null ? List.of() : diningHallIds.stream().distinct().toList(),
                 minPrice, maxPrice, minRating, order.wireName());
-        return PageResponse.of(dishes.search(spec, page.size(), page.offset()), dishes.count(spec), page);
     }
 }

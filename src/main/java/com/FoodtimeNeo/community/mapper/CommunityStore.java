@@ -100,6 +100,40 @@ public class CommunityStore {
                 (r, n) -> r.getObject(1, UUID.class), repostOfId).isEmpty();
     }
 
+    /** Dedicated search projection; pin reservation and feed cursors do not affect search ranking. */
+    public com.FoodtimeNeo.common.api.PageResponse<com.FoodtimeNeo.search.NoteSearchService.Note> search(
+            UUID viewer, String q, String sort, String type, List<UUID> halls, Map<UUID, Double> distances,
+            com.FoodtimeNeo.common.api.PageRequest page) {
+        var params = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("viewer", viewer).addValue("q", q).addValue("limit", page.size()).addValue("offset", page.offset());
+        String where = " WHERE p.status='approved' AND p.deleted_at IS NULL"
+                + " AND (:q='' OR strpos(lower(p.title),lower(:q))>0 OR strpos(lower(p.content),lower(:q))>0)";
+        if (!halls.isEmpty()) { where += " AND dh.id IN (:halls)"; params.addValue("halls", halls); }
+        if (type.equals("original")) where += " AND p.repost_of_id IS NULL";
+        if (type.equals("repost")) where += " AND p.repost_of_id IS NOT NULL";
+        StringBuilder distance = new StringBuilder("CASE"); int i = 0;
+        for (var entry : distances.entrySet()) {
+            distance.append(" WHEN dh.id=:hall").append(i).append(" THEN :distance").append(i).append("::double precision");
+            params.addValue("hall" + i, entry.getKey()).addValue("distance" + i, entry.getValue()); i++;
+        }
+        String distanceSql = i == 0 ? "NULL::double precision" : distance + " ELSE NULL::double precision END";
+        String order = switch (sort) {
+            case "latest" -> "p.created_at DESC,p.id DESC";
+            case "likes" -> "p.like_count DESC,p.created_at DESC,p.id DESC";
+            case "distance" -> "search_distance ASC NULLS LAST,p.created_at DESC,p.id DESC";
+            default -> "CASE WHEN :q='' THEN 2 WHEN lower(p.title)=lower(:q) THEN 0"
+                    + " WHEN strpos(lower(p.title),lower(:q))=1 THEN 1 ELSE 2 END,p.like_count DESC,p.created_at DESC,p.id DESC";
+        };
+        var named = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc);
+        long total = named.queryForObject("SELECT count(*) " + POST_JOINS + where, params, Long.class);
+        var items = named.query("SELECT " + POST_COLUMNS + "," + distanceSql + " search_distance,dh.name search_hall_name"
+                + ",EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id=:viewer AND post_id=p.id) liked"
+                + ",EXISTS(SELECT 1 FROM foodtime.community_favorites WHERE user_id=:viewer AND post_id=p.id) favorited "
+                + POST_JOINS + where + " ORDER BY " + order + " LIMIT :limit OFFSET :offset", params,
+                (r,n) -> new com.FoodtimeNeo.search.NoteSearchService.Note(row(r,viewer),r.getObject("search_distance",Double.class),r.getString("search_hall_name")));
+        return com.FoodtimeNeo.common.api.PageResponse.of(items,total,page);
+    }
+
     public List<CommunityPostResponse> feed(UUID viewerId, int size, long offset) {
         return jdbc.query("SELECT " + POST_COLUMNS
                 + ", EXISTS(SELECT 1 FROM foodtime.community_post_likes WHERE user_id = ? AND post_id = p.id) AS liked"
