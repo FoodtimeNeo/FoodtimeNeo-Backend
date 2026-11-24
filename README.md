@@ -112,3 +112,5 @@ java -jar target/foodtime-neo-backend.jar
 | 个人记录联调请求 | [提交记录联调](docs/api/submissions.http) |
 
 HTTP入口统一位于 `src/main/java/com/FoodtimeNeo/api`，业务逻辑按 `auth`、`user`、`dish` 领域组织。注册需邮箱验证码，登录使用Redis会话和HttpOnly Cookie，默认7天到期。邮件配置模板为 [config/mail.example.yml](config/mail.example.yml)，正式配置填写与启用方式见 [邮箱验证码](docs/api/auth/email-verification.md#邮箱配置)。
+
+统一搜索：菜品按档口分组，笔记支持关联食堂筛选；紧凑布局、横滑续载及距离配置见 [统一搜索](docs/modules/unified-search.md)。真实食堂坐标待采集，本功能不改变当前正式版本号。
