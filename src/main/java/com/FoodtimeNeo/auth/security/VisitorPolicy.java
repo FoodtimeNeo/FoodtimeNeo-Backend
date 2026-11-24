@@ -46,6 +46,8 @@ public final class VisitorPolicy {
             return false;
         }
         String path = request.getRequestURI();
+        if ("POST".equals(method) && Set.of("/api/v1/search/stalls/query", "/api/v1/search/dishes/query",
+                "/api/v1/search/notes/query").contains(path)) return false;
         // A read-only account can still receive unwanted messages and report visible content.
         if (("POST".equals(method) && "/api/v1/reports".equals(path))
                 || (("PUT".equals(method) || "DELETE".equals(method)) && USER_BLOCK.matcher(path).matches())
