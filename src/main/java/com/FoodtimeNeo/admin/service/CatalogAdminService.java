@@ -41,8 +41,27 @@ public class CatalogAdminService {
                 && (create || !Objects.equals(old.coverImageUrl(),body.coverImageUrl()))) images.requireOwnedReference(body.coverImageUrl(),actor.id());
         String status = body.status() == null ? create ? "active" : old.status() : body.status();
         int sort = body.sortOrder() == null ? create || old.sortOrder() == null ? 0 : old.sortOrder() : body.sortOrder();
+        java.math.BigDecimal latitude = null;
+        java.math.BigDecimal longitude = null;
+        if (type.equals("dining-halls")) {
+            if (Boolean.TRUE.equals(body.clearCoordinates())) {
+                latitude = null;
+                longitude = null;
+            } else if (body.latitude() != null || body.longitude() != null) {
+                if (body.latitude() == null || body.longitude() == null) throw bad("经度和纬度必须同时填写");
+                double lat = body.latitude().doubleValue(), lon = body.longitude().doubleValue();
+                if (!Double.isFinite(lat) || !Double.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    throw bad("WGS84 经纬度范围不合法");
+                }
+                latitude = body.latitude();
+                longitude = body.longitude();
+            } else if (!create) {
+                latitude = old.latitude();
+                longitude = old.longitude();
+            }
+        }
         if (create) id = UUID.randomUUID();
-        try { catalog.save(type,id,parent,body,status,sort,create); }
+        try { catalog.save(type,id,parent,body,status,sort,latitude,longitude,create); }
         catch (DuplicateKeyException conflict) { throw new BusinessException("CATALOG_CONFLICT","同一食堂已有同名档口",HttpStatus.CONFLICT); }
         return existing(type,id,false);
     }
