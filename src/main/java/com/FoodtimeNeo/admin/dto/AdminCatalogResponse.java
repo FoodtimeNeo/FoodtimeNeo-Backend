@@ -4,4 +4,10 @@ import java.util.UUID;
 
 /** parentId aliases the real foreign key. Dish cover is derived from approved images, never a dish column. */
 public record AdminCatalogResponse(UUID id, UUID parentId, String name, String description,
-        BigDecimal price, String coverImageUrl, String status, Integer sortOrder, long revision, String priceUnit) { }
+        BigDecimal price, String coverImageUrl, String status, Integer sortOrder, long revision, String priceUnit,
+        BigDecimal latitude, BigDecimal longitude) {
+    public AdminCatalogResponse(UUID id, UUID parentId, String name, String description,
+            BigDecimal price, String coverImageUrl, String status, Integer sortOrder, long revision, String priceUnit) {
+        this(id, parentId, name, description, price, coverImageUrl, status, sortOrder, revision, priceUnit, null, null);
+    }
+}

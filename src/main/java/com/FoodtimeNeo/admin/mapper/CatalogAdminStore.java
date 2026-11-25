@@ -12,7 +12,8 @@ public class CatalogAdminStore {
     private static final String REVIEW_FILTER = " WHERE r.deleted_at IS NULL AND (strpos(lower(u.email),lower(?)) > 0 OR strpos(lower(u.display_name),lower(?)) > 0 OR strpos(r.user_id::text,lower(?)) > 0)";
     private static final RowMapper<AdminCatalogResponse> ROW = (r,n) -> new AdminCatalogResponse(
             r.getObject("id",UUID.class),r.getObject("parent_id",UUID.class),r.getString("name"),r.getString("description"),
-            r.getBigDecimal("price"),r.getString("cover_image_url"),r.getString("status"),r.getObject("sort_order",Integer.class),r.getLong("revision"),r.getString("price_unit"));
+            r.getBigDecimal("price"),r.getString("cover_image_url"),r.getString("status"),r.getObject("sort_order",Integer.class),r.getLong("revision"),r.getString("price_unit"),
+            r.getBigDecimal("latitude"),r.getBigDecimal("longitude"));
     public CatalogAdminStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<AdminCatalogResponse> page(String type, UUID parent, int size, long offset) {
@@ -34,13 +35,15 @@ public class CatalogAdminStore {
         String parentTable = type.equals("stalls") ? "foodtime.dining_halls" : "foodtime.stalls";
         return !jdbc.query("SELECT id FROM " + parentTable + " WHERE id = ? FOR SHARE",(r,n) -> r.getObject(1,UUID.class),id).isEmpty();
     }
-    public void save(String type, UUID id, UUID parent, CatalogEditRequest body, String status, int sort, boolean create) {
+    public void save(String type, UUID id, UUID parent, CatalogEditRequest body, String status, int sort,
+            java.math.BigDecimal latitude, java.math.BigDecimal longitude, boolean create) {
         if (create) {
-            if (type.equals("dining-halls")) jdbc.update("INSERT INTO foodtime.dining_halls(id,name,description,cover_image_url,status,sort_order) VALUES (?, ?, ?, ?, ?, ?)",id,body.name().strip(),body.description(),body.coverImageUrl(),status,sort);
+            if (type.equals("dining-halls")) jdbc.update("INSERT INTO foodtime.dining_halls(id,name,description,cover_image_url,status,sort_order,latitude,longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",id,body.name().strip(),body.description(),body.coverImageUrl(),status,sort,latitude,longitude);
             else if (type.equals("stalls")) jdbc.update("INSERT INTO foodtime.stalls(id,dining_hall_id,name,description,cover_image_url,status,sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",id,parent,body.name().strip(),body.description(),body.coverImageUrl(),status,sort);
             else jdbc.update("INSERT INTO foodtime.dishes(id,stall_id,name,description,price,status,price_unit) VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 'unspecified'))",id,parent,body.name().strip(),body.description(),body.price(),status,body.priceUnit());
         } else {
             if (type.equals("dishes")) jdbc.update("UPDATE foodtime.dishes SET name = ?,description = ?,price = ?,status = ?,price_unit = COALESCE(?,price_unit),revision = revision + 1 WHERE id = ?",body.name().strip(),body.description(),body.price(),status,body.priceUnit(),id);
+            else if (type.equals("dining-halls")) jdbc.update("UPDATE foodtime.dining_halls SET name = ?,description = ?,cover_image_url = ?,status = ?,sort_order = ?,latitude = ?,longitude = ?,revision = revision + 1 WHERE id = ?",body.name().strip(),body.description(),body.coverImageUrl(),status,sort,latitude,longitude,id);
             else jdbc.update("UPDATE " + table(type) + " SET name = ?,description = ?,cover_image_url = ?,status = ?,sort_order = ?,revision = revision + 1 WHERE id = ?",body.name().strip(),body.description(),body.coverImageUrl(),status,sort,id);
         }
     }
@@ -77,7 +80,8 @@ public class CatalogAdminStore {
         String price = type.equals("dishes") ? "t.price" : "NULL::numeric";
         String cover = type.equals("dishes") ? "(SELECT image_url FROM foodtime.dish_images WHERE dish_id = t.id AND status = 'approved' ORDER BY created_at DESC,id ASC LIMIT 1)" : "t.cover_image_url";
         String sort = type.equals("dishes") ? "NULL::integer" : "t.sort_order";
-        return "SELECT t.id," + parent + " AS parent_id,t.name,t.description," + price + " AS price," + (type.equals("dishes") ? "t.price_unit" : "NULL::text") + " AS price_unit," + cover + " AS cover_image_url,t.status," + sort + " AS sort_order,t.revision FROM " + table(type) + " t";
+        String coords = type.equals("dining-halls") ? "t.latitude,t.longitude" : "NULL::numeric AS latitude,NULL::numeric AS longitude";
+        return "SELECT t.id," + parent + " AS parent_id,t.name,t.description," + price + " AS price," + (type.equals("dishes") ? "t.price_unit" : "NULL::text") + " AS price_unit," + cover + " AS cover_image_url,t.status," + sort + " AS sort_order,t.revision," + coords + " FROM " + table(type) + " t";
     }
     private String parentColumn(String type) { return type.equals("stalls") ? "dining_hall_id" : "stall_id"; }
     private String table(String type) {

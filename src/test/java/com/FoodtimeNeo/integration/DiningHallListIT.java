@@ -75,9 +75,13 @@ class DiningHallListIT {
         for (JsonNode item : data) {
             UUID id = UUID.fromString(item.path("id").asString());
             assertThat(id).isNotEqualTo(hidden);
-            if (hallIds.contains(id)) { ownResults.add(id); }
+            if (hallIds.contains(id)) {
+                ownResults.add(id);
+                assertThat(item.path("revision").asLong()).isEqualTo(1);
+            } else {
+                assertThat(item.path("revision").asLong()).isGreaterThanOrEqualTo(1);
+            }
             assertThat(item.size()).isEqualTo(9);
-            assertThat(item.path("revision").asLong()).isEqualTo(1);
             assertThat(item.path("averageScore").isNull()).isTrue();
             assertThat(item.path("reviewCount").asLong()).isZero();
             assertThat(item.has("status")).isFalse();
