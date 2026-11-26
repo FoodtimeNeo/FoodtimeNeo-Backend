@@ -29,8 +29,8 @@ public final class AppealOnlyPolicy {
     public static boolean allowed(HttpServletRequest request) {
         String method = request.getMethod();
         String path = request.getRequestURI();
-        if ("OPTIONS".equals(method) || "HEAD".equals(method)) return true;
-        if ("GET".equals(method)) {
+        if ("OPTIONS".equals(method)) return true;
+        if ("GET".equals(method) || "HEAD".equals(method)) {
             return GET.contains(path) || DECISION.matcher(path).matches()
                     || DECISION_ACTIONS.matcher(path).matches()
                     || APPEAL.matcher(path).matches() || MEDIA.matcher(path).matches();

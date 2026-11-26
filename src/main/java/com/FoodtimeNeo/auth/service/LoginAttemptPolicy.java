@@ -10,21 +10,27 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Rolling per-device login request counter. Every /auth/login request is recorded, including
- * password failures and requests that are themselves rejected for a missing challenge.
+ * Rolling per-device and per-account login request counter. Every /auth/login request is recorded,
+ * including password failures and requests that are themselves rejected for a missing challenge.
  */
 @Service
 public class LoginAttemptPolicy {
     private static final DefaultRedisScript<Long> RECORD = new DefaultRedisScript<>("""
             local now = tonumber(ARGV[1])
             local window = tonumber(ARGV[2])
-            redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
-            redis.call('ZADD', KEYS[1], now, ARGV[3])
-            redis.call('PEXPIRE', KEYS[1], window)
-            return redis.call('ZCARD', KEYS[1])
+            local peak = 0
+            for i = 1, #KEYS do
+              redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now - window)
+              redis.call('ZADD', KEYS[i], now, ARGV[3])
+              redis.call('PEXPIRE', KEYS[i], window)
+              local count = redis.call('ZCARD', KEYS[i])
+              if count > peak then peak = count end
+            end
+            return peak
             """, Long.class);
     private final StringRedisTemplate redis;
     private final AuthProperties auth;
@@ -40,11 +46,20 @@ public class LoginAttemptPolicy {
     }
 
     public boolean requiresChallenge(String deviceId) {
+        return requiresChallenge(deviceId, null);
+    }
+
+    public boolean requiresChallenge(String deviceId, String account) {
         if (!captcha.enabled()) return false;
         String identity = deviceId == null || deviceId.isBlank() ? "unidentified" : deviceId;
+        String normalizedAccount = account == null ? "" : account.strip().toLowerCase(Locale.ROOT);
+        List<String> keys = normalizedAccount.isEmpty()
+                ? List.of(RedisAttemptLimiter.key(auth.redisNamespace(), "login-attempt", identity))
+                : List.of(RedisAttemptLimiter.key(auth.redisNamespace(), "login-attempt", identity),
+                        RedisAttemptLimiter.key(auth.redisNamespace(), "login-attempt-account", normalizedAccount));
         try {
             Long count = redis.execute(RECORD,
-                    List.of(RedisAttemptLimiter.key(auth.redisNamespace(), "login-attempt", identity)),
+                    keys,
                     Long.toString(clock.millis()),
                     Long.toString(captcha.window().toMillis()),
                     UUID.randomUUID().toString());

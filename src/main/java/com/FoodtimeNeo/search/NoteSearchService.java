@@ -27,6 +27,16 @@ public class NoteSearchService {
         if (sort.equals("distance") && request.latitude() == null)
             throw new BusinessException("LOCATION_REQUIRED", "请先获取当前位置", HttpStatus.BAD_REQUEST);
         var page = new PageRequest(request.page() == null ? 1 : request.page(), request.size() == null ? 20 : request.size());
-        return posts.search(viewer, q, sort, type, request.diningHallIds() == null ? List.of() : request.diningHallIds(), distances, page);
+        List<UUID> halls = List.of();
+        if (request.diningHallIds() != null) {
+            if (request.diningHallIds().stream().anyMatch(Objects::isNull)) {
+                throw new BusinessException("VALIDATION_ERROR", "食堂筛选参数无效", HttpStatus.BAD_REQUEST);
+            }
+            halls = request.diningHallIds().stream().distinct().toList();
+            if (halls.size() > com.FoodtimeNeo.dish.service.DishSearchService.MAX_DINING_HALL_IDS) {
+                throw new BusinessException("VALIDATION_ERROR", "一次最多筛选50个食堂", HttpStatus.BAD_REQUEST);
+            }
+        }
+        return posts.search(viewer, q, sort, type, halls, distances, page);
     }
 }

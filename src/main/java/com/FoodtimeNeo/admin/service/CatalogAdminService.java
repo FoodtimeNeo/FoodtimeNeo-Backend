@@ -34,11 +34,18 @@ public class CatalogAdminService {
         if (!type.equals("dishes") && body.name().length() > 100) throw bad("名称不能超过100字");
         boolean create = id == null;
         AdminCatalogResponse old = create ? null : existing(type,id,true);
+        if (!create && body.expectedRevision() != null && !body.expectedRevision().equals(old.revision())) {
+            throw new BusinessException("CATALOG_REVISION_CONFLICT", "目录已被其他管理员修改，请刷新后重试", HttpStatus.CONFLICT);
+        }
         UUID parent = create ? body.parentId() : old.parentId();
         if (!create && body.parentId() != null && !Objects.equals(body.parentId(),parent)) throw bad("修改已有记录时不能改变所属关系");
         if (!type.equals("dining-halls") && (parent == null || !catalog.parentExists(type,parent))) throw bad("上级记录不存在");
-        if (!type.equals("dishes") && body.coverImageUrl() != null && !body.coverImageUrl().isBlank()
-                && (create || !Objects.equals(old.coverImageUrl(),body.coverImageUrl()))) images.requireOwnedReference(body.coverImageUrl(),actor.id());
+        String coverImage = body.coverImageUrl() == null || body.coverImageUrl().isBlank() ? null : body.coverImageUrl().strip();
+        CatalogEditRequest normalized = new CatalogEditRequest(body.parentId(), body.name(), body.description(),
+                body.price(), coverImage, body.status(), body.sortOrder(), body.priceUnit(),
+                body.latitude(), body.longitude(), body.clearCoordinates(), body.expectedRevision());
+        if (!type.equals("dishes") && coverImage != null
+                && (create || !Objects.equals(old.coverImageUrl(), coverImage))) images.requireOwnedReference(coverImage, actor.id());
         String status = body.status() == null ? create ? "active" : old.status() : body.status();
         int sort = body.sortOrder() == null ? create || old.sortOrder() == null ? 0 : old.sortOrder() : body.sortOrder();
         java.math.BigDecimal latitude = null;
@@ -61,7 +68,7 @@ public class CatalogAdminService {
             }
         }
         if (create) id = UUID.randomUUID();
-        try { catalog.save(type,id,parent,body,status,sort,latitude,longitude,create); }
+        try { catalog.save(type,id,parent,normalized,status,sort,latitude,longitude,create); }
         catch (DuplicateKeyException conflict) { throw new BusinessException("CATALOG_CONFLICT","同一食堂已有同名档口",HttpStatus.CONFLICT); }
         return existing(type,id,false);
     }

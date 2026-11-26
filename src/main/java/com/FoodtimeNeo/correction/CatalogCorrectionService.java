@@ -231,10 +231,14 @@ public class CatalogCorrectionService {
         return normalized;
     }
 
+    private static final BigDecimal MAX_PRICE = new BigDecimal("99999999.99");
+
     private static BigDecimal price(BigDecimal value) {
         if (value == null) return null;
+        if (value.signum() < 0 || value.compareTo(MAX_PRICE) > 0)
+            throw bad("价格必须为非负数、最多两位小数且不超过8位整数");
         BigDecimal normalized = value.stripTrailingZeros();
-        if (normalized.signum() < 0 || normalized.scale() > 2 || normalized.precision() - normalized.scale() > 8)
+        if (normalized.scale() > 2 || (long) normalized.precision() - (long) normalized.scale() > 8L)
             throw bad("价格必须为非负数、最多两位小数且不超过8位整数");
         return value;
     }

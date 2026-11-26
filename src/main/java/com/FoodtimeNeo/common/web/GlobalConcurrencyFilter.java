@@ -82,8 +82,14 @@ public class GlobalConcurrencyFilter extends OncePerRequestFilter {
 
     private Semaphore pathLimit(String path) {
         return switch (path) {
-            case EMAIL_CODE, "/api/v1/auth/password-reset/email-code" -> emailCode;
-            case REGISTER, "/api/v1/auth/password-reset" -> registration;
+            case EMAIL_CODE, "/api/v1/auth/password-reset/email-code",
+                    "/api/v1/auth/bind-email/email-code",
+                    "/api/v1/users/me/account-lifecycle/deletion-code",
+                    "/api/v1/users/me/account-lifecycle/unbind-code" -> emailCode;
+            case REGISTER, "/api/v1/auth/password-reset",
+                    "/api/v1/users/me/password",
+                    "/api/v1/users/me/account-lifecycle/delete",
+                    "/api/v1/users/me/account-lifecycle/unbind" -> registration;
             case LOGIN -> login;
             default -> null;
         };

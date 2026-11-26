@@ -11,9 +11,16 @@ public record CatalogEditRequest(UUID parentId, @NotBlank @Size(max = 120) Strin
         @Pattern(regexp = "active|inactive") String status, Integer sortOrder, String priceUnit,
         @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 3, fraction = 7) BigDecimal latitude,
         @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 7) BigDecimal longitude,
-        Boolean clearCoordinates) {
+        Boolean clearCoordinates, Long expectedRevision) {
+    public CatalogEditRequest(UUID parentId, String name, String description, BigDecimal price,
+            String coverImageUrl, String status, Integer sortOrder, String priceUnit,
+            BigDecimal latitude, BigDecimal longitude, Boolean clearCoordinates) {
+        this(parentId, name, description, price, coverImageUrl, status, sortOrder, priceUnit,
+                latitude, longitude, clearCoordinates, null);
+    }
     public CatalogEditRequest(UUID parentId, String name, String description, BigDecimal price,
             String coverImageUrl, String status, Integer sortOrder, String priceUnit) {
-        this(parentId, name, description, price, coverImageUrl, status, sortOrder, priceUnit, null, null, null);
+        this(parentId, name, description, price, coverImageUrl, status, sortOrder, priceUnit,
+                null, null, null, null);
     }
 }

@@ -29,8 +29,12 @@ public class EmailVerificationStore {
     }
 
     public long reserveSend(String email, String ip, String deviceId, String token) {
+        return reserveSend(null, email, ip, deviceId, token);
+    }
+
+    public long reserveSend(String scope, String email, String ip, String deviceId, String token) {
         String device = deviceId == null || deviceId.isBlank() ? "unidentified" : deviceId;
-        return result(redis.execute(RESERVE, List.of(key("code", email), key("cooldown", email),
+        return result(redis.execute(RESERVE, List.of(codeKey(scope, email), key("cooldown", email),
                 key("account", email), key("device", device), key("ip", ip)), token,
                 Long.toString(properties.resendInterval().toSeconds()),
                 Long.toString(properties.sendWindow().toSeconds()), Integer.toString(properties.sendAccountLimit()),
@@ -38,22 +42,34 @@ public class EmailVerificationStore {
     }
 
     public boolean publish(String email, String token, String code) {
-        return result(redis.execute(PUBLISH, List.of(key("code", email), key("cooldown", email)), token,
-                proof(email, code), Long.toString(EmailVerificationProperties.CODE_TTL.toSeconds()))) == 1;
+        return publish(null, email, token, code);
+    }
+
+    public boolean publish(String scope, String email, String token, String code) {
+        return result(redis.execute(PUBLISH, List.of(codeKey(scope, email), key("cooldown", email)), token,
+                proof(scope, email, code), Long.toString(EmailVerificationProperties.CODE_TTL.toSeconds()))) == 1;
     }
 
     public long claim(String email, String code, String token) {
-        return result(redis.execute(CLAIM, List.of(key("code", email)), proof(email, code), token,
+        return claim(null, email, code, token);
+    }
+
+    public long claim(String scope, String email, String code, String token) {
+        return result(redis.execute(CLAIM, List.of(codeKey(scope, email)), proof(scope, email, code), token,
                 Integer.toString(EmailVerificationProperties.CLAIM_SECONDS),
                 Integer.toString(EmailVerificationProperties.MAX_ATTEMPTS)));
     }
 
     public void finish(VerificationClaim claim, boolean consume) {
-        redis.execute(FINISH, List.of(key("code", claim.email())), claim.token(), consume ? "consume" : "release");
+        redis.execute(FINISH, List.of(codeKey(claim.scope(), claim.email())), claim.token(), consume ? "consume" : "release");
     }
 
     public void cancelSend(String email, String token) {
         redis.execute(CANCEL, List.of(key("cooldown", email)), token);
+    }
+
+    private String codeKey(String scope, String email) {
+        return scope == null || scope.isBlank() ? key("code", email) : key("code", scope + ":" + email);
     }
 
     public String key(String kind, String value) {
@@ -67,11 +83,12 @@ public class EmailVerificationStore {
         }
     }
 
-    private String proof(String email, String code) {
+    private String proof(String scope, String email, String code) {
         try {
             Mac hmac = Mac.getInstance("HmacSHA256");
             hmac.init(new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            return HexFormat.of().formatHex(hmac.doFinal((email + ":" + code).getBytes(StandardCharsets.UTF_8)));
+            String material = (scope == null || scope.isBlank() ? "" : scope + ":") + email + ":" + code;
+            return HexFormat.of().formatHex(hmac.doFinal(material.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException exception) {
             throw new IllegalStateException("HMAC-SHA256 is required", exception);
         }

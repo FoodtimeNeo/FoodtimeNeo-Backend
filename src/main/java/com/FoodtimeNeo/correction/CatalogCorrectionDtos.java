@@ -1,5 +1,8 @@
 package com.FoodtimeNeo.correction;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -20,7 +23,7 @@ public final class CatalogCorrectionDtos {
             @NotEmpty @Size(max = 4) List<String> changedFields,
             String name,
             String description,
-            BigDecimal price,
+            @DecimalMin("0") @DecimalMax("99999999.99") @Digits(integer = 8, fraction = 2) BigDecimal price,
             @NotBlank @Size(max = 500) String reason,
             @Size(max = 3) List<String> evidenceUrls,
             @NotBlank @Size(max = 64) String idempotencyKey, String priceUnit) {

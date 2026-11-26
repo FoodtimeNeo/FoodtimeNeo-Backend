@@ -42,6 +42,11 @@ public class EmailVerificationService {
     }
 
     public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress, String deviceId) {
+        return send(request, remoteAddress, deviceId, null);
+    }
+
+    public EmailCodeResponse send(@NotNull @Valid EmailCodeRequest request, String remoteAddress, String deviceId,
+                                  String scope) {
         requireEnabled();
         JavaMailSender sender = mail.getIfAvailable();
         if (sender == null) { throw unavailable(); }
@@ -55,8 +60,11 @@ public class EmailVerificationService {
         String token = UUID.randomUUID().toString();
         boolean reserved = false;
         boolean published = false;
+        boolean scoped = scope != null && !scope.isBlank();
         try {
-            long retry = store.reserveSend(request.email(), remoteAddress, deviceId, token);
+            long retry = scoped
+                    ? store.reserveSend(scope, request.email(), remoteAddress, deviceId, token)
+                    : store.reserveSend(request.email(), remoteAddress, deviceId, token);
             if (retry > 0) { throw new EmailRateLimitException(retry); }
             reserved = true;
             String code = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
@@ -66,7 +74,10 @@ public class EmailVerificationService {
             message.setSubject("FoodtimeNeo 注册验证码");
             message.setText("您的注册验证码：" + code + "\n验证码15分钟内有效，请勿向他人透露。\n如非本人操作，请忽略此邮件。");
             sender.send(message);
-            if (!store.publish(request.email(), token, code)) { throw unavailable(); }
+            boolean stored = scoped
+                    ? store.publish(scope, request.email(), token, code)
+                    : store.publish(request.email(), token, code);
+            if (!stored) { throw unavailable(); }
             published = true;
             return new EmailCodeResponse(clock.instant().plus(EmailVerificationProperties.CODE_TTL),
                     properties.resendInterval().toSeconds());
@@ -82,17 +93,24 @@ public class EmailVerificationService {
     }
 
     public VerificationClaim claim(String email, String code) {
+        return claim(email, code, null);
+    }
+
+    public VerificationClaim claim(String email, String code, String scope) {
         requireEnabled();
         String token = UUID.randomUUID().toString();
+        boolean scoped = scope != null && !scope.isBlank();
         try {
-            long result = store.claim(email, code, token);
+            long result = scoped
+                    ? store.claim(scope, email, code, token)
+                    : store.claim(email, code, token);
             if (result == 2) {
                 throw new BusinessException("REGISTRATION_IN_PROGRESS", "该邮箱正在注册，请稍后重试", HttpStatus.CONFLICT);
             }
             if (result != 1) {
                 throw new BusinessException("EMAIL_CODE_INVALID", "邮箱验证码错误或已失效，请重新获取或检查后重试", HttpStatus.BAD_REQUEST);
             }
-            return new VerificationClaim(email, token);
+            return new VerificationClaim(email, token, scoped ? scope : null);
         } catch (DataAccessException exception) {
             throw unavailable();
         }

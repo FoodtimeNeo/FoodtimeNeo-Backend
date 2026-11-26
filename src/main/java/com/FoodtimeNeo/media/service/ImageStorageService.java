@@ -250,7 +250,8 @@ public class ImageStorageService {
                     String format = contentType.equals("image/png") ? "png" : "jpeg";
                     if (!ImageIO.write(canvas, format, encoded)) throw new IOException("thumbnail encode failed");
                     byte[] thumbnail = encoded.toByteArray();
-                    budget.write(UUID.fromString(metadata(id).getProperty("owner")), thumbnail.length, () -> {
+                    // Derivative thumbnails enforce total/disk budgets without billing the original uploader's quota.
+                    budget.write(null, thumbnail.length, () -> {
                         if (Files.exists(thumb)) return thumb;
                         Path temporary = Files.createTempFile(directory, id + "-", ".thumb-tmp");
                         try {

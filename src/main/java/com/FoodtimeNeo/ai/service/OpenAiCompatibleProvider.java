@@ -188,7 +188,7 @@ public class OpenAiCompatibleProvider implements AiProvider {
             }
             String reason = root.path("reason").asText("").strip();
             if ((!risk.equals("LOW") && !risk.equals("MEDIUM") && !risk.equals("HIGH"))
-                    || Double.isNaN(confidence) || (strictConfidence && (!Double.isFinite(confidence) || confidence < 0 || confidence > 1)) || reason.isEmpty()) {
+                    || !Double.isFinite(confidence) || (strictConfidence && (confidence < 0 || confidence > 1)) || reason.isEmpty()) {
                 throw new IllegalArgumentException("incomplete verdict");
             }
             return new AiVerdict(risk, confidence, labels, reason, model);
