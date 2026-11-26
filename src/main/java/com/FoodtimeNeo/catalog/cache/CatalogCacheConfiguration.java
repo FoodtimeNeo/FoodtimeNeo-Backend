@@ -39,7 +39,7 @@ public class CatalogCacheConfiguration {
           }
           var transaction = new TransactionTemplate(manager.getObject());
           transaction.setReadOnly(true);
-          transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+          transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
           transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
           return transaction.execute(status -> {
             long revision = Objects.requireNonNull(jdbc.getObject().queryForObject(
@@ -61,7 +61,8 @@ public class CatalogCacheConfiguration {
           });
         };
         var advisor = new DefaultPointcutAdvisor(pointcut, interceptor);
-        advisor.setOrder(Ordered.LOWEST_PRECEDENCE);
+        // Must wrap Spring's @Transactional advisor (LOWEST_PRECEDENCE) so cache hits and misses share one DB connection.
+        advisor.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
         return advisor;
     }
 

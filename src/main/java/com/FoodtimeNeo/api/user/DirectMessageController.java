@@ -4,6 +4,7 @@ import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
+import com.FoodtimeNeo.common.web.EndpointRateLimiter;
 import com.FoodtimeNeo.message.DirectMessageDtos;
 import com.FoodtimeNeo.message.DirectMessageService;
 import com.FoodtimeNeo.user.entity.UserProfile;
@@ -13,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @RestController
@@ -20,9 +22,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "sessionCookie")
 public class DirectMessageController {
     private final DirectMessageService messages;
+    private final EndpointRateLimiter limiter;
 
-    public DirectMessageController(DirectMessageService messages) {
+    public DirectMessageController(DirectMessageService messages, EndpointRateLimiter limiter) {
         this.messages = messages;
+        this.limiter = limiter;
     }
 
     @GetMapping
@@ -44,7 +48,9 @@ public class DirectMessageController {
     public ApiResponse<DirectMessageDtos.ConversationResponse> start(
             @Valid @RequestBody DirectMessageDtos.StartConversationRequest body,
             HttpServletRequest request) {
-        return ApiResponse.success(messages.start(current(request).id(), body.userId()));
+        UserProfile actor = current(request);
+        limiter.check("dm-start", actor.id().toString(), request.getRemoteAddr(), 30, 300, Duration.ofMinutes(15));
+        return ApiResponse.success(messages.start(actor.id(), body.userId()));
     }
 
     @GetMapping("/{id}")

@@ -47,10 +47,10 @@ public class StorageBudget {
                     total = Math.addExact(total, size);
                     String name = entry.getFileName().toString();
                     int dot = name.indexOf('.');
-                    if (dot > 0 && owner.toString().equals(owners.get(name.substring(0, dot)))) owned = Math.addExact(owned, size);
+                    if (owner != null && dot > 0 && owner.toString().equals(owners.get(name.substring(0, dot)))) owned = Math.addExact(owned, size);
                 }
             }
-            if (incoming > limits.userBytes() - owned) {
+            if (owner != null && incoming > limits.userBytes() - owned) {
                 throw new BusinessException("IMAGE_STORAGE_QUOTA", "图片存储额度已用完，请联系管理员", HttpStatus.PAYLOAD_TOO_LARGE);
             }
             long free = Files.getFileStore(directory).getUsableSpace();

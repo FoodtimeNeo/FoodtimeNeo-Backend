@@ -4,6 +4,7 @@ import com.FoodtimeNeo.auth.security.SessionAuthenticationService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.api.PageRequest;
 import com.FoodtimeNeo.common.api.PageResponse;
+import com.FoodtimeNeo.common.web.EndpointRateLimiter;
 import com.FoodtimeNeo.user.dto.UserSearchResponse;
 import com.FoodtimeNeo.user.entity.UserProfile;
 import com.FoodtimeNeo.user.service.UserSearchService;
@@ -14,15 +15,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/v1/users/search")
 @SecurityRequirement(name = "sessionCookie")
 public class UserSearchController {
     private final UserSearchService searches;
+    private final EndpointRateLimiter limiter;
 
-    public UserSearchController(UserSearchService searches) {
+    public UserSearchController(UserSearchService searches, EndpointRateLimiter limiter) {
         this.searches = searches;
+        this.limiter = limiter;
     }
 
     @GetMapping
@@ -32,6 +36,7 @@ public class UserSearchController {
             @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
         UserProfile viewer = (UserProfile) request.getAttribute(SessionAuthenticationService.CURRENT_USER);
+        limiter.check("user-search", viewer.id().toString(), request.getRemoteAddr(), 60, 300, Duration.ofMinutes(1));
         return ApiResponse.success(searches.search(viewer, q, new PageRequest(page, size)));
     }
 }

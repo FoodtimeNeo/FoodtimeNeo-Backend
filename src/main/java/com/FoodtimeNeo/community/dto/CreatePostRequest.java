@@ -32,7 +32,7 @@ public record CreatePostRequest(
     public CreatePostRequest {
         title = title == null ? null : title.strip();
         content = content == null ? null : content.strip();
-        imageUrls = imageUrls == null ? List.of() : List.copyOf(imageUrls);
+        imageUrls = imageUrls == null ? List.of() : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(imageUrls));
     }
 
     /** Internal reposts retain the original endpoint without bypassing the public title contract. */

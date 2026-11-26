@@ -84,6 +84,7 @@ public class DirectMessageService {
                                                   String remoteAddress) {
         DirectMessageStore.ConversationRow conversation = requireMember(conversationId, me);
         UUID other = me.equals(conversation.userLow()) ? conversation.userHigh() : conversation.userLow();
+        if (!store.activeUser(other)) throw notFound();
         ensureCanMessage(me, other);
         String content = request.content().strip();
         if (content.isEmpty()) throw bad("VALIDATION_ERROR", "消息不能为空");

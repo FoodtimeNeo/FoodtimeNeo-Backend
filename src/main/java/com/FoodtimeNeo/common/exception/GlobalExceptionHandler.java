@@ -66,6 +66,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof RequestBodyLimitFilter.PayloadTooLargeSignal) {
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                        .body(ApiResponse.error("PAYLOAD_TOO_LARGE", "请求内容超出大小限制", null));
+            }
+        }
         String code;
         String message;
         switch (status.value()) {

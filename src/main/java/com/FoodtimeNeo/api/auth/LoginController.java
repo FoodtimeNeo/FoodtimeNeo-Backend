@@ -14,7 +14,9 @@ import com.FoodtimeNeo.auth.service.LoginRateLimiter;
 import com.FoodtimeNeo.auth.service.LoginService;
 import com.FoodtimeNeo.common.api.ApiResponse;
 import com.FoodtimeNeo.common.exception.BusinessException;
+import com.FoodtimeNeo.common.web.EndpointRateLimiter;
 import com.FoodtimeNeo.user.entity.UserProfile;
+import java.time.Duration;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,10 +49,12 @@ public class LoginController {
     private final DeviceIdentityService devices;
     private final LoginAttemptPolicy attempts;
     private final CaptchaService captcha;
+    private final EndpointRateLimiter endpointLimiter;
 
     public LoginController(LoginService logins, LoginRateLimiter limiter, SessionAuthenticationService sessions,
                            TransactionTemplate transactions, DeviceIdentityService devices,
-                           LoginAttemptPolicy attempts, CaptchaService captcha) {
+                           LoginAttemptPolicy attempts, CaptchaService captcha,
+                           EndpointRateLimiter endpointLimiter) {
         this.logins = logins;
         this.limiter = limiter;
         this.sessions = sessions;
@@ -58,11 +62,16 @@ public class LoginController {
         this.devices = devices;
         this.attempts = attempts;
         this.captcha = captcha;
+        this.endpointLimiter = endpointLimiter;
     }
 
     @GetMapping("/csrf")
     @Operation(summary = "获取CSRF令牌", description = "登录前及登录成功后获取；写请求携带返回的请求头和Cookie")
     public ApiResponse<CsrfResponse> csrf(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
+        if (request.getSession(false) == null) {
+            endpointLimiter.check("auth-csrf", request.getRemoteAddr(), request.getRemoteAddr(),
+                    600, 600, Duration.ofMinutes(5));
+        }
         devices.resolve(request, response);
         return ApiResponse.success(new CsrfResponse(token.getHeaderName(), token.getToken()));
     }
@@ -73,7 +82,7 @@ public class LoginController {
                                             HttpServletRequest request, HttpServletResponse response) {
         String deviceId = devices.resolve(request, response);
         limiter.check(login.account(), request.getRemoteAddr());
-        if (attempts.requiresChallenge(deviceId)) {
+        if (attempts.requiresChallenge(deviceId, login.account())) {
             if (login.challengeId() == null || login.challengeId().isBlank()
                     || login.challengeAnswer() == null || login.challengeAnswer().isBlank()) {
                 throw new BusinessException("CAPTCHA_REQUIRED", "请先完成验证码后登录",

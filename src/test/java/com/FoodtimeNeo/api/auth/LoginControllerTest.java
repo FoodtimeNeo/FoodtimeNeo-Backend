@@ -9,6 +9,7 @@ import com.FoodtimeNeo.auth.service.LoginService;
 import com.FoodtimeNeo.auth.service.LoginRateLimiter;
 import com.FoodtimeNeo.auth.service.LoginRateLimitException;
 import com.FoodtimeNeo.common.exception.GlobalExceptionHandler;
+import com.FoodtimeNeo.common.web.EndpointRateLimiter;
 import com.FoodtimeNeo.common.web.RequestIdFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class LoginControllerTest {
     private final DeviceIdentityService devices = mock(DeviceIdentityService.class);
     private final LoginAttemptPolicy attempts = mock(LoginAttemptPolicy.class);
     private final CaptchaService captcha = mock(CaptchaService.class);
+    private final EndpointRateLimiter endpointLimiter = mock(EndpointRateLimiter.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private MockMvc mvc;
 
@@ -39,7 +41,7 @@ class LoginControllerTest {
     void setUp() {
         when(devices.resolve(any(), any())).thenReturn("device-test");
         mvc = MockMvcBuilders.standaloneSetup(new LoginController(logins, limiter, sessions, transactions,
-                        devices, attempts, captcha))
+                        devices, attempts, captcha, endpointLimiter))
                 .setControllerAdvice(new AuthExceptionHandler(), new GlobalExceptionHandler())
                 .addFilters(new RequestIdFilter()).build();
     }
@@ -73,7 +75,7 @@ class LoginControllerTest {
 
     @Test
     void challengedRequestWithoutProofReturnsCaptchaRequiredBeforeHashing() throws Exception {
-        when(attempts.requiresChallenge("device-test")).thenReturn(true);
+        when(attempts.requiresChallenge("device-test", "123@bjtu.edu.cn")).thenReturn(true);
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(new LoginBody("123@bjtu.edu.cn", "Abc12345"))))
                 .andExpect(status().isBadRequest())
@@ -83,7 +85,7 @@ class LoginControllerTest {
 
     @Test
     void invalidChallengeNeverReachesPasswordHasher() throws Exception {
-        when(attempts.requiresChallenge("device-test")).thenReturn(true);
+        when(attempts.requiresChallenge("device-test", "123@bjtu.edu.cn")).thenReturn(true);
         String challengeId = "00000000-0000-4000-8000-000000000001";
         when(captcha.verify(challengeId, "1", "device-test")).thenReturn(false);
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)

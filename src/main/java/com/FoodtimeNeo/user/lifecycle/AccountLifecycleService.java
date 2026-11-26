@@ -82,9 +82,19 @@ public class AccountLifecycleService {
         }
     }
     public Object confirm(UserProfile actor,String purpose,Code request,String ip){
-        allowed(active(actor.id(),false),purpose);enabled();limit(actor.id(),purpose+":verify",ip);
-        // Expensive password hashing occurs before locks and only for deletion.
-        String replacement=purpose.equals("delete")?passwords.encode(UUID.randomUUID().toString()):null;
+        var initial=active(actor.id(),false);allowed(initial,purpose);enabled();limit(actor.id(),purpose+":verify",ip);
+        // Only run expensive Argon2id replacement hashing when an active matching challenge already exists.
+        String preReplacement=null;
+        if(purpose.equals("delete")){
+            var candidate=store.challenge(actor.id(),purpose);Instant checkNow=clock.instant();
+            if(candidate!=null&&"sent".equals(candidate.state())&&checkNow.isBefore(candidate.expiresAt())
+                    &&candidate.attempts()<5&&candidate.email().equals(initial.target())&&candidate.version().equals(initial.version())
+                    &&MessageDigest.isEqual(candidate.hash().getBytes(StandardCharsets.US_ASCII),
+                            hash(actor.id(),purpose,initial.target(),candidate.nonce(),request.verificationCode()).getBytes(StandardCharsets.US_ASCII))){
+                preReplacement=passwords.encode(UUID.randomUUID().toString());
+            }
+        }
+        final String preparedReplacement=preReplacement;
         Object outcome=tx.execute(status->{
             store.lockActor(actor.id());var snapshot=active(actor.id(),false);allowed(snapshot,purpose);
             cooldowns.lock(Arrays.asList(snapshot.email(),snapshot.schoolEmail()));
@@ -96,6 +106,7 @@ public class AccountLifecycleService {
             Instant reusable=now.plus(Duration.ofHours(1));store.used(actor.id(),purpose);
             if(purpose.equals("unbind")){cooldowns.hold(user.schoolEmail(),reusable);store.unbind(actor.id());return new Unbound(profiles.current(actor.id()),reusable);}
             cooldowns.hold(user.email(),reusable);if(user.schoolEmail()!=null)cooldowns.hold(user.schoolEmail(),reusable);
+            String replacement=preparedReplacement!=null?preparedReplacement:passwords.encode(UUID.randomUUID().toString());
             store.delete(user,replacement,now);return new Deleted(true,reusable);
         });
         // Invalid attempts commit their counter; throwing inside the transaction would undo it.

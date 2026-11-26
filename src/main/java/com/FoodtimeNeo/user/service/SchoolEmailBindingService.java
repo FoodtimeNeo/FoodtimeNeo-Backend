@@ -40,18 +40,27 @@ public class SchoolEmailBindingService {
 
     public EmailCodeResponse sendCode(UserProfile actor, SchoolEmailCodeRequest body,
                                       String remoteAddress, String deviceId) {
-        guard(actor);cooldowns.requireAvailable(body.email());
+        guard(actor);
+        limits.check(body.email(), remoteAddress, deviceId);
+        cooldowns.requireAvailable(body.email());
         if (users.schoolEmailBoundElsewhere(body.email(), actor.id())) {
             throw conflict();
         }
-        limits.check(body.email(), remoteAddress, deviceId);
-        return verification.send(new EmailCodeRequest(body.email()), remoteAddress, deviceId);
+        return verification.send(new EmailCodeRequest(body.email()), remoteAddress, deviceId, bindScope(actor.id()));
     }
 
     @Transactional
     public ProfileResponse bind(UserProfile actor, BindSchoolEmailRequest body) {
-        guard(actor);cooldowns.requireAvailable(body.email());
-        VerificationClaim claim = verification.claim(body.email(), body.verificationCode());
+        return bind(actor, body, "internal", null);
+    }
+
+    @Transactional
+    public ProfileResponse bind(UserProfile actor, BindSchoolEmailRequest body,
+                                String remoteAddress, String deviceId) {
+        guard(actor);
+        limits.check(body.email(), remoteAddress, deviceId);
+        cooldowns.requireAvailable(body.email());
+        VerificationClaim claim = verification.claim(body.email(), body.verificationCode(), bindScope(actor.id()));
         boolean bound = false;
         try {
             if (users.schoolEmailBoundElsewhere(body.email(), actor.id())) {
@@ -67,6 +76,10 @@ public class SchoolEmailBindingService {
             verification.finish(claim, bound);
         }
         return profiles.current(actor.id());
+    }
+
+    static String bindScope(java.util.UUID userId) {
+        return "bind-email:" + userId;
     }
 
     private void guard(UserProfile actor){
