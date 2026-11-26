@@ -99,6 +99,8 @@ public class ModerationStore {
     }
 
     public ModerationItem lock(String type, UUID id) {
+        if (type.equals("community-post")) return lockCommunityPost(id);
+        if (type.equals("community-comment")) return lockCommunityComment(id);
         if (type.equals("dish-review-reply")) {
             var roots=jdbc.query("SELECT review_id FROM foodtime.dish_review_replies WHERE id=?",(r,n)->r.getObject(1,UUID.class),id);
             if(roots.isEmpty()) return null;
@@ -106,8 +108,6 @@ public class ModerationStore {
         }
         List<UUID> locked = jdbc.query("SELECT id FROM " + table(type) + " WHERE id = ? FOR UPDATE", (r,n) -> r.getObject(1, UUID.class), id);
         if (locked.isEmpty()) return null;
-        if (type.equals("community-post")) return lockCommunityPost(id);
-        if (type.equals("community-comment")) return lockCommunityComment(id);
         var rows=jdbc.query("SELECT * FROM (" + ITEMS_WITH_AI + ") q WHERE type = ? AND id = ?", ROW, type, id);
         return rows.isEmpty()?null:rows.get(0);
     }

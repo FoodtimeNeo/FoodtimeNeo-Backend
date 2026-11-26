@@ -15,6 +15,8 @@ import java.security.*;
 
 @Service
 public class PostEditService {
+    private static final tools.jackson.databind.json.JsonMapper JSON =
+            tools.jackson.databind.json.JsonMapper.builder().build();
     public record Result(UUID id,long revision,boolean changed) { }
     private final PostEditStore store;private final CommunityStore posts;private final ImageStorageService images;
     private final SubmissionRateLimiter limiter;private final ApplicationEventPublisher events;private final boolean ai;
@@ -28,7 +30,7 @@ public class PostEditService {
         var target=store.lock(id);
         if(target==null||!target.author().equals(actor.id()))throw new BusinessException("POST_NOT_FOUND","帖子不存在或不属于你",HttpStatus.NOT_FOUND);
         var payload=new LinkedHashMap<String,Object>();payload.put("title",input.title());payload.put("content",input.content());payload.put("imageUrls",input.imageUrls());payload.put("dishId",input.dishId());
-        String json=tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(payload);
+        String json=JSON.writeValueAsString(payload);
         String hash=hash(input.expectedRevision()+"\n"+json);var receipt=store.requested(id,input.clientRequestId());
         if(receipt!=null) {
             if(!receipt.hash().equals(hash))throw new BusinessException("REQUEST_CONFLICT","修改请求编号已用于另一份内容",HttpStatus.CONFLICT);
@@ -37,8 +39,8 @@ public class PostEditService {
         if(target.revision()!=input.expectedRevision())throw new BusinessException("POST_EDIT_CONFLICT","帖子已修改，请刷新后核对内容",HttpStatus.CONFLICT);
         if(input.imageUrls().isEmpty()&&target.repost()==null)throw new BusinessException("POST_IMAGES_REQUIRED","请保留至少1张图片",HttpStatus.BAD_REQUEST);
         if(new HashSet<>(input.imageUrls()).size()!=input.imageUrls().size())throw new BusinessException("IMAGE_DUPLICATED","请勿重复添加同一张图片",HttpStatus.BAD_REQUEST);
-        if(store.same(id,json)){store.receipt(id,input.clientRequestId(),hash,target.revision(),false);return new Result(id,target.revision(),false);}
         limiter.check(actor.id(),address);
+        if(store.same(id,json)){store.receipt(id,input.clientRequestId(),hash,target.revision(),false);return new Result(id,target.revision(),false);}
         var verified=input.imageUrls().stream().map(url->images.ownedImage(url,actor.id())).toList();
         if(input.dishId()!=null&&!posts.lockVisibleDish(input.dishId()))throw new BusinessException("DISH_NOT_FOUND","关联菜品不存在或暂不可用",HttpStatus.NOT_FOUND);
         store.snapshot(id,target.revision());store.replace(id,input,ai);

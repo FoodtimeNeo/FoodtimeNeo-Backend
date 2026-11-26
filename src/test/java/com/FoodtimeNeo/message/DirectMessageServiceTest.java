@@ -62,6 +62,7 @@ class DirectMessageServiceTest {
         var message = new DirectMessageDtos.MessageResponse(UUID.randomUUID(), conversation, me,
                 "你好", Instant.parse("2026-11-06T00:00:00Z"));
         when(store.find(conversation)).thenReturn(Optional.of(row()));
+        when(store.activeUser(other)).thenReturn(true);
         when(store.insertMessage(any(), eq(conversation), eq(me), eq("你好"), eq(request))).thenReturn(1);
         when(store.findByClientRequest(me, request)).thenReturn(Optional.of(message));
 

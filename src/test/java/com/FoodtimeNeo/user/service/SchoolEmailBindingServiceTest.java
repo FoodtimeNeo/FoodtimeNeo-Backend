@@ -48,7 +48,8 @@ class SchoolEmailBindingServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(SchoolEmailBindingServiceTest::codeOf)
                 .isEqualTo("SCHOOL_EMAIL_TAKEN");
-        verify(verification, never()).send(any(), anyString(), anyString());
+        verify(limits).check(SCHOOL, "127.0.0.1", "device");
+        verify(verification, never()).send(any(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -57,28 +58,32 @@ class SchoolEmailBindingServiceTest {
         service.sendCode(actor, new SchoolEmailCodeRequest(SCHOOL), "127.0.0.1", "device");
         verify(limits).check(SCHOOL, "127.0.0.1", "device");
         verify(verification).send(any(), org.mockito.ArgumentMatchers.eq("127.0.0.1"),
-                org.mockito.ArgumentMatchers.eq("device"));
+                org.mockito.ArgumentMatchers.eq("device"),
+                org.mockito.ArgumentMatchers.eq(SchoolEmailBindingService.bindScope(userId)));
     }
 
     @Test
     void bindPersistsTheSchoolEmailAndReturnsTheUpdatedProfile() {
-        when(verification.claim(SCHOOL, "012345")).thenReturn(new VerificationClaim(SCHOOL, "claim"));
+        String scope = SchoolEmailBindingService.bindScope(userId);
+        when(verification.claim(SCHOOL, "012345", scope)).thenReturn(new VerificationClaim(SCHOOL, "claim", scope));
         when(users.bindSchoolEmail(userId, SCHOOL)).thenReturn(1);
         ProfileResponse expected = new ProfileResponse(userId, "someone@gmail.com", "访客", "user", null,
                 0, 0, SCHOOL, true);
         when(profiles.current(userId)).thenReturn(expected);
 
-        ProfileResponse result = service.bind(actor, new BindSchoolEmailRequest(SCHOOL, "012345"));
+        ProfileResponse result = service.bind(actor, new BindSchoolEmailRequest(SCHOOL, "012345"), "127.0.0.1", "device");
 
         assertThat(result).isEqualTo(expected);
+        verify(limits).check(SCHOOL, "127.0.0.1", "device");
         verify(verification).finish(any(VerificationClaim.class), org.mockito.ArgumentMatchers.eq(true));
     }
 
     @Test
     void bindConflictFromConcurrentClaimBecomesAConflict() {
-        when(verification.claim(SCHOOL, "012345")).thenReturn(new VerificationClaim(SCHOOL, "claim"));
+        String scope = SchoolEmailBindingService.bindScope(userId);
+        when(verification.claim(SCHOOL, "012345", scope)).thenReturn(new VerificationClaim(SCHOOL, "claim", scope));
         when(users.bindSchoolEmail(userId, SCHOOL)).thenThrow(new DuplicateKeyException("unique"));
-        assertThatThrownBy(() -> service.bind(actor, new BindSchoolEmailRequest(SCHOOL, "012345")))
+        assertThatThrownBy(() -> service.bind(actor, new BindSchoolEmailRequest(SCHOOL, "012345"), "127.0.0.1", "device"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(SchoolEmailBindingServiceTest::codeOf)
                 .isEqualTo("SCHOOL_EMAIL_TAKEN");

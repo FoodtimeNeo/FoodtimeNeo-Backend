@@ -66,4 +66,16 @@ class LoginAttemptPolicyTest {
                 .extracting(error -> ((BusinessException) error).getCode())
                 .isEqualTo("AUTH_UNAVAILABLE");
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void accountKeyIsTrackedAlongsideDeviceKey() {
+        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        org.mockito.ArgumentCaptor<List<String>> keys = org.mockito.ArgumentCaptor.forClass(List.class);
+        when(redis.execute(any(RedisScript.class), keys.capture(), any(Object[].class))).thenReturn(2L);
+        LoginAttemptPolicy policy = new LoginAttemptPolicy(redis, auth(), captcha(true),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThat(policy.requiresChallenge("fresh-device", " 123@BJTU.EDU.CN ")).isTrue();
+        assertThat(keys.getValue()).hasSize(2);
+    }
 }

@@ -77,9 +77,9 @@ public class BrowsingHistoryService {
     @Transactional(readOnly = true)
     public PageResponse<Item> list(UserProfile actor, String kindValue, PageRequest page) {
         HistoryKind kind = kind(kindValue);
-        int size = Math.min(page.size(), MAX_PAGE_SIZE);
-        return PageResponse.of(history.list(actor.id(), kind, size, page.offset()),
-                history.count(actor.id(), kind), page);
+        PageRequest bounded = new PageRequest(page.page(), Math.min(page.size(), MAX_PAGE_SIZE));
+        return PageResponse.of(history.list(actor.id(), kind, bounded.size(), bounded.offset()),
+                history.count(actor.id(), kind), bounded);
     }
 
     private static HistoryKind kind(String value) {

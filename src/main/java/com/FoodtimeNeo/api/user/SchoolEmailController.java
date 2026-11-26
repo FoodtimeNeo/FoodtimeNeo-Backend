@@ -43,8 +43,9 @@ public class SchoolEmailController {
     @PostMapping("/users/me/bind-email")
     @Operation(summary = "绑定学校邮箱", description = "验证码通过后访客升级为普通用户")
     public ApiResponse<ProfileResponse> bind(@Valid @RequestBody BindSchoolEmailRequest body,
-                                             HttpServletRequest request) {
-        return ApiResponse.success(binding.bind(current(request), body));
+                                             HttpServletRequest request, HttpServletResponse response) {
+        String deviceId = devices.resolve(request, response);
+        return ApiResponse.success(binding.bind(current(request), body, request.getRemoteAddr(), deviceId));
     }
 
     private UserProfile current(HttpServletRequest request) {

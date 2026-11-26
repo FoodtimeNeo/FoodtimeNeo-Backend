@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -13,6 +14,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableScheduling
 @EnableAsync
 public class SchedulingConfig {
+    /** Dedicated scheduler threads so slow AI sweeps never block daily recommendations or cleanup. */
+    @Bean
+    public ThreadPoolTaskScheduler taskScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(4);
+        scheduler.setThreadNamePrefix("foodtime-sched-");
+        scheduler.initialize();
+        return scheduler;
+    }
     /** Bounded pool for instant AI triage; on overload tasks are dropped and the scheduled sweep catches up. */
     @Bean("aiTriageExecutor")
     public Executor aiTriageExecutor(
