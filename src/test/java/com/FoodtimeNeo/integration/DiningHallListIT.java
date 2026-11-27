@@ -41,7 +41,10 @@ class DiningHallListIT {
     }
     @AfterEach
     void cleanOnlyTestFixtures() {
-        for (UUID id : hallIds) { jdbc.update("delete from foodtime.dining_halls where id = ?", id); }
+        for (UUID id : hallIds) {
+            jdbc.update("delete from foodtime.stalls where dining_hall_id = ?", id);
+            jdbc.update("delete from foodtime.dining_halls where id = ?", id);
+        }
         for (UUID id : userIds) { jdbc.update("delete from foodtime.users where id = ?", id); }
         Set<String> keys = redis.keys(PREFIX + ":*");
         if (keys != null && !keys.isEmpty()) { redis.delete(keys); }
@@ -61,6 +64,9 @@ class DiningHallListIT {
         UUID tieOne = hall("active", 10, true);
         UUID tieTwo = hall("active", 10, false);
         UUID hidden = hall("inactive", -100, false);
+        stall(tieOne, "active");
+        stall(tieOne, "active");
+        stall(tieOne, "inactive");
         List<UUID> ties = new ArrayList<>(List.of(tieOne, tieTwo));
         ties.sort(Comparator.comparing(UUID::toString));
         Browser browser = login("user");
@@ -81,9 +87,10 @@ class DiningHallListIT {
             } else {
                 assertThat(item.path("revision").asLong()).isGreaterThanOrEqualTo(1);
             }
-            assertThat(item.size()).isEqualTo(9);
+            assertThat(item.size()).isEqualTo(10);
             assertThat(item.path("averageScore").isNull()).isTrue();
             assertThat(item.path("reviewCount").asLong()).isZero();
+            assertThat(item.path("stallCount").asLong()).isGreaterThanOrEqualTo(0);
             assertThat(item.has("status")).isFalse();
             assertThat(item.has("sortOrder")).isFalse();
             assertThat(item.has("createdAt")).isFalse();
@@ -91,8 +98,10 @@ class DiningHallListIT {
                 assertThat(item.path("latitude").asDouble()).isEqualTo(39.952);
                 assertThat(item.path("longitude").asDouble()).isEqualTo(116.35);
                 assertThat(item.path("coverImageUrl").asString()).isEqualTo("https://example.test/hall.jpg");
+                assertThat(item.path("stallCount").asLong()).isEqualTo(2);
             }
             if (id.equals(later)) {
+                assertThat(item.path("stallCount").asLong()).isZero();
                 for (String field : List.of("description", "coverImageUrl", "latitude", "longitude")) {
                     assertThat(item.has(field)).isTrue();
                     assertThat(item.path(field).isNull()).isTrue();
@@ -143,6 +152,7 @@ class DiningHallListIT {
         assertThat(document.path("components").path("schemas").has("DiningHallResponse")).isTrue();
         var properties = document.path("components").path("schemas").path("DiningHallResponse").path("properties");
         assertThat(properties.has("latitude")).isTrue();
+        assertThat(properties.has("stallCount")).isTrue();
         assertThat(properties.has("sortOrder")).isFalse();
         for (String field : List.of("coverImageUrl", "description", "latitude", "longitude")) {
             var property = properties.path(field);
@@ -161,6 +171,13 @@ class DiningHallListIT {
                 metadata ? "https://example.test/hall.jpg" : null, metadata ? "测试食堂简介" : null,
                 metadata ? new BigDecimal("39.9520000") : null, metadata ? new BigDecimal("116.3500000") : null);
         return id;
+    }
+    private void stall(UUID hallId, String status) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                insert into foodtime.stalls(id,dining_hall_id,name,status,sort_order)
+                values (?, ?, ?, ?, 0)
+                """, id, hallId, "档口测试-" + id, status);
     }
     private Browser login(String role) throws Exception {
         UUID id = UUID.randomUUID();

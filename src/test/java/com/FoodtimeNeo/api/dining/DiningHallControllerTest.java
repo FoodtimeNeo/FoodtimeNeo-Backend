@@ -27,11 +27,12 @@ class DiningHallControllerTest {
     @Test
     void returnsPublicFieldsAndRequestIdWithoutInternalMetadata() throws Exception {
         UUID id = UUID.randomUUID();
-        when(halls.list()).thenReturn(List.of(new DiningHallResponse(id, "第一食堂", null, null, null, null)));
+        when(halls.list()).thenReturn(List.of(new DiningHallResponse(id, "第一食堂", null, null, null, null, null, 0, 1, 3)));
         mvc.perform(get("/api/v1/dining-halls").header("X-Request-Id", "hall-list-test"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data[0].id").value(id.toString()))
                 .andExpect(jsonPath("$.data[0].name").value("第一食堂"))
+                .andExpect(jsonPath("$.data[0].stallCount").value(3))
                 .andExpect(jsonPath("$.data[0].sortOrder").doesNotExist())
                 .andExpect(jsonPath("$.data[0].status").doesNotExist())
                 .andExpect(header().string("X-Request-Id", "hall-list-test"));
