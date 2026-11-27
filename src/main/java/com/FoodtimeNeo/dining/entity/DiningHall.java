@@ -15,4 +15,32 @@ public record DiningHall(
     int sortOrder,
     BigDecimal averageScore,
     long reviewCount,
-    long revision) { }
+    long revision,
+    long stallCount) {
+  public DiningHall(
+      UUID id,
+      String name,
+      String coverImageUrl,
+      String description,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      String status,
+      int sortOrder,
+      BigDecimal averageScore,
+      long reviewCount,
+      long revision) {
+    this(
+        id,
+        name,
+        coverImageUrl,
+        description,
+        latitude,
+        longitude,
+        status,
+        sortOrder,
+        averageScore,
+        reviewCount,
+        revision,
+        0);
+  }
+}
